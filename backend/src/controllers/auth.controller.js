@@ -7,28 +7,39 @@ export const login = async (req , res) => {
     const { studentId, counselorId, password } = req.body;
 
     try {
-        const user = await User.findOne({ studentId, counselorId });
+        let account = null;
+        let role = "";
 
-        if (!user) {
+        if (studentId) {
+            account = await User.findOne({ studentId });
+            role = "student";
+        } 
+        
+        if (!account && counselorId) {
+            account = await Counselor.findOne({ counselorId });
+            role = "counselor";
+        }
+
+        if (!account) {
             return res.status(404).json({ message: "User not found" });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+        const isPasswordCorrect = await bcrypt.compare(password, account.password);
 
         if (!isPasswordCorrect) {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        generateToken(user._id, res);
+        generateToken(account._id, res);
 
         return res.status(200).json({ 
-            _id:user._id, 
-            fullName: user.fullName, 
-            email: user.email, 
-            phone: user.phone,
-            studentId: user.studentId,
-            password: user.password,
-            userType: user.userType, 
+            _id: account._id, 
+            fullName: account.fullName, 
+            email: account.email, 
+            phone: account.phone || null,
+            studentId: account.studentId || null,
+            counselorId: account.counselorId || null,
+            userType: account.userType || role, 
          });
 
     } catch (error) {
@@ -81,7 +92,6 @@ export const register = async (req, res) => {
                 email: newUser.email,
                 phone: newUser.phone,
                 studentId: newUser.studentId,
-                password: newUser.password,
                 userType: newUser.userType,
             })
         } else {
@@ -124,7 +134,6 @@ export const registerCounselor = async (req, res) => {
                 fullName: newUser.fullName,
                 email: newUser.email,
                 counselorId: newUser.counselorId,
-                password: newUser.password,
             })
         } else {
             return res.status(400).json({ message: "Invalid user data" });
@@ -136,5 +145,5 @@ export const registerCounselor = async (req, res) => {
 }
 
 export const updateProfile = async (req, res) => {
-    const {  }
+    
 }

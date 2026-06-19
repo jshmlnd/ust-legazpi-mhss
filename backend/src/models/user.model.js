@@ -28,11 +28,20 @@ const userSchema = new mongoose.Schema(
         },
         profilePic: {
             type: String,
-            default: "",
+            default: '',
         },
         userType: {
             type: String,
-            default: "Student",
+            default: 'Student',
+        },
+        department: {
+            type: String,
+            required: [true, 'Department is required'],
+            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA'], message: `{VALUE} is not a valid department` },
+        },
+        program: {
+            type: String,
+            required: [true, 'Program is required'],
         }
     },
     { timestamps: true });

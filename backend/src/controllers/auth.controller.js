@@ -5,20 +5,20 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 
 export const login = async (req , res) => {
-    const { studentId, counselorId, password } = req.body;
+    const { id, password } = req.body;
 
     try {
         let account = null;
         let role = "";
 
-        if (studentId) {
-            account = await User.findOne({ studentId });
+        account = await User.findOne({ studentId: id });
+        if (account) {
             role = "student";
-        } 
+        }
         
-        if (!account && counselorId) {
-            account = await Counselor.findOne({ counselorId });
-            role = "counselor";
+        if (!account) {
+            account = await Counselor.findOne({ counselorId: id });
+            if (account) role = "counselor";
         }
 
         if (!account) {
@@ -39,6 +39,7 @@ export const login = async (req , res) => {
             email: account.email, 
             phone: account.phone || null,
             userType: account.userType || role, 
+            ...(account.studentId && { studentId: account.studentId }),
          });
 
     } catch (error) {
@@ -58,7 +59,24 @@ export const logout = (req , res) => {
 }
 
 export const register = async (req, res) => {
-    const { studentId, password, fullName, email, phone, userType } = req.body;
+    const {
+        studentId,
+        password,
+        fullName,
+        email,
+        phone,
+        userType,
+        department,
+        program,
+        fatherName,
+        fatherContactNo,
+        motherName,
+        motherContactNo,
+        guardianName,
+        guardianContactNo,
+        emergencyContactName,
+        emergencyContactNo,
+    } = req.body;
 
     try {
         if (password.length < 8) {
@@ -79,6 +97,16 @@ export const register = async (req, res) => {
             email,
             phone,
             userType,
+            department,
+            program,
+            fatherName,
+            fatherContactNo,
+            motherName,
+            motherContactNo,
+            guardianName,
+            guardianContactNo,
+            emergencyContactName,
+            emergencyContactNo,
         });
 
         if (newUser) {
@@ -86,12 +114,22 @@ export const register = async (req, res) => {
             await newUser.save();
 
             res.status(201).json({
-                _id:newUser._id,
+                _id: newUser._id,
                 fullName: newUser.fullName,
                 email: newUser.email,
                 phone: newUser.phone,
                 studentId: newUser.studentId,
                 userType: newUser.userType,
+                department: newUser.department,
+                program: newUser.program,
+                fatherName: newUser.fatherName,
+                fatherContactNo: newUser.fatherContactNo,
+                motherName: newUser.motherName,
+                motherContactNo: newUser.motherContactNo,
+                guardianName: newUser.guardianName,
+                guardianContactNo: newUser.guardianContactNo,
+                emergencyContactName: newUser.emergencyContactName,
+                emergencyContactNo: newUser.emergencyContactNo,
             })
         } else {
             return res.status(400).json({ message: "Invalid user data" });

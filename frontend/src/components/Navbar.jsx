@@ -1,29 +1,39 @@
-import { useAuthStore } from "../store/useAuthStore";
-import { LogOut } from "lucide-react";
-import ustLogo from "./images/ust-logo.png";
+import React from 'react'
+import { LogOut } from 'lucide-react';
 
 const Navbar = () => {
-  const { authUser, logout } = useAuthStore();
-
   return (
-    <nav className="navbar bg-base-400 border-b border-base-300 px-4">
-      <div className="flex-1 flex items-center gap-2">
-        <img src={ustLogo} alt="UST Logo" className="h-16 w-auto" />
-        <span className="text-2xl font-black">University Mental Health Support</span>
+    <div className="flex items-center p-2 min-h-16 w-1/2 bg-neutral backdrop-blur-lg rounded-full mt-5">
+      <div className="flex-col content-center flex-1 flex-col">
+        <button className="text-xl text-neutral-content font-black">UST-Legazpi</button>
+        <button className="text-xl text-neutral-content">Mental Health Support</button>
       </div>
-      {authUser && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-black">
-            {authUser.studentId ? "STU-" + authUser._id.slice(0, 8) : authUser.fullName}
-          </span>
-          <button onClick={logout} className="btn btn-ghost btn-sm">
-            <LogOut className="size-4" />
-            Logout
-          </button>
+      <div className="flex gap-2 navbar-end">
+        <button className='btn btn-ghost btn-xs text-xs text-neutral-content'><LogOut className='size-4' /> Logout</button>
+        <div className="dropdown dropdown-end text-neutral-content">
+          <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
+            <div className="w-10 rounded-full">
+              <img
+                alt="Tailwind CSS Navbar component"
+                src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp" />
+            </div>
+          </div>
+          <ul
+            tabIndex="-1"
+            className="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow text-neutral-content">
+            <li>
+              <a className="justify-between">
+                Profile
+                <span className="badge">New</span>
+              </a>
+            </li>
+            <li><a>Settings</a></li>
+            <li><a>Logout</a></li>
+          </ul>
         </div>
-      )}
-    </nav>
-  );
-};
+      </div>
+    </div>
+  )
+}
 
 export default Navbar

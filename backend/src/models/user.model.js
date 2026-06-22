@@ -41,31 +41,7 @@ const userSchema = new mongoose.Schema(
         },
         program: {
             type: String,
-            required: true,
-        },
-        fatherName: {
-            type: String,
-        },
-        fatherContactNo: {
-            type: String,
-        },
-        motherName: {
-            type: String,
-        },
-        motherContactNo: {
-            type: String,
-        },
-        guardianName: {
-            type: String,
-        },
-        guardianContactNo: {
-            type: String,
-        },
-        emergencyContactName: {
-            type: String,
-        },
-        emergencyContactNo: {
-            type: String,
+            required: [true, 'Program is required'],
         }
     },
     { timestamps: true });

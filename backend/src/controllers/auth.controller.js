@@ -13,11 +13,17 @@ export const login = async (req , res) => {
 
         if (studentId) {
             account = await User.findOne({ studentId });
+            if (!account && !isNaN(Number(studentId))) {
+                account = await User.findById(Number(studentId));
+            }
             role = "student";
         } 
         
         if (!account && counselorId) {
             account = await Counselor.findOne({ counselorId });
+            if (!account && !isNaN(Number(counselorId))) {
+                account = await Counselor.findById(Number(counselorId));
+            }
             role = "counselor";
         }
 
@@ -38,6 +44,11 @@ export const login = async (req , res) => {
             fullName: account.fullName, 
             email: account.email, 
             phone: account.phone || null,
+            studentId: account.studentId,
+            department: account.department,
+            program: account.program,
+            yearLevel: account.yearLevel,
+            profilePic: account.profilePic || '',
             userType: account.userType || role, 
          });
 
@@ -58,7 +69,7 @@ export const logout = (req , res) => {
 }
 
 export const register = async (req, res) => {
-    const { studentId, password, fullName, email, phone, userType } = req.body;
+    const { studentId, password, fullName, email, phone, userType, department, program } = req.body;
 
     try {
         if (password.length < 8) {
@@ -79,6 +90,8 @@ export const register = async (req, res) => {
             email,
             phone,
             userType,
+            department,
+            program,
         });
 
         if (newUser) {
@@ -91,6 +104,10 @@ export const register = async (req, res) => {
                 email: newUser.email,
                 phone: newUser.phone,
                 studentId: newUser.studentId,
+                department: newUser.department,
+                program: newUser.program,
+                yearLevel: newUser.yearLevel,
+                profilePic: newUser.profilePic || '',
                 userType: newUser.userType,
             })
         } else {
@@ -143,6 +160,41 @@ export const registerCounselor = async (req, res) => {
     }
 }
 
+export const updatePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user._id;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ message: "Current and new password are required" });
+        }
+        if (newPassword.length < 8) {
+            return res.status(400).json({ message: "New password must be at least 8 characters" });
+        }
+
+        let account = await User.findById(userId);
+        if (!account) account = await Counselor.findById(userId);
+        if (!account) {
+            return res.status(404).json({ message: "Account not found" });
+        }
+
+        const isMatch = await bcrypt.compare(currentPassword, account.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: "Current password is incorrect" });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(newPassword, salt);
+        account.password = hashedPassword;
+        await account.save();
+
+        res.status(200).json({ message: "Password updated successfully" });
+    } catch (error) {
+        console.log("Error in updatePassword controller: ", error.message, error.stack);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
 export const updateProfile = async (req, res) => {
     try {
         const { profilePic } = req.body;
@@ -153,7 +205,9 @@ export const updateProfile = async (req, res) => {
         }
 
         const uploadResponse = await cloudinary.uploader.upload(profilePic)
-        const updatedUser = await User.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url })
+
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
 
         res.status(200).json(updatedUser);
 

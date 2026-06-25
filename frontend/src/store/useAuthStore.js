@@ -10,15 +10,38 @@ export const useAuthStore = create((set) => ({
 
     isCheckingAuth: true,
 
-    checkAuth: async() => {
+    checkAuth: async () => {
         try {
             const res = await axiosInstance.get("/auth/check");
-            
-            set({ authSUer:res.data });
+            set({ authUser: res.data });
         } catch (error) {
-            set({ authUser:null });
+            set({ authUser: null });
         } finally {
-            set({ isCheckingAuth:false });
+            set({ isCheckingAuth: false });
         }
-    }
+    },
+
+    login: async (studentId, password) => {
+        set({ isLoggingIn: true });
+        try {
+            const res = await axiosInstance.post("/auth/login", { studentId, counselorId: studentId, password });
+            set({ authUser: res.data });
+            return res.data;
+        } catch (error) {
+            const message = error.response?.data?.message || "Login failed";
+            throw new Error(message);
+        } finally {
+            set({ isLoggingIn: false });
+        }
+    },
+
+    logout: async () => {
+        try {
+            await axiosInstance.post("/auth/logout");
+        } catch (error) {
+            console.error("Logout error:", error);
+        } finally {
+            set({ authUser: null });
+        }
+    },
 }));

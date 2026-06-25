@@ -1,12 +1,16 @@
 import mongoose from "mongoose";
+import { generateUniqueId } from "../lib/generateId.js";
 
 const userSchema = new mongoose.Schema(
     {
+        _id: {
+            type: Number,
+        },
         studentId: {
             type: String,
             required: true,
             minlength: 7,
-            maxlenth:7,
+            maxlength: 7,
         },
         password: {
             type: String,
@@ -42,9 +46,40 @@ const userSchema = new mongoose.Schema(
         program: {
             type: String,
             required: [true, 'Program is required'],
-        }
+        },
+        yearLevel: {
+            type: Number,
+            default: 1,
+        },
+        mother: {
+            name: { type: String, default: '' },
+            occupation: { type: String, default: '' },
+            contact: { type: String, default: '' },
+        },
+        father: {
+            name: { type: String, default: '' },
+            occupation: { type: String, default: '' },
+            contact: { type: String, default: '' },
+        },
+        guardian: {
+            name: { type: String, default: '' },
+            relationship: { type: String, default: '' },
+            contact: { type: String, default: '' },
+        },
+        emergencyContact: {
+            name: { type: String, default: '' },
+            relationship: { type: String, default: '' },
+            contact: { type: String, default: '' },
+            address: { type: String, default: '' },
+        },
     },
-    { timestamps: true });
+    { timestamps: true, _id: false });
+
+userSchema.pre("save", async function () {
+  if (!this._id) {
+    this._id = await generateUniqueId(mongoose.model("User"));
+  }
+});
 
 const User = mongoose.model("User", userSchema);
 

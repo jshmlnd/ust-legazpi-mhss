@@ -1,7 +1,11 @@
 import mongoose from "mongoose";
+import { generateUniqueId } from "../lib/generateId.js";
 
 const counselorSchema = new mongoose.Schema(
     {
+        _id: {
+            type: Number,
+        },
         counselorId: {
             type: String,
             required: true,
@@ -17,8 +21,7 @@ const counselorSchema = new mongoose.Schema(
         },
         email: {
             type: String,
-            required: false,
-            unique: true,
+            default: "",
         },
         profilePic: {
             type: String,
@@ -29,7 +32,13 @@ const counselorSchema = new mongoose.Schema(
             default: "Counselor",
         }
     },
-    { timestamps: true });
+    { timestamps: true, _id: false });
+
+counselorSchema.pre("save", async function () {
+  if (!this._id) {
+    this._id = await generateUniqueId(mongoose.model("Counselor"));
+  }
+});
 
 const Counselor = mongoose.model("Counselor", counselorSchema);
 

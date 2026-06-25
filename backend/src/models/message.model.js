@@ -3,9 +3,9 @@ import mongoose from 'mongoose';
 const messageSchema = new mongoose.Schema(
     {
         senderId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: Number,
             required: true,
-            refPath: 'senderModel' // Tells Mongoose to look at the 'senderModel' field
+            refPath: 'senderModel'
         },
         senderModel: {
             type: String,
@@ -13,9 +13,9 @@ const messageSchema = new mongoose.Schema(
             enum: ['User', 'Counselor'] // Restricts values to your two model names
         },
         receiverId: {
-            type: mongoose.Schema.Types.ObjectId,
+            type: Number,
             required: true,
-            refPath: 'receiverModel' // Tells Mongoose to look at the 'receiverModel' field
+            refPath: 'receiverModel'
         },
         receiverModel: {
             type: String,

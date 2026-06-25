@@ -5,6 +5,6 @@ export default defineConfig({
   plugins: [react()],
   build: {
     // Increase the limit to 1000 kB (1MB)
-    chunkSizeWarningLimit: 1000, 
+    chunkSizeWarningLimit: 5000, 
   },
 })

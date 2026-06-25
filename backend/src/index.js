@@ -1,6 +1,8 @@
 import express from "express";
 import http from "http";
 
+import path from "path";
+
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import appointmentRoutes from "./routes/appointment.route.js";
@@ -22,6 +24,7 @@ const server = http.createServer(app);
 
 dotenv.config();
 const PORT = process.env.PORT;
+const __dirname = path.resolve();
 
 app.use(express.json());
 app.use(cookieParser());
@@ -36,6 +39,14 @@ app.use("/api/journal", journalRoutes);
 app.use("/api/availability", availabilityRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/analytics", analyticsRoutes);
+
+if(process.env.NODE_ENV==="production"){
+    app.use(express.static(path.join(__dirname, "../frontend/dist")));
+
+    app.get("*", (req, res) => {
+        res.sendFile(path.join(__dirname, "../frontend", "dist", "index.html"));
+    });
+}
 
 setupSocket(server);
 

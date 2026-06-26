@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Megaphone, Send, Clock } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
+import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import RoleGate from '../components/RoleGate';
@@ -118,19 +119,30 @@ const UniversityUpdates = () => {
   const role = authUser?.userType?.toLowerCase() ?? null;
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const viewedRef = useRef(new Set());
+
+  const fetchUpdates = async () => {
+    try {
+      const res = await axiosInstance.get('/announcements');
+      setUpdates(res.data);
+      res.data.forEach((a) => {
+        if (!viewedRef.current.has(a._id)) {
+          viewedRef.current.add(a._id);
+          axiosInstance.patch(`/announcements/${a._id}/views`).catch(() => {});
+        }
+      });
+    } catch (err) {
+      console.error('Failed to fetch announcements:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchUpdates = async () => {
-      try {
-        const res = await axiosInstance.get('/announcements');
-        setUpdates(res.data);
-      } catch (err) {
-        console.error('Failed to fetch announcements:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchUpdates();
+    const socket = getSocket();
+    socket?.on('announcements:updated', fetchUpdates);
+    return () => socket?.off('announcements:updated', fetchUpdates);
   }, []);
 
   const handlePost = async (post) => {

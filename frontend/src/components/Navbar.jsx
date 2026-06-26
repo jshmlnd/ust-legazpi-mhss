@@ -87,7 +87,7 @@ const MobileNavLink = ({ link, index, isOpen }) => {
 const BrandLink = ({ homeTarget }) => (
   <Link to={homeTarget} className="flex items-center gap-3">
     <img
-      src="https://i.ibb.co/9mn4fzQJ/new-ust-logo.png"
+      src="https://ik.imagekit.io/zjkm666/new-ust-logo.png"
       alt="UST-Legazpi Logo"
       className="size-12"
     />

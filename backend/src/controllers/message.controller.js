@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
+import Appointment from "../models/appointment.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getIO, getReceiverSocketId } from "../socket/socket.js";
@@ -13,7 +14,9 @@ export const getUsersForSidebar = async (req, res) => {
         if (isStudent) {
             filteredUsers = await Counselor.find({ _id: { $ne: loggedInUserId } }).select("-password");
         } else {
-            filteredUsers = await User.find({}).select("-password");
+            const appointments = await Appointment.find({ counselorId: loggedInUserId }).select("studentId");
+            const studentIds = [...new Set(appointments.map((a) => a.studentId))];
+            filteredUsers = await User.find({ _id: { $in: studentIds } }).select("-password");
         }
 
         res.status(200).json(filteredUsers);
@@ -42,6 +45,18 @@ export const sendMessage = async (req, res) => {
         const { text, image } = req.body;
         const { id: receiverId } = req.params;
         const senderId = req.user._id;
+
+        const activeAppointment = await Appointment.findOne({
+            $or: [
+                { studentId: senderId, counselorId: Number(receiverId) },
+                { studentId: Number(receiverId), counselorId: senderId },
+            ],
+            type: "chat",
+            status: { $in: ["active", "confirmed"] },
+        });
+        if (!activeAppointment) {
+            return res.status(403).json({ error: "No active chat session" });
+        }
 
         let imageUrl;
         if (image) {

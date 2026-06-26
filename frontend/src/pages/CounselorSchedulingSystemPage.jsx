@@ -19,7 +19,7 @@ const SLOTS = [
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDay = (year, month) => new Date(year, month, 1).getDay();
 
-const CalendarGrid = ({ year, month, bookings, holidays, onDateClick }) => {
+const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates }) => {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDay(year, month);
   const today = new Date();
@@ -42,6 +42,7 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick }) => {
       ))}
       {cells.map((cell, i) => {
         if (!cell) return <div key={`empty-${i}`} className="bg-white min-h-[100px]" />;
+        const hasSlots = slotDates && slotDates.has(cell.dateStr);
         return (
           <button
             key={cell.dateStr}
@@ -64,6 +65,9 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick }) => {
               ))}
               {cell.bookings.length > 3 && <span className="text-[9px] text-neutral-400 pl-1">+{cell.bookings.length - 3} more</span>}
             </div>
+            {hasSlots && (
+              <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-blue-400" />
+            )}
           </button>
         );
       })}
@@ -71,9 +75,14 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick }) => {
   );
 };
 
-const SlotManager = ({ availableSlots, onToggleSlot }) => (
+const SlotManager = ({ availableSlots, onToggleSlot, selectedDate }) => (
   <div className="bg-white border border-neutral-200 rounded-sm p-5">
-    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">Availability Slots</span>
+    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">
+      Availability Slots{selectedDate ? ` — ${selectedDate}` : ''}
+    </span>
+    {availableSlots.length === 0 && (
+      <p className="text-xs text-neutral-400 mb-3">No slots set for this date. Toggle times below to add availability.</p>
+    )}
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {SLOTS.map((slot) => {
         const isAvailable = availableSlots.includes(slot);
@@ -133,11 +142,13 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
 const CounselorSchedulingSystemPage = () => {
   const { authUser } = useAuthStore();
   const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [bookings, setBookings] = useState([]);
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(null);
+  const [slots, setSlots] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [selectedCell, setSelectedCell] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -150,7 +161,7 @@ const CounselorSchedulingSystemPage = () => {
         setBookings(bookRes.data);
         if (authUser?._id) {
           const slotRes = await axiosInstance.get(`/availability/${authUser._id}`);
-          setAvailableSlots(slotRes.data.filter((s) => s.isAvailable).map((s) => s.time));
+          setSlots(slotRes.data);
         }
       } catch (err) {
         console.error('Failed to fetch scheduling data:', err);
@@ -161,29 +172,41 @@ const CounselorSchedulingSystemPage = () => {
     fetchData();
   }, [authUser]);
 
+  const availableSlots = slots
+    .filter((s) => s.date === selectedDate && s.isAvailable)
+    .map((s) => s.time)
+    .sort();
+
+  const slotDates = new Set(
+    slots.filter((s) => s.isAvailable).map((s) => s.date).filter(Boolean)
+  );
+
   const monthLabel = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const prevMonth = () => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); };
   const nextMonth = () => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); };
 
-  const handleDateClick = (cell) => { setSelectedDate(cell); setModalOpen(true); };
+  const handleDateClick = (cell) => { setSelectedCell(cell); setModalOpen(true); };
   const handleToggleSlot = async (time) => {
     try {
       const updated = availableSlots.includes(time)
         ? availableSlots.filter((s) => s !== time)
         : [...availableSlots, time].sort();
-      await axiosInstance.post('/availability', { slots: updated.map((t) => ({ date: '', time: t })) });
-      setAvailableSlots(updated);
+      await axiosInstance.post('/availability', {
+        slots: updated.map((t) => ({ date: selectedDate, time: t })),
+      });
+      const slotRes = await axiosInstance.get(`/availability/${authUser._id}`);
+      setSlots(slotRes.data);
       toast.success(updated.includes(time) ? 'Slot added' : 'Slot removed');
     } catch (err) {
       toast.error('Failed to update slot');
     }
   };
 
-  if (loading) return <PageShell title="Scheduling System" subtitle="Manage availability slots and view appointment bookings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
-    <PageShell title="Scheduling System" subtitle="Manage availability slots and view appointment bookings">
+    <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4">
@@ -202,10 +225,20 @@ const CounselorSchedulingSystemPage = () => {
             year={year} month={month}
             bookings={bookings} holidays={[]}
             onDateClick={handleDateClick}
+            slotDates={slotDates}
           />
         </div>
         <div className="w-full lg:w-72 shrink-0 space-y-4">
-          <SlotManager availableSlots={availableSlots} onToggleSlot={handleToggleSlot} />
+          <div className="bg-white border border-neutral-200 rounded-sm p-5">
+            <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">Set Date</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+            />
+          </div>
+          <SlotManager availableSlots={availableSlots} onToggleSlot={handleToggleSlot} selectedDate={selectedDate} />
           <div className="bg-white border border-neutral-200 rounded-sm p-5">
             <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">Legend</span>
             <div className="space-y-2.5">
@@ -216,6 +249,9 @@ const CounselorSchedulingSystemPage = () => {
                 <span className="size-3 rounded-sm bg-neutral-100 border border-neutral-200" /> Face-to-Face
               </div>
               <div className="flex items-center gap-2.5 text-xs text-neutral-400">
+                <span className="size-3 rounded-sm bg-blue-100 border border-blue-200" /> Availability Set
+              </div>
+              <div className="flex items-center gap-2.5 text-xs text-neutral-400">
                 <span className="size-3 rounded-sm bg-neutral-100/50 border border-neutral-200 flex items-center justify-center"><Ban size={8} /></span> Holiday / Blocked
               </div>
             </div>
@@ -223,7 +259,7 @@ const CounselorSchedulingSystemPage = () => {
         </div>
       </div>
 
-      <BookingDetailModal isOpen={modalOpen} onClose={() => setModalOpen(false)} date={selectedDate} bookings={bookings} />
+      <BookingDetailModal isOpen={modalOpen} onClose={() => setModalOpen(false)} date={selectedCell} bookings={bookings} />
     </PageShell>
   );
 };

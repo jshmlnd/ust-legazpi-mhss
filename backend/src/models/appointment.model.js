@@ -14,6 +14,8 @@ const appointmentSchema = new mongoose.Schema({
   duration: { type: String, default: '45 min' },
   concern: { type: String, default: '' },
   notes: { type: String, default: '' },
+  startedAt: { type: Date },
+  endedAt: { type: Date },
 }, { timestamps: true });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

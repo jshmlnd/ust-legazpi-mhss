@@ -100,4 +100,9 @@ export const useChatStore = create((set, get) => ({
   },
 
   clearFlaggedMessage: () => set({ flaggedMessage: null }),
+
+  removeUser: (userId) => {
+    const { users } = get();
+    set({ users: users.filter((u) => u._id !== userId) });
+  },
 }));

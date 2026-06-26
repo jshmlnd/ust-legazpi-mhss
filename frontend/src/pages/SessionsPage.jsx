@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
+import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import SectionDivider from '../components/SectionDivider';
@@ -128,23 +129,31 @@ const SessionsPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [slots, setSlots] = useState([]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [bookRes, slotRes] = await Promise.all([
-          axiosInstance.get('/appointments'),
-          axiosInstance.get('/availability/0'),
-        ]);
-        setAppointments(bookRes.data);
-        setSlots(slotRes.data);
-      } catch (err) {
-        console.error('Failed to fetch data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+  const fetchData = useCallback(async () => {
+    try {
+      const [bookRes, slotRes] = await Promise.all([
+        axiosInstance.get('/appointments'),
+        axiosInstance.get('/availability/0'),
+      ]);
+      setAppointments(bookRes.data);
+      setSlots(slotRes.data);
+    } catch (err) {
+      console.error('Failed to fetch data:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.on("appointment:updated", fetchData);
+    return () => socket.off("appointment:updated", fetchData);
+  }, [fetchData]);
 
   const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active'].includes(a.status));
   const past = appointments.filter((a) => ['completed', 'cancelled', 'declined'].includes(a.status));

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader, CalendarDays, Clock, User } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
+import { getSocket } from "../lib/socket";
 import { PATHS } from '../lib/routes';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
@@ -92,6 +93,7 @@ const HomePage = () => {
   const [f2fDate, setF2fDate] = useState('');
   const [f2fTime, setF2fTime] = useState('');
   const [f2fConcern, setF2fConcern] = useState('');
+  const [f2fAllSlots, setF2fAllSlots] = useState([]);
   const [f2fAvailableTimes, setF2fAvailableTimes] = useState([]);
   const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
   const [f2fSubmitting, setF2fSubmitting] = useState(false);
@@ -127,6 +129,14 @@ const HomePage = () => {
   };
 
   useEffect(() => { fetchActiveChat(); }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handler = () => fetchActiveChat();
+    socket.on("appointment:updated", handler);
+    return () => socket.off("appointment:updated", handler);
+  }, []);
 
   useEffect(() => {
     if (!pendingRequest) return;
@@ -183,7 +193,7 @@ const HomePage = () => {
         time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
         concern: concern.trim(),
       });
-      toast.success("Chat session requested! Waiting for counselor to accept...");
+      toast.success("Chat session requested! \n Waiting for counselor to accept...");
       setRequestOpen(false);
       setConcern("");
       setSelectedCounselor("");
@@ -201,6 +211,7 @@ const HomePage = () => {
     setF2fDate('');
     setF2fTime('');
     setF2fConcern('');
+    setF2fAllSlots([]);
     setF2fAvailableTimes([]);
     try {
       const res = await axiosInstance.get("/message/users");
@@ -210,16 +221,27 @@ const HomePage = () => {
 
   const handleF2fCounselorChange = async (counselorId) => {
     setF2fCounselorId(counselorId);
+    setF2fDate('');
     setF2fTime('');
     setF2fAvailableTimes([]);
     if (!counselorId) return;
     setF2fLoadingSlots(true);
     try {
       const slotRes = await axiosInstance.get(`/availability/${counselorId}`);
-      const times = slotRes.data.filter((s) => s.isAvailable).map((s) => s.time);
-      setF2fAvailableTimes(times.length > 0 ? times : ALL_TIMES);
-    } catch { setF2fAvailableTimes(ALL_TIMES); }
+      setF2fAllSlots(slotRes.data);
+    } catch { setF2fAllSlots([]); }
     finally { setF2fLoadingSlots(false); }
+  };
+
+  const handleF2fDateChange = (dateStr) => {
+    setF2fDate(dateStr);
+    setF2fTime('');
+    if (!dateStr) { setF2fAvailableTimes([]); return; }
+    const times = f2fAllSlots
+      .filter((s) => s.date === dateStr && s.isAvailable)
+      .map((s) => s.time)
+      .sort();
+    setF2fAvailableTimes(times);
   };
 
   const handleBookF2f = async () => {
@@ -250,7 +272,7 @@ const HomePage = () => {
         {/* ──────── SECTION 1: HERO ──────── */}
         <section className="mb-24 bg-base">
           <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
-            Good {new Date().getHours() < 12 ? "morning" : "afternoon"},{` `}
+            Good {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
             <span className="font-medium">{firstName}</span><br/>
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Your Static ID: STU-{genid}</span>
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Note: counselor can only see your static id</span>
@@ -595,7 +617,7 @@ const HomePage = () => {
         </div>
       </Modal>
 
-      <Modal isOpen={f2fOpen} onClose={() => { setF2fOpen(false); setF2fConcern(""); }} title="Book Face-to-Face Session">
+      <Modal isOpen={f2fOpen} onClose={() => { setF2fOpen(false); setF2fConcern(""); setF2fAllSlots([]); setF2fAvailableTimes([]); }} title="Book Face-to-Face Session">
         <div className="space-y-4">
           <p className="text-xs text-neutral-500 leading-relaxed">
             Schedule an on-campus appointment with your counselor. Select a date and time that works for you.
@@ -615,16 +637,16 @@ const HomePage = () => {
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date</label>
-            <input
-              type="date"
-              value={f2fDate}
-              onChange={(e) => { setF2fDate(e.target.value); setF2fTime(''); }}
-              min={new Date().toISOString().slice(0, 10)}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-            />
-          </div>
+            <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date</label>
+                <input
+                  type="date"
+                  value={f2fDate}
+                  onChange={(e) => handleF2fDateChange(e.target.value)}
+                  min={new Date().toISOString().slice(0, 10)}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+                />
+              </div>
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>
@@ -659,7 +681,7 @@ const HomePage = () => {
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => { setF2fOpen(false); setF2fConcern(""); }}
+              onClick={() => { setF2fOpen(false); setF2fConcern(""); setF2fAllSlots([]); setF2fAvailableTimes([]); }}
               className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors"
             >
               Cancel

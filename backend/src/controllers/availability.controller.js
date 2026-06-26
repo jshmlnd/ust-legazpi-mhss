@@ -3,9 +3,10 @@ import AvailabilitySlot from "../models/availabilitySlot.model.js";
 export const getSlots = async (req, res) => {
   try {
     const { counselorId } = req.params;
-    const slots = await AvailabilitySlot.find({
-      counselorId: Number(counselorId),
-    }).sort({ date: 1, time: 1 });
+    const { date } = req.query;
+    const filter = { counselorId: Number(counselorId) };
+    if (date) filter.date = date;
+    const slots = await AvailabilitySlot.find(filter).sort({ date: 1, time: 1 });
     res.json(slots);
   } catch (error) {
     console.error("Error in getSlots:", error.message);
@@ -16,7 +17,11 @@ export const getSlots = async (req, res) => {
 export const setSlots = async (req, res) => {
   try {
     const { slots } = req.body;
-    await AvailabilitySlot.deleteMany({ counselorId: req.user._id });
+    const dates = [...new Set(slots.map((s) => s.date || ""))];
+    await AvailabilitySlot.deleteMany({
+      counselorId: req.user._id,
+      date: { $in: dates },
+    });
     const docs = slots.map((s) => ({
       counselorId: req.user._id,
       date: s.date,

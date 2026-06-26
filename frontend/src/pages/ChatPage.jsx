@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Send, AlertTriangle, Eye, Loader, ChevronLeft } from 'lucide-react';
+import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { axiosInstance } from '../lib/axios';
+import { getSocket } from '../lib/socket';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 
@@ -102,6 +103,7 @@ const StudentChatView = () => {
     getUsers, setSelectedUser, sendMessage,
   } = useChatStore();
   const messagesEndRef = useRef(null);
+  const [sessionEnded, setSessionEnded] = useState(false);
 
   useEffect(() => {
     getUsers();
@@ -117,6 +119,25 @@ const StudentChatView = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handler = (appointment) => {
+      if (
+        String(appointment.studentId) === String(authUser._id) &&
+        appointment.type === 'chat' &&
+        appointment.status === 'completed'
+      ) {
+        setSessionEnded(true);
+        toast.success('Session has ended');
+      }
+    };
+
+    socket.on("appointment:updated", handler);
+    return () => socket.off("appointment:updated", handler);
+  }, [authUser._id]);
+
   const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
 
   const counselor = selectedUser;
@@ -127,9 +148,13 @@ const StudentChatView = () => {
         <p className="text-sm font-medium text-neutral-900">
           {counselor ? counselor.fullName : 'Your Counselor'}
         </p>
-        <p className="text-[11px] text-neutral-400">
-          {counselor ? 'Counselor' : '—'}
-        </p>
+        {sessionEnded ? (
+          <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
+        ) : (
+          <p className="text-[11px] text-neutral-400">
+            {counselor ? counselor.fullName : '—'}
+          </p>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-5 bg-neutral-50/50">
@@ -145,7 +170,7 @@ const StudentChatView = () => {
           <div className="flex items-center justify-center h-full">
             <Loader size={20} className="animate-spin text-neutral-400" />
           </div>
-        ) : messages.length === 0 ? (
+        ) : messages.length === 0 && !sessionEnded ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-xs text-neutral-400">No messages yet. Start a conversation.</p>
           </div>
@@ -162,9 +187,42 @@ const StudentChatView = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <MessageInput onSend={handleSend} disabled={!counselor} />
+      {sessionEnded && (
+        <div className="flex items-center gap-2.5 px-6 py-3 bg-amber-50 border-t border-amber-200">
+          <Ban size={14} className="text-amber-600 shrink-0" />
+          <p className="text-xs text-amber-700 font-medium">Session has ended. You can no longer send messages.</p>
+        </div>
+      )}
+
+      <MessageInput onSend={handleSend} disabled={!counselor || sessionEnded} />
     </div>
   );
+};
+
+const SessionTimer = ({ startedAt }) => {
+  const [elapsed, setElapsed] = useState('');
+
+  useEffect(() => {
+    if (!startedAt) return;
+    const update = () => {
+      const diff = Date.now() - new Date(startedAt).getTime();
+      const hrs = Math.floor(diff / 3600000);
+      const mins = Math.floor((diff % 3600000) / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setElapsed(
+        hrs > 0
+          ? `${hrs}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+          : `${mins}:${String(secs).padStart(2, '0')}`
+      );
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [startedAt]);
+
+  if (!elapsed) return null;
+
+  return <span className="text-[10px] text-emerald-600 font-medium">Elapsed Time: {elapsed}</span>;
 };
 
 const CounselorChatView = () => {
@@ -173,12 +231,14 @@ const CounselorChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    flaggedMessage, getUsers, setSelectedUser, sendMessage, clearFlaggedMessage,
+    flaggedMessage, getUsers, setSelectedUser, sendMessage, clearFlaggedMessage, removeUser,
   } = useChatStore();
   const messagesEndRef = useRef(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [isEndingSession, setIsEndingSession] = useState(false);
+  const [sessionEndedBanner, setSessionEndedBanner] = useState(false);
+  const [appointmentLoading, setAppointmentLoading] = useState(false);
 
   useEffect(() => {
     getUsers();
@@ -207,14 +267,46 @@ const CounselorChatView = () => {
       return;
     }
     const fetchAppointment = async () => {
+      setAppointmentLoading(true);
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
         setActiveAppointment(res.data);
+        if (res.data.status === 'completed') {
+          setSessionEndedBanner(true);
+        } else {
+          setSessionEndedBanner(false);
+        }
       } catch {
         setActiveAppointment(null);
+        setSessionEndedBanner(true);
+      } finally {
+        setAppointmentLoading(false);
       }
     };
     fetchAppointment();
+  }, [selectedUser]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !selectedUser) return;
+
+    const handler = (appointment) => {
+      if (
+        String(appointment.studentId) === String(selectedUser._id) &&
+        appointment.type === 'chat'
+      ) {
+        if (appointment.status === 'completed') {
+          setActiveAppointment(null);
+          setSessionEndedBanner(true);
+        } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
+          setActiveAppointment(appointment);
+          setSessionEndedBanner(false);
+        }
+      }
+    };
+
+    socket.on("appointment:updated", handler);
+    return () => socket.off("appointment:updated", handler);
   }, [selectedUser]);
 
   const handleSend = useCallback((data) => {
@@ -240,6 +332,20 @@ const CounselorChatView = () => {
       await axiosInstance.patch(`/appointments/${activeAppointment._id}`, { status: 'completed' });
       toast.success('Session ended');
       setActiveAppointment(null);
+      setSessionEndedBanner(true);
+
+      const currentIndex = users.findIndex((u) => u._id === selectedUser?._id);
+      const nextUser = currentIndex >= 0 && currentIndex + 1 < users.length
+        ? users[currentIndex + 1]
+        : null;
+
+      removeUser(selectedUser._id);
+
+      if (nextUser) {
+        handleSelectUser(nextUser);
+      } else {
+        navigate(PATHS.DASHBOARD);
+      }
     } catch {
       toast.error('Failed to end session');
     } finally {
@@ -253,7 +359,7 @@ const CounselorChatView = () => {
       <div className={`w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'
       }`}>
-        <div className="px-5 py-[15px] border-b border-neutral-200">
+        <div className="px-5 py-[24px] border-b border-neutral-200">
           <h2 className="text-sm font-medium text-neutral-900 tracking-[-0.01em]">Active Conversations</h2>
           <p className="text-[11px] text-neutral-400 mt-0.5">{users.length} students</p>
         </div>
@@ -309,11 +415,22 @@ const CounselorChatView = () => {
                 <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">
                   STU-{selectedUser._id}
                 </p>
-                <p className="text-[11px] text-neutral-400">
-                  {selectedUser.department} · {selectedUser.program}
-                </p>
+                {sessionEndedBanner ? (
+                  <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
+                ) : (
+                  <>
+                    <p className="text-[11px] text-neutral-400">
+                      {selectedUser.department} · {selectedUser.program}
+                    </p>
+                    {activeAppointment?.startedAt && (
+                      <p className="text-[11px] text-neutral-400 mt-0.5">
+                        <SessionTimer startedAt={activeAppointment.startedAt} />
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
-              {activeAppointment && (
+              {activeAppointment && !sessionEndedBanner && (
                 <button
                   onClick={handleEndSession}
                   disabled={isEndingSession}
@@ -340,7 +457,7 @@ const CounselorChatView = () => {
                 <div className="flex items-center justify-center h-full">
                   <Loader size={20} className="animate-spin text-neutral-400" />
                 </div>
-              ) : messages.length === 0 ? (
+              ) : messages.length === 0 && !sessionEndedBanner ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-xs text-neutral-400">No messages yet with this student.</p>
                 </div>
@@ -357,7 +474,14 @@ const CounselorChatView = () => {
               <div ref={messagesEndRef} />
             </div>
 
-            <MessageInput onSend={handleSend} disabled={false} />
+            {sessionEndedBanner && (
+              <div className="flex items-center gap-2.5 px-6 py-3 bg-amber-50 border-t border-amber-200">
+                <Ban size={14} className="text-amber-600 shrink-0" />
+                <p className="text-xs text-amber-700 font-medium">Session has ended. No further messages can be sent.</p>
+              </div>
+            )}
+
+            <MessageInput onSend={handleSend} disabled={sessionEndedBanner || appointmentLoading} />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-neutral-50/50">

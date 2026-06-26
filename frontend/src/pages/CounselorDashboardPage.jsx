@@ -316,7 +316,7 @@ const CounselorDashboardPage = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-10">
           <div>
             <h1 className="text-2xl font-light tracking-[-0.02em] text-neutral-900">
-              {greeting}, <span className="font-medium">{name}</span>
+              {greeting + " Counselor"}, <span className="font-medium">{name}</span>
             </h1>
             <p className="mt-1 text-sm text-neutral-400">{dateStr}</p>
           </div>

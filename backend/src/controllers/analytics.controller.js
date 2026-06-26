@@ -101,7 +101,7 @@ export const getUpcomingSessions = async (req, res) => {
 
 export const getAnalyticsSummary = async (req, res) => {
   try {
-    const appointments = await Appointment.find({}, { time: 1, duration: 1, status: 1 });
+    const appointments = await Appointment.find({}, { time: 1, duration: 1, status: 1, startedAt: 1, endedAt: 1 });
 
     const hourCounts = {};
     appointments.forEach((a) => {
@@ -153,9 +153,14 @@ export const getAnalyticsSummary = async (req, res) => {
     let totalMin = 0;
     let count = 0;
     completed.forEach((a) => {
-      const dur = a.duration || '45 min';
-      const parts = dur.match(/(\d+)/);
-      if (parts) { totalMin += parseInt(parts[1], 10); count++; }
+      let min = 0;
+      if (a.startedAt && a.endedAt) {
+        min = (new Date(a.endedAt) - new Date(a.startedAt)) / 60000;
+      } else {
+        const parts = (a.duration || '45 min').match(/(\d+)/);
+        if (parts) min = parseInt(parts[1], 10);
+      }
+      if (min > 0) { totalMin += min; count++; }
     });
     const avgDuration = count > 0 ? Math.round(totalMin / count) : 0;
     const avgString = avgDuration > 0 ? `${avgDuration} minutes` : '—';

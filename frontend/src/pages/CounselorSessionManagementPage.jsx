@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, User, FileText, ClipboardList, Send, Check, Plus, Clock, MoreHorizontal, Loader } from 'lucide-react';
+import { MessageCircle, User, FileText, ClipboardList, Send, Check, Plus, Clock, MoreHorizontal, Loader, Save } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import toast from 'react-hot-toast';
@@ -10,13 +10,13 @@ import SectionDivider from '../components/SectionDivider';
 
 const TYPE_ICONS = { chat: MessageCircle, f2f: User, review: ClipboardList };
 const TYPE_LABELS = { chat: 'Chat', f2f: 'F2F', review: 'Review' };
-const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', scheduled: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
+const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', ended: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
 
-const QueueCard = ({ item, isSelected, onSelect, showIdOnly }) => {
+const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (item.type === 'chat') {
+    if (item.type === 'chat' && !disableChatNav) {
       navigate(`/messages?user=${item.studentId}`);
     } else {
       onSelect(item);
@@ -61,8 +61,28 @@ const QueueCard = ({ item, isSelected, onSelect, showIdOnly }) => {
   );
 };
 
-const SessionNotes = () => {
+const SessionNotes = ({ session }) => {
   const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      setNotes(session.notes || '');
+    }
+  }, [session]);
+
+  const handleSave = async () => {
+    if (!session) return;
+    setSaving(true);
+    try {
+      await axiosInstance.patch(`/appointments/${session._id}`, { notes });
+      toast.success('Session notes saved');
+    } catch {
+      toast.error('Failed to save notes');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm">
@@ -75,12 +95,16 @@ const SessionNotes = () => {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Type your session notes here..."
           rows={8}
-          className="w-full bg-neutral-50 border border-neutral-200 text-sm rounded-sm px-4 py-3 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+          className={`w-full bg-neutral-50 border text-sm rounded-sm px-4 py-3 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none ${saving ? 'opacity-50' : ''}`}
         />
         <div className="flex items-center justify-between mt-3">
           <span className="text-[10px] text-neutral-400">{notes.length} characters</span>
-          <button className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
-            <Save size={12} /> Save Notes
+          <button
+            onClick={handleSave}
+            disabled={saving || !session}
+            className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
+          >
+            {saving ? <Loader size={12} className="animate-spin" /> : <Save size={12} />} {saving ? 'Saving...' : 'Save Notes'}
           </button>
         </div>
       </div>
@@ -155,6 +179,7 @@ const ClientFile = ({ session, studentInfo, loadingInfo }) => {
 
 const CounselorSessionManagementPage = () => {
   const [queueItems, setQueueItems] = useState([]);
+  const [pastChatItems, setPastChatItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
   const [studentInfo, setStudentInfo] = useState(null);
@@ -189,21 +214,25 @@ const CounselorSessionManagementPage = () => {
     const fetchQueue = async () => {
       try {
         const res = await axiosInstance.get('/appointments');
-        const items = res.data.map((a) => ({
+        const mapItem = (a) => ({
           _id: a._id,
           id: `STU-${a.studentId}`,
           studentId: a.studentId,
           type: a.type,
           time: a.time,
           date: a.date,
-          status: a.type === 'f2f' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'scheduled',
+          status: a.type === 'f2f' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'ended',
           dbStatus: a.status,
           concern: a.concern || 'No concern specified',
-        }));
-        setQueueItems(items);
-        if (items.length > 0) {
-          setSelectedSession(items[0]);
-          fetchStudentInfo(items[0].studentId);
+          notes: a.notes || '',
+        });
+        const active = res.data.filter((a) => a.status !== 'completed' && a.status !== 'cancelled' && a.status !== 'declined').map(mapItem);
+        const past = res.data.filter((a) => a.status === 'completed' && a.type === 'chat').map(mapItem);
+        setQueueItems(active);
+        setPastChatItems(past);
+        if (active.length > 0) {
+          setSelectedSession(active[0]);
+          fetchStudentInfo(active[0].studentId);
         }
       } catch (err) {
         console.error('Failed to fetch queue:', err);
@@ -224,10 +253,10 @@ const CounselorSessionManagementPage = () => {
     { type: 'review', label: 'Case Review', items: queueItems.filter((q) => q.type === 'review') },
   ];
 
-  if (loading) return <PageShell title="Session Management" subtitle="Monitor active sessions"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Session Manager" subtitle="Monitor active sessions"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
-    <PageShell title="Session Management" subtitle="Monitor active sessions, record notes, and assign self-care tasks">
+    <PageShell title="Session Manager" subtitle="Monitor active sessions, record notes, and assign self-care tasks">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-5">
           {queueByType.map((group) => (
@@ -241,11 +270,25 @@ const CounselorSessionManagementPage = () => {
                   <QueueCard key={item.id} item={item} isSelected={selectedSession?.id === item.id} onSelect={setSelectedSession} showIdOnly={group.type === 'chat'} />
                 ))}
                 {group.items.length === 0 && (
-                  <p className="text-xs text-neutral-400 py-3 text-center">No {group.type} sessions</p>
+                  <p className="text-xs text-neutral-400 py-3 text-center">No {group.label} sessions</p>
                 )}
               </div>
             </div>
           ))}
+
+          {pastChatItems.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-2.5">
+                <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-400">Past Chat Sessions</h3>
+                <span className="text-[10px] text-neutral-400">{pastChatItems.length}</span>
+              </div>
+              <div className="space-y-2 opacity-60">
+                {pastChatItems.map((item) => (
+                  <QueueCard key={item.id} item={item} isSelected={selectedSession?.id === item.id} onSelect={setSelectedSession} showIdOnly disableChatNav />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-3 space-y-4">
@@ -265,7 +308,7 @@ const CounselorSessionManagementPage = () => {
               </button>
             </div>
           )}
-          <SessionNotes />
+          <SessionNotes session={selectedSession} />
           <TaskAssignment />
           <ClientFile session={selectedSession} studentInfo={studentInfo} loadingInfo={loadingInfo} />
         </div>
@@ -274,6 +317,5 @@ const CounselorSessionManagementPage = () => {
   );
 };
 
-const Save = ({ size }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 
 export default CounselorSessionManagementPage;

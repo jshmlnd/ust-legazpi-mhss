@@ -1,5 +1,6 @@
 import Appointment from "../models/appointment.model.js";
 import User from "../models/user.model.js";
+import { getIO, getReceiverSocketId } from "../socket/socket.js";
 
 export const getAppointments = async (req, res) => {
   try {
@@ -48,8 +49,28 @@ export const updateAppointment = async (req, res) => {
       }
     }
 
+    if (req.body.status === 'active' && appointment.status !== 'active') {
+      appointment.startedAt = new Date();
+    }
+    if (req.body.status === 'completed' && appointment.status !== 'completed') {
+      appointment.endedAt = new Date();
+    }
+
     Object.assign(appointment, req.body);
     await appointment.save();
+
+    const io = getIO();
+    if (io) {
+      const studentSocketId = getReceiverSocketId(String(appointment.studentId));
+      if (studentSocketId) {
+        io.to(studentSocketId).emit("appointment:updated", appointment);
+      }
+      const counselorSocketId = getReceiverSocketId(String(appointment.counselorId));
+      if (counselorSocketId) {
+        io.to(counselorSocketId).emit("appointment:updated", appointment);
+      }
+    }
+
     res.json(appointment);
   } catch (error) {
     console.error("Error in updateAppointment:", error.message);

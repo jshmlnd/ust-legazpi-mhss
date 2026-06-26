@@ -10,7 +10,7 @@ import SectionDivider from '../components/SectionDivider';
 
 const TYPE_ICONS = { chat: MessageCircle, f2f: User, review: ClipboardList };
 const TYPE_LABELS = { chat: 'Chat', f2f: 'F2F', review: 'Review' };
-const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', ended: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
+const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', completed: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
 
 const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) => {
   const navigate = useNavigate();
@@ -221,12 +221,12 @@ const CounselorSessionManagementPage = () => {
           type: a.type,
           time: a.time,
           date: a.date,
-          status: a.type === 'f2f' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'ended',
+          status: a.type === 'f2f' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'completed',
           dbStatus: a.status,
           concern: a.concern || 'No concern specified',
           notes: a.notes || '',
         });
-        const active = res.data.filter((a) => a.status !== 'completed' && a.status !== 'cancelled' && a.status !== 'declined').map(mapItem);
+        const active = res.data.filter((a) => a.status !== 'completed' && a.status !== 'cancelled' && a.status !== 'declined' !== 'completed').map(mapItem);
         const past = res.data.filter((a) => a.status === 'completed' && a.type === 'chat').map(mapItem);
         setQueueItems(active);
         setPastChatItems(past);

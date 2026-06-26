@@ -15,6 +15,7 @@ import CounselorSchedulingPage from "./pages/CounselorSchedulingSystemPage";
 import CounselorAnnouncementManagerPage from "./pages/CounselorAnnouncementManagerPage";
 import ChatPage from "./pages/ChatPage";
 import UniversityUpdates from './pages/UniversityUpdates';
+import SuggestionsPage from './pages/SuggestionsPage';
 
 import YourDiary from './pages/YourDiary';
 import StudentIdentityPage from './pages/StudentIdentityPage';
@@ -68,6 +69,7 @@ const App = () => {
       <Route path={PATHS.RESOURCES} element={ <ResourcePage /> } />
       <Route path={PATHS.SELF_CARE} element={authUser ? <SelfCarePage /> : <Navigate to={PATHS.LOGIN} /> } />
       <Route path={PATHS.DIARY} element={authUser ? <YourDiary /> : <Navigate to={PATHS.LOGIN} /> } />
+      <Route path={PATHS.SUGGESTIONS} element={authUser ? <SuggestionsPage /> : <Navigate to={PATHS.LOGIN} /> } />
 
 
       {/* Shared Route */}

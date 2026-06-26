@@ -8,6 +8,7 @@ export const PATHS = {
   DIARY: '/user/diary',
   MESSAGES: '/messages',
   UNIVERSITY_UPDATES: '/university-updates',
+  SUGGESTIONS: '/suggestions',
   DASHBOARD: '/dashboard',
   MANAGE_SESSIONS: '/manage/sessions',
 
@@ -30,5 +31,6 @@ export const NAV_ITEMS = [
   { label: 'Resources', path: PATHS.MANAGE_RESOURCES, allowedRoles: ['counselor'] },
   { label: 'Self-Care', path: PATHS.MANAGE_SELF_CARE, allowedRoles: ['counselor'] },
   { label: 'Announcements', path: PATHS.MANAGE_ANNOUNCEMENT, allowedRoles: ['counselor'] },
+  { label: 'Suggestions', path: PATHS.SUGGESTIONS, allowedRoles: ['counselor'] },
   { label: 'My Account', path: PATHS.MY_ACCOUNT, allowedRoles: ['student', 'counselor'] },
 ];

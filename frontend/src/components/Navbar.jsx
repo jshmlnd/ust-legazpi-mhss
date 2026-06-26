@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { NAV_ITEMS, PATHS } from '../lib/routes';
+import { getSocket } from '../lib/socket';
+import toast from 'react-hot-toast';
 
 const useRBAC = (authUser) => {
   const role = authUser?.userType?.toLowerCase() ?? null;
@@ -161,6 +163,23 @@ const Navbar = () => {
     await logout();
     navigate('/login');
   }, [logout, navigate]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket || !authUser || authUser.userType?.toLowerCase() !== 'student') return;
+
+    const handler = (appointment) => {
+      if (String(appointment.studentId) !== String(authUser._id)) return;
+      if (appointment.status === 'active') {
+        toast.success('Your appointment has been accepted');
+      } else if (appointment.status === 'declined') {
+        toast.error('Your appointment has been declined');
+      }
+    };
+
+    socket.on("appointment:updated", handler);
+    return () => socket.off("appointment:updated", handler);
+  }, [authUser]);
 
   return (
     <>

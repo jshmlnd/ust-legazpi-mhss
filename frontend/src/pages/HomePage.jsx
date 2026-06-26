@@ -2,7 +2,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader, CalendarDays, Clock, User } from 'lucide-react';
+import { Loader, CalendarDays, Clock, User, MoveRight } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
 import { getSocket } from "../lib/socket";
 import { PATHS } from '../lib/routes';
@@ -20,6 +20,11 @@ const ANNOUNCEMENT = {
   linkHref: "/university-updates",
   linkLabel: "Read latest updates",
 };
+
+const SUGGESTIONS = {
+  linkHref: "/suggestions",
+  linkLabel: "Suggestions"
+}
 
 const QUICK_ACTIONS = [
   {
@@ -273,7 +278,7 @@ const HomePage = () => {
         <section className="mb-24 bg-base">
           <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
             Good {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
-            <span className="font-medium">{firstName}</span><br/>
+            <span className="font-medium">{firstName}</span><br />
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Your Static ID: STU-{genid}</span>
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Note: counselor can only see your static id</span>
           </h1>
@@ -282,6 +287,13 @@ const HomePage = () => {
             services, schedule appointments, and explore resources designed to support you.
           </p>
 
+          <Link
+            to={SUGGESTIONS.linkHref}
+            className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
+          >
+            {SUGGESTIONS.linkLabel}
+            <span className="text-sm leading-none"><MoveRight className="size-3" /></span>
+          </Link>
           {/* Announcement Card */}
           <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 bg-neutral-50 rounded-r-sm">
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">
@@ -294,7 +306,7 @@ const HomePage = () => {
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
               >
                 {ANNOUNCEMENT.linkLabel}
-                <span className="text-sm leading-none">&rarr;</span>
+                <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
               </Link>
             </div>
           </div>
@@ -398,10 +410,9 @@ const HomePage = () => {
                     <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">
                       Upcoming
                     </span>
-                    <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${
-                      upcomingF2f.status === 'active' || upcomingF2f.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                      'text-amber-600 border-amber-200 bg-amber-50'
-                    }`}>
+                    <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${upcomingF2f.status === 'active' || upcomingF2f.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
+                        'text-amber-600 border-amber-200 bg-amber-50'
+                      }`}>
                       {upcomingF2f.status === 'active' || upcomingF2f.status === 'confirmed' ? 'Approved' : 'Awaiting'}
                     </span>
                   </div>
@@ -502,11 +513,10 @@ const HomePage = () => {
               <p className="text-[11px] text-neutral-400 mb-6">{QUICK_ACTIONS[2].meta}</p>
               <Link
                 to={typeof QUICK_ACTIONS[2].href === 'function' ? QUICK_ACTIONS[2].href(authUser?._id) : QUICK_ACTIONS[2].href}
-                className={`inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm ${
-                  diaryHover
+                className={`inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm ${diaryHover
                     ? "text-white bg-neutral-900"
                     : "text-neutral-900 bg-transparent border border-neutral-300"
-                }`}
+                  }`}
               >
                 {QUICK_ACTIONS[2].cta}
               </Link>
@@ -637,16 +647,16 @@ const HomePage = () => {
             </select>
           </div>
 
-            <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date</label>
-                <input
-                  type="date"
-                  value={f2fDate}
-                  onChange={(e) => handleF2fDateChange(e.target.value)}
-                  min={new Date().toISOString().slice(0, 10)}
-                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-                />
-              </div>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date</label>
+            <input
+              type="date"
+              value={f2fDate}
+              onChange={(e) => handleF2fDateChange(e.target.value)}
+              min={new Date().toISOString().slice(0, 10)}
+              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+            />
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>

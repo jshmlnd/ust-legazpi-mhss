@@ -12,6 +12,7 @@ import journalRoutes from "./routes/journal.route.js";
 import availabilityRoutes from "./routes/availability.route.js";
 import announcementRoutes from "./routes/announcement.route.js";
 import analyticsRoutes from "./routes/analytics.route.js";
+import suggestionRoutes from "./routes/suggestion.route.js";
 
 import dotenv from "dotenv";
 import { connectDB } from "./lib/db.js";
@@ -39,6 +40,7 @@ app.use("/api/journal", journalRoutes);
 app.use("/api/availability", availabilityRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/suggestions", suggestionRoutes);
 
 if(process.env.NODE_ENV==="production"){
     app.use(express.static(path.join(__dirname, "../frontend/dist")));

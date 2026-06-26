@@ -30,6 +30,14 @@ export const createAppointment = async (req, res) => {
       concern,
     });
     await appointment.save();
+
+    const io = getIO();
+    if (io) {
+      getReceiverSocketIds(String(counselorId)).forEach(socketId => {
+        io.to(socketId).emit("appointment:updated", appointment);
+      });
+    }
+
     res.status(201).json(appointment);
   } catch (error) {
     console.error("Error in createAppointment:", error.message);

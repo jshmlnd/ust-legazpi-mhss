@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle } from 'lucide-react';
+import { Calendar, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
-import SectionDivider from '../components/SectionDivider';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
@@ -128,6 +127,7 @@ const SessionsPage = () => {
   const [selectedDay, setSelectedDay] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [slots, setSlots] = useState([]);
+  const [archiving, setArchiving] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -157,6 +157,7 @@ const SessionsPage = () => {
 
   const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active'].includes(a.status));
   const past = appointments.filter((a) => ['completed', 'cancelled', 'declined'].includes(a.status));
+  const hasPast = past.length > 0;
 
   const dateStr = selectedDay?.dateStr || '';
   const daySlots = slots.filter((s) => s.date === dateStr);
@@ -177,6 +178,39 @@ const SessionsPage = () => {
       setAppointments(res.data);
     } catch (err) {
       toast.error('Failed to book slot');
+    }
+  };
+
+  const handleClearPast = async () => {
+    const confirmed = await new Promise((resolve) => {
+      toast((t) => (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-neutral-700">Clear all past sessions?</span>
+          <button
+            onClick={() => { toast.dismiss(t.id); resolve(true); }}
+            className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+          >
+            Clear
+          </button>
+          <button
+            onClick={() => { toast.dismiss(t.id); resolve(false); }}
+            className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
+          >
+            Cancel
+          </button>
+        </div>
+      ));
+    });
+    if (!confirmed) return;
+    setArchiving(true);
+    try {
+      await axiosInstance.post('/appointments/archive-past');
+      setAppointments((prev) => prev.filter((a) => a.status !== 'archived'));
+      toast.success('Past sessions cleared');
+    } catch {
+      toast.error('Failed to clear past sessions');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -233,7 +267,21 @@ const SessionsPage = () => {
         </div>
       </div>
 
-      <SectionDivider label="Past Sessions" />
+      <div className="flex items-center gap-4 mb-6">
+        <span className="h-px flex-1 bg-neutral-200" />
+        <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
+        {hasPast && (
+          <button
+            onClick={handleClearPast}
+            disabled={archiving}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
+          >
+            {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            Clear All
+          </button>
+        )}
+        <span className="h-px flex-1 bg-neutral-200" />
+      </div>
       {past.length === 0 ? (
         <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
       ) : (

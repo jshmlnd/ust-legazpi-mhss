@@ -279,7 +279,7 @@ const HomePage = () => {
           <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
             Good {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
             <span className="font-medium">{firstName}</span><br />
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Your Static ID: STU-{genid}</span>
+            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Static ID: STU-{genid}</span>
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Note: counselor can only see your static id</span>
           </h1>
           <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-neutral-500 tracking-[-0.01em]">

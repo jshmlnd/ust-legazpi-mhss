@@ -6,7 +6,7 @@ const appointmentSchema = new mongoose.Schema({
   type: { type: String, enum: ['chat', 'f2f', 'review'], required: true },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'declined'],
+    enum: ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'declined', 'archived'],
     default: 'pending',
   },
   date: { type: String, required: true },

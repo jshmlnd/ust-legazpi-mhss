@@ -111,3 +111,19 @@ export const deleteAppointment = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const archivePastSessions = async (req, res) => {
+  try {
+    const result = await Appointment.updateMany(
+      {
+        studentId: req.user._id,
+        status: { $in: ["completed", "cancelled", "declined"] },
+      },
+      { $set: { status: "archived" } }
+    );
+    res.json({ message: `Archived ${result.modifiedCount} session(s)` });
+  } catch (error) {
+    console.error("Error in archivePastSessions:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};

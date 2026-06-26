@@ -1,6 +1,6 @@
 import Appointment from "../models/appointment.model.js";
 import User from "../models/user.model.js";
-import { getIO, getReceiverSocketId } from "../socket/socket.js";
+import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 
 export const getAppointments = async (req, res) => {
   try {
@@ -61,14 +61,12 @@ export const updateAppointment = async (req, res) => {
 
     const io = getIO();
     if (io) {
-      const studentSocketId = getReceiverSocketId(String(appointment.studentId));
-      if (studentSocketId) {
-        io.to(studentSocketId).emit("appointment:updated", appointment);
-      }
-      const counselorSocketId = getReceiverSocketId(String(appointment.counselorId));
-      if (counselorSocketId) {
-        io.to(counselorSocketId).emit("appointment:updated", appointment);
-      }
+      getReceiverSocketIds(String(appointment.studentId)).forEach(socketId => {
+        io.to(socketId).emit("appointment:updated", appointment);
+      });
+      getReceiverSocketIds(String(appointment.counselorId)).forEach(socketId => {
+        io.to(socketId).emit("appointment:updated", appointment);
+      });
     }
 
     res.json(appointment);

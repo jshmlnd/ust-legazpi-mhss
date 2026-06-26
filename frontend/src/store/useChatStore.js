@@ -20,6 +20,8 @@ export const useChatStore = create((set, get) => ({
   isMessagesLoading: false,
   flaggedMessage: null,
   onlineUsers: [],
+  isSocketConnected: false,
+  unreadCounts: {},
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -64,15 +66,42 @@ export const useChatStore = create((set, get) => ({
 
   setSelectedUser: (user) => {
     set({ selectedUser: user, messages: [], flaggedMessage: null });
-    if (user) get().getMessages(user._id);
+    if (user) {
+      get().markAsRead(user._id);
+      get().getMessages(user._id);
+    }
+  },
+
+  setSocketConnected: (connected) => set({ isSocketConnected: connected }),
+
+  markAsRead: (userId) => {
+    const { unreadCounts } = get();
+    if (unreadCounts[userId]) {
+      const updated = { ...unreadCounts };
+      delete updated[userId];
+      set({ unreadCounts: updated });
+    }
+  },
+
+  incrementUnread: (userId) => {
+    const { unreadCounts } = get();
+    set({ unreadCounts: { ...unreadCounts, [userId]: (unreadCounts[userId] || 0) + 1 } });
   },
 
   subscribeToMessages: () => {
     const socket = getSocket();
     if (!socket) return;
 
+    socket.off("connect").on("connect", () => {
+      set({ isSocketConnected: true });
+    });
+
+    socket.off("disconnect").on("disconnect", () => {
+      set({ isSocketConnected: false });
+    });
+
     socket.off("newMessage").on("newMessage", (message) => {
-      const { selectedUser, messages } = get();
+      const { selectedUser, messages, unreadCounts } = get();
       const isRelevant =
         selectedUser &&
         (String(message.senderId) === String(selectedUser._id) ||
@@ -84,12 +113,21 @@ export const useChatStore = create((set, get) => ({
         if (containsCrisisContent(message.text)) {
           set({ flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id } });
         }
+      } else {
+        const otherId = String(message.senderId) === String(selectedUser?._id)
+          ? message.receiverId
+          : message.senderId;
+        set({ unreadCounts: { ...unreadCounts, [String(otherId)]: (unreadCounts[String(otherId)] || 0) + 1 } });
       }
     });
 
     socket.off("onlineUsers").on("onlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
     });
+
+    if (socket.connected) {
+      set({ isSocketConnected: true });
+    }
   },
 
   unsubscribeFromMessages: () => {
@@ -97,6 +135,8 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return;
     socket.off("newMessage");
     socket.off("onlineUsers");
+    socket.off("connect");
+    socket.off("disconnect");
   },
 
   clearFlaggedMessage: () => set({ flaggedMessage: null }),

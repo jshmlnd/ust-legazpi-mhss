@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban } from 'lucide-react';
+import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban, WifiOff } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { axiosInstance } from '../lib/axios';
@@ -100,7 +100,7 @@ const StudentChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    getUsers, setSelectedUser, sendMessage,
+    getUsers, setSelectedUser, sendMessage, isSocketConnected,
   } = useChatStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
@@ -156,6 +156,13 @@ const StudentChatView = () => {
           </p>
         )}
       </div>
+
+      {!isSocketConnected && (
+        <div className="flex items-center gap-2 px-6 py-2 bg-amber-50 border-b border-amber-200">
+          <WifiOff size={14} className="text-amber-600 shrink-0" />
+          <p className="text-[11px] text-amber-700 font-medium">Connection lost. Reconnecting...</p>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-6 py-5 bg-neutral-50/50">
         {isUsersLoading || (!selectedUser && users.length > 0) ? (
@@ -232,6 +239,7 @@ const CounselorChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     flaggedMessage, getUsers, setSelectedUser, sendMessage, clearFlaggedMessage, removeUser,
+    unreadCounts, isSocketConnected,
   } = useChatStore();
   const messagesEndRef = useRef(null);
   const [showMobileList, setShowMobileList] = useState(true);
@@ -384,9 +392,16 @@ const CounselorChatView = () => {
                     isSelected ? 'bg-neutral-50' : ''
                   }`}
                 >
-                  <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">
-                    STU-{user._id}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight truncate">
+                      STU-{user._id}
+                    </p>
+                    {unreadCounts[String(user._id)] > 0 && (
+                      <span className="shrink-0 size-5 rounded-sm bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">
+                        {unreadCounts[String(user._id)]}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-[11px] text-neutral-400 mt-0.5 truncate">
                     {user.department || '—'} · {user.program || '—'}
                   </p>
@@ -441,6 +456,14 @@ const CounselorChatView = () => {
                 </button>
               )}
             </div>
+
+            {/* Reconnecting Banner */}
+            {!isSocketConnected && (
+              <div className="flex items-center gap-2 px-6 py-2 bg-amber-50 border-b border-amber-200">
+                <WifiOff size={14} className="text-amber-600 shrink-0" />
+                <p className="text-[11px] text-amber-700 font-medium">Connection lost. Reconnecting...</p>
+              </div>
+            )}
 
             {/* Emergency Banner */}
             {flaggedMessage && flaggedMessage.userId === selectedUser._id && (

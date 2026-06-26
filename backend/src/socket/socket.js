@@ -6,7 +6,15 @@ import Counselor from "../models/counselor.model.js";
 const userSocketMap = {};
 let io;
 
-export const getReceiverSocketId = (receiverId) => userSocketMap[receiverId];
+export const getReceiverSocketId = (receiverId) => {
+  const socketIds = userSocketMap[receiverId];
+  return socketIds ? [...socketIds][0] : undefined;
+};
+
+export const getReceiverSocketIds = (receiverId) => {
+  const socketIds = userSocketMap[receiverId];
+  return socketIds ? [...socketIds] : [];
+};
 
 export const getIO = () => io;
 
@@ -50,13 +58,16 @@ export const setupSocket = (httpServer) => {
 
   io.on("connection", (socket) => {
     const userId = String(socket.user._id);
-    userSocketMap[userId] = socket.id;
+
+    if (!userSocketMap[userId]) userSocketMap[userId] = new Set();
+    userSocketMap[userId].add(socket.id);
     console.log(`User connected: ${socket.user.fullName} (${userId})`);
 
     io.emit("onlineUsers", Object.keys(userSocketMap));
 
     socket.on("disconnect", () => {
-      delete userSocketMap[userId];
+      userSocketMap[userId].delete(socket.id);
+      if (userSocketMap[userId].size === 0) delete userSocketMap[userId];
       io.emit("onlineUsers", Object.keys(userSocketMap));
       console.log(`User disconnected: ${socket.user.fullName} (${userId})`);
     });

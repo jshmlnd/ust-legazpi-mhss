@@ -3,7 +3,7 @@ import Counselor from "../models/counselor.model.js";
 import Appointment from "../models/appointment.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
-import { getIO, getReceiverSocketId } from "../socket/socket.js";
+import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 
 export const getUsersForSidebar = async (req, res) => {
     try {
@@ -71,10 +71,10 @@ export const sendMessage = async (req, res) => {
 
         await newMessage.save();
 
-        const receiverSocketId = getReceiverSocketId(String(receiverId));
-        if (receiverSocketId) {
-            getIO().to(receiverSocketId).emit("newMessage", newMessage);
-        }
+        const receiverSocketIds = getReceiverSocketIds(String(receiverId));
+        receiverSocketIds.forEach(socketId => {
+            getIO().to(socketId).emit("newMessage", newMessage);
+        });
 
         res.status(201).json(newMessage)
 

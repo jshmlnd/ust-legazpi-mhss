@@ -109,14 +109,7 @@ const AuthButton = ({ isAuthenticated, onLogout }) => {
     );
   }
 
-  return (
-    <Link
-      to="/login"
-      className="hidden md:inline-flex items-center px-5 py-[7px] text-xs tracking-[0.1em] font-medium uppercase rounded-full border border-gray-900 text-gray-900 bg-transparent hover:bg-gray-900 hover:text-white transition-all duration-300"
-    >
-      Sign In
-    </Link>
-  );
+  return ('');
 };
 
 const HamburgerButton = ({ isOpen, onClick }) => (
@@ -153,15 +146,7 @@ const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
         >
           Logout
         </button>
-      ) : (
-        <Link
-          to="/login"
-          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-500 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-          style={{ transitionDelay: isOpen ? `${visibleLinks.length * 120}ms` : '0ms' }}
-        >
-          Sign In
-        </Link>
-      )}
+      ) : ('')}
     </nav>
   </div>
 );

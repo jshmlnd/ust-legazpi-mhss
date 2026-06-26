@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, X, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
@@ -275,46 +275,51 @@ const CounselorDashboardPage = () => {
     finally { setAcceptingId(null); }
   };
 
-  const fetchDashboard = useCallback(async () => {
-    try {
-      const [metricsRes, sentimentRes, distRes, upcomingRes, summaryRes] = await Promise.all([
-        axiosInstance.get('/analytics/dashboard'),
-        axiosInstance.get('/analytics/weekly-sentiment'),
-        axiosInstance.get('/analytics/session-distribution'),
-        axiosInstance.get('/analytics/upcoming-sessions'),
-        axiosInstance.get('/analytics/summary'),
-      ]);
-      const m = metricsRes.data;
-      setMetrics([
-        { label: 'Total Students', value: String(m.totalStudents), change: 'Across all programs' },
-        { label: 'Avg. Sentiment', value: m.avgSentiment, change: 'Weekly average' },
-        { label: 'Completed', value: String(m.completedSessions), change: 'Sessions completed' },
-        { label: 'Pending', value: String(m.pendingSessions), change: 'Awaiting action' },
-      ]);
-      setWeeklySentiment(sentimentRes.data);
-      setSessionDistribution(distRes.data);
-      setUpcomingSessions(upcomingRes.data);
-      setSummaryData(summaryRes.data);
-    } catch (err) {
-      console.error('Failed to fetch dashboard:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    const fetchData = async () => {
+      try {
+        const [metricsRes, sentimentRes, distRes, upcomingRes, summaryRes] = await Promise.all([
+          axiosInstance.get('/analytics/dashboard'),
+          axiosInstance.get('/analytics/weekly-sentiment'),
+          axiosInstance.get('/analytics/session-distribution'),
+          axiosInstance.get('/analytics/upcoming-sessions'),
+          axiosInstance.get('/analytics/summary'),
+        ]);
+        const m = metricsRes.data;
+        setMetrics([
+          { label: 'Total Students', value: String(m.totalStudents), change: 'Across all programs' },
+          { label: 'Avg. Sentiment', value: m.avgSentiment, change: 'Weekly average' },
+          { label: 'Completed', value: String(m.completedSessions), change: 'Sessions completed' },
+          { label: 'Pending', value: String(m.pendingSessions), change: 'Awaiting action' },
+        ]);
+        setWeeklySentiment(sentimentRes.data);
+        setSessionDistribution(distRes.data);
+        setUpcomingSessions(upcomingRes.data);
+        setSummaryData(summaryRes.data);
+      } catch (err) {
+        console.error('Failed to fetch dashboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  useEffect(() => {
+    fetchData();
+
     const socket = getSocket();
-    if (!socket) return;
+    if (socket) {
+      socket.off("appointment:updated", fetchData);
+      socket.on("appointment:updated", fetchData);
+    }
 
-    const refresh = () => fetchDashboard();
+    const pollInterval = setInterval(fetchData, 15000);
 
-    socket.on("appointment:updated", refresh);
-    return () => socket.off("appointment:updated", refresh);
-  }, [fetchDashboard]);
+    return () => {
+      if (socket) {
+        socket.off("appointment:updated", fetchData);
+      }
+      clearInterval(pollInterval);
+    };
+  }, []);
 
   const now = new Date();
   const hour = now.getHours();

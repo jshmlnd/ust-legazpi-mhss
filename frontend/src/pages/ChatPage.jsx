@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Send, AlertTriangle, Eye, Loader, ChevronLeft } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
+import { axiosInstance } from '../lib/axios';
+import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 
 const CRISIS_KEYWORDS = [
@@ -175,6 +177,8 @@ const CounselorChatView = () => {
   } = useChatStore();
   const messagesEndRef = useRef(null);
   const [showMobileList, setShowMobileList] = useState(true);
+  const [activeAppointment, setActiveAppointment] = useState(null);
+  const [isEndingSession, setIsEndingSession] = useState(false);
 
   useEffect(() => {
     getUsers();
@@ -197,6 +201,22 @@ const CounselorChatView = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!selectedUser) {
+      setActiveAppointment(null);
+      return;
+    }
+    const fetchAppointment = async () => {
+      try {
+        const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
+        setActiveAppointment(res.data);
+      } catch {
+        setActiveAppointment(null);
+      }
+    };
+    fetchAppointment();
+  }, [selectedUser]);
+
   const handleSend = useCallback((data) => {
     sendMessage(data);
   }, [sendMessage]);
@@ -210,6 +230,20 @@ const CounselorChatView = () => {
   const handleReveal = () => {
     if (flaggedMessage) {
       navigate(`/identity/user/${flaggedMessage.userId}`);
+    }
+  };
+
+  const handleEndSession = async () => {
+    if (!activeAppointment) return;
+    setIsEndingSession(true);
+    try {
+      await axiosInstance.patch(`/appointments/${activeAppointment._id}`, { status: 'completed' });
+      toast.success('Session ended');
+      setActiveAppointment(null);
+    } catch {
+      toast.error('Failed to end session');
+    } finally {
+      setIsEndingSession(false);
     }
   };
 
@@ -271,7 +305,7 @@ const CounselorChatView = () => {
               >
                 <ChevronLeft size={16} />
               </button>
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">
                   STU-{selectedUser._id}
                 </p>
@@ -279,6 +313,16 @@ const CounselorChatView = () => {
                   {selectedUser.department} · {selectedUser.program}
                 </p>
               </div>
+              {activeAppointment && (
+                <button
+                  onClick={handleEndSession}
+                  disabled={isEndingSession}
+                  className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {isEndingSession ? <Loader size={12} className="animate-spin" /> : null}
+                  End Session
+                </button>
+              )}
             </div>
 
             {/* Emergency Banner */}

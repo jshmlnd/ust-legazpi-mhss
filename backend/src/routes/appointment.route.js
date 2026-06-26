@@ -2,11 +2,12 @@ import express from "express";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import {
   getAppointments, createAppointment,
-  updateAppointment, deleteAppointment,
+  updateAppointment, deleteAppointment, getActiveAppointment,
 } from "../controllers/appointment.controller.js";
 
 const router = express.Router();
 
+router.get("/active/:studentId", protectRoute, getActiveAppointment);
 router.get("/", protectRoute, getAppointments);
 router.post("/", protectRoute, createAppointment);
 router.patch("/:id", protectRoute, updateAppointment);

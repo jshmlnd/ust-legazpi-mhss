@@ -97,7 +97,7 @@ const AnalyticsSummary = ({ data }) => (
   </div>
 );
 
-const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId }) => {
+const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSession, endingSessionId }) => {
   const navigate = useNavigate();
   const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
@@ -169,18 +169,27 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId }) => {
                       </button>
                     </div>
                   ) : session.status === 'active' ? (
-                    session.type === 'chat' ? (
+                    <div className="flex items-center justify-end gap-2">
+                      {session.type === 'chat' ? (
+                        <button
+                          onClick={() => navigate(`${PATHS.MESSAGES}?user=${session.studentId}`)}
+                          className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                        >
+                          Join Chat
+                        </button>
+                      ) : (
+                        <span className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm">
+                          Approved
+                        </span>
+                      )}
                       <button
-                        onClick={() => navigate(`${PATHS.MESSAGES}?user=${session.studentId}`)}
-                        className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                        onClick={() => onEndSession(session)}
+                        disabled={endingSessionId === session.id}
+                        className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50"
                       >
-                        Join Chat
+                        {endingSessionId === session.id ? <Loader size={12} className="animate-spin" /> : 'End'}
                       </button>
-                    ) : (
-                      <span className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm">
-                        Approved
-                      </span>
-                    )
+                    </div>
                   ) : null}
                 </td>
               </tr>
@@ -227,6 +236,19 @@ const CounselorDashboardPage = () => {
   const [summaryData, setSummaryData] = useState({ peakHours: '—', topResources: '—', avgDuration: '—', accessPct: 0 });
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);
+  const [endingSessionId, setEndingSessionId] = useState(null);
+
+  const handleEndSession = async (session) => {
+    setEndingSessionId(session.id);
+    try {
+      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'completed' });
+      setUpcomingSessions((prev) =>
+        prev.map((s) => (s._id === session._id ? { ...s, status: 'completed' } : s))
+      );
+      toast.success(`Session ended with ${session.id}`);
+    } catch { toast.error('Failed to end session.'); }
+    finally { setEndingSessionId(null); }
+  };
 
   const handleAccept = async (session) => {
     setAcceptingId(session.id);
@@ -338,7 +360,7 @@ const CounselorDashboardPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-neutral-200 rounded-sm overflow-hidden">
           <div className="lg:col-span-2">
-            <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} />
+            <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} onEndSession={handleEndSession} endingSessionId={endingSessionId} />
           </div>
           <div className="lg:col-span-1">
             <ResourceTracking />

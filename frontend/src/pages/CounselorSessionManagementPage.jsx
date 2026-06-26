@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MessageCircle, User, FileText, ClipboardList, Send, Check, Plus, Clock, MoreHorizontal, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
+import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 import PageShell from '../components/PageShell';
 import SectionDivider from '../components/SectionDivider';
@@ -158,6 +159,21 @@ const CounselorSessionManagementPage = () => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [studentInfo, setStudentInfo] = useState(null);
   const [loadingInfo, setLoadingInfo] = useState(false);
+  const [endingSessionId, setEndingSessionId] = useState(null);
+
+  const handleEndSession = async (appointmentId) => {
+    setEndingSessionId(appointmentId);
+    try {
+      await axiosInstance.patch(`/appointments/${appointmentId}`, { status: 'completed' });
+      setQueueItems((prev) => prev.filter((item) => item._id !== appointmentId));
+      if (selectedSession?._id === appointmentId) setSelectedSession(null);
+      toast.success('Session ended');
+    } catch {
+      toast.error('Failed to end session');
+    } finally {
+      setEndingSessionId(null);
+    }
+  };
 
   const fetchStudentInfo = async (studentId) => {
     if (!studentId) return;
@@ -174,12 +190,14 @@ const CounselorSessionManagementPage = () => {
       try {
         const res = await axiosInstance.get('/appointments');
         const items = res.data.map((a) => ({
+          _id: a._id,
           id: `STU-${a.studentId}`,
           studentId: a.studentId,
           type: a.type,
           time: a.time,
           date: a.date,
           status: a.type === 'f2f' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'scheduled',
+          dbStatus: a.status,
           concern: a.concern || 'No concern specified',
         }));
         setQueueItems(items);
@@ -231,6 +249,22 @@ const CounselorSessionManagementPage = () => {
         </div>
 
         <div className="lg:col-span-3 space-y-4">
+          {selectedSession && (selectedSession.dbStatus === 'active' || selectedSession.dbStatus === 'confirmed') && (
+            <div className="bg-white border border-neutral-200 rounded-sm px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-neutral-900">Active Session</p>
+                <p className="text-[11px] text-neutral-400 mt-0.5">This session is currently in progress</p>
+              </div>
+              <button
+                onClick={() => handleEndSession(selectedSession._id)}
+                disabled={endingSessionId === selectedSession._id}
+                className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                {endingSessionId === selectedSession._id ? <Loader size={12} className="animate-spin" /> : null}
+                End Session
+              </button>
+            </div>
+          )}
           <SessionNotes />
           <TaskAssignment />
           <ClientFile session={selectedSession} studentInfo={studentInfo} loadingInfo={loadingInfo} />

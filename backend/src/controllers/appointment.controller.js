@@ -57,6 +57,23 @@ export const updateAppointment = async (req, res) => {
   }
 };
 
+export const getActiveAppointment = async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const appointment = await Appointment.findOne({
+      studentId,
+      counselorId: req.user._id,
+      type: "chat",
+      status: { $in: ["active", "confirmed"] },
+    });
+    if (!appointment) return res.status(404).json({ error: "No active appointment found" });
+    res.json(appointment);
+  } catch (error) {
+    console.error("Error in getActiveAppointment:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const deleteAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findByIdAndDelete(req.params.id);

@@ -97,7 +97,7 @@ const StudentChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    getUsers, setSelectedUser, sendMessage, subscribeToMessages, unsubscribeFromMessages,
+    getUsers, setSelectedUser, sendMessage,
   } = useChatStore();
   const messagesEndRef = useRef(null);
 
@@ -110,11 +110,6 @@ const StudentChatView = () => {
       setSelectedUser(users[0]);
     }
   }, [users, selectedUser, setSelectedUser]);
-
-  useEffect(() => {
-    subscribeToMessages();
-    return () => unsubscribeFromMessages();
-  }, [subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

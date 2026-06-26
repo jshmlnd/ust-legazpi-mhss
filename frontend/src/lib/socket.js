@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.MODE === "development" ? "http://localhost:5001/api" : "/api";
+const SOCKET_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 let socket = null;
 
 export const connectSocket = () => {

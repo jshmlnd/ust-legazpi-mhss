@@ -97,6 +97,7 @@ const MessageInput = ({ onSend, disabled }) => {
 };
 
 const StudentChatView = () => {
+  const navigate = useNavigate();
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
@@ -130,13 +131,14 @@ const StudentChatView = () => {
         appointment.status === 'completed'
       ) {
         setSessionEnded(true);
-        toast.success('Session has ended');
+        toast.success('Counselor ended the session');
+        navigate(PATHS.HOME);
       }
     };
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [authUser._id]);
+  }, [authUser._id, navigate]);
 
   const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
 

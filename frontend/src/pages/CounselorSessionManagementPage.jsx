@@ -226,7 +226,7 @@ const CounselorSessionManagementPage = () => {
           concern: a.concern || 'No concern specified',
           notes: a.notes || '',
         });
-        const active = res.data.filter((a) => a.status !== 'completed' && a.status !== 'cancelled' && a.status !== 'declined' !== 'completed').map(mapItem);
+        const active = res.data.filter((a) => a.status !== 'completed' && a.status !== 'cancelled' && a.status !== 'declined').map(mapItem);
         const past = res.data.filter((a) => a.status === 'completed' && a.type === 'chat').map(mapItem);
         setQueueItems(active);
         setPastChatItems(past);
@@ -248,9 +248,9 @@ const CounselorSessionManagementPage = () => {
   }, [selectedSession]);
 
   const queueByType = [
-    { type: 'chat', label: 'Active Chat', items: queueItems.filter((q) => q.type === 'chat') },
-    { type: 'f2f', label: 'Face-to-Face', items: queueItems.filter((q) => q.type === 'f2f') },
-    { type: 'review', label: 'Case Review', items: queueItems.filter((q) => q.type === 'review') },
+    { type: 'active chat', label: 'Active Chat', items: queueItems.filter((q) => q.type === 'chat' && q.dbStatus === 'active') },
+    { type: 'face-to-face', label: 'Face-to-Face', items: queueItems.filter((q) => q.type === 'f2f') },
+    { type: 'completed', label: 'Completed Sessions', items: queueItems.filter((q) => q.type === 'completed' && q.dbStatus === 'completed') },
   ];
 
   if (loading) return <PageShell title="Session Manager" subtitle="Monitor active sessions"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
@@ -270,7 +270,7 @@ const CounselorSessionManagementPage = () => {
                   <QueueCard key={item.id} item={item} isSelected={selectedSession?.id === item.id} onSelect={setSelectedSession} showIdOnly={group.type === 'chat'} />
                 ))}
                 {group.items.length === 0 && (
-                  <p className="text-xs text-neutral-400 py-3 text-center">No {group.label} sessions</p>
+                  <p className="text-xs text-neutral-400 py-3 text-center">No {group.type} sessions</p>
                 )}
               </div>
             </div>

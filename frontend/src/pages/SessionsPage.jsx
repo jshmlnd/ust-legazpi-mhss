@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
+import { Calendar, CalendarCheck, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
@@ -52,13 +52,11 @@ const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDate
             <button
               key={cell.dateStr}
               onClick={() => onDateClick(cell)}
-              className={`bg-white min-h-[56px] p-1.5 text-left transition-colors hover:bg-neutral-50 ${
-                cell.isToday ? 'ring-1 ring-inset ring-neutral-900' : ''
-              }`}
+              className={`bg-white min-h-[56px] p-1.5 text-left transition-colors hover:bg-neutral-50 ${cell.isToday ? 'ring-1 ring-inset ring-neutral-900' : ''
+                }`}
             >
-              <span className={`text-[10px] font-medium ${
-                cell.isToday ? 'bg-neutral-900 text-white size-4 inline-flex items-center justify-center rounded-full' : 'text-neutral-500'
-              }`}>
+              <span className={`text-[10px] font-medium ${cell.isToday ? 'bg-neutral-900 text-white size-4 inline-flex items-center justify-center rounded-full' : 'text-neutral-500'
+                }`}>
                 {cell.day}
               </span>
               {cell.bookings.length > 0 && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-neutral-900 mx-auto" /></div>}
@@ -73,33 +71,32 @@ const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDate
 
 const SessionCard = ({ session, type }) => {
   const isUpcoming = type === 'upcoming';
+  const counselorLabel = session.counselorName || session.counselor?.fullName || `Counselor #${session.counselorId}`;
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3.5 min-w-0">
-          <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${
-            session.type === 'chat' ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500'
-          }`}>
-            {session.type === 'chat' ? <MessageCircle size={18} /> : <ChevronRight size={18} />}
+          <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500'
+            }`}>
+            {session.type === 'Chat' ? <MessageCircle size={18} /> : <CalendarCheck size={18} />}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2.5 mb-0.5">
-              <h3 className="text-sm font-medium text-neutral-900">Counselor #{session.counselorId}</h3>
-              <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${
-                session.type === 'f2f' && (session.status === 'active' || session.status === 'confirmed') ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
+              <h3 className="text-sm font-medium text-neutral-900">{counselorLabel}</h3>
+              <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
                 session.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                session.status === 'pending' ? 'text-amber-600 border-amber-200 bg-amber-50' :
-                'text-neutral-400 border-neutral-200'
-              }`}>
-                {session.type === 'f2f' && (session.status === 'active' || session.status === 'confirmed') ? 'Approved' : session.status}
+                  session.status === 'pending' ? 'text-amber-600 border-amber-200 bg-amber-50' :
+                    'text-emerald-400 border-emerald-200'
+                }`}>
+                {session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'Approved' : session.status}
               </span>
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-400 mt-1">
               <span className="inline-flex items-center gap-1"><Calendar size={11} /> {session.date}</span>
               <span className="inline-flex items-center gap-1"><Clock size={11} /> {session.time}</span>
               <span>{session.duration}</span>
-              <span className="text-[10px] font-medium uppercase">{session.type === 'chat' ? 'Chat' : 'Face-to-Face'}</span>
+              <span className="text-[10px] font-medium uppercase">{session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}</span>
             </div>
             {!isUpcoming && session.notes && (
               <p className="text-xs text-neutral-500 mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
@@ -168,6 +165,7 @@ const SessionsPage = () => {
     try {
       await axiosInstance.post('/appointments', {
         counselorId: slot.counselorId,
+        fullName: slot.fullName,
         type: slot.type || 'chat',
         date: slot.date,
         time: slot.time,
@@ -231,7 +229,7 @@ const SessionsPage = () => {
 
         <div className="lg:col-span-2 space-y-5">
           <div>
-            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">My Appointments</h3>
+            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Chat Sessions</h3>
             {upcoming.length === 0 ? (
               <EmptyState icon={CalendarDays} title="No upcoming sessions" description="Book a session with your counselor to get started." />
             ) : (
@@ -250,7 +248,7 @@ const SessionsPage = () => {
                 {slots.map((slot) => (
                   <div key={slot._id} className="bg-white p-4 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-neutral-900">Counselor #{slot.counselorId}</p>
+                      <p className="text-sm font-medium text-neutral-900">{slot.fullName || `Counselor #${slot.counselorId}`}</p>
                       <p className="text-xs text-neutral-400">{slot.date} · {slot.time}</p>
                     </div>
                     <button

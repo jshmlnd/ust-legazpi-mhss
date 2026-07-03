@@ -8,15 +8,15 @@ import { PATHS } from '../lib/routes';
 import PageShell from '../components/PageShell';
 import SectionDivider from '../components/SectionDivider';
 
-const TYPE_ICONS = { chat: MessageCircle, f2f: User, review: ClipboardList };
-const TYPE_LABELS = { chat: 'Chat', f2f: 'F2F', review: 'Review' };
+const TYPE_ICONS = { Chat: MessageCircle, 'Face-To-Face': User, Review: ClipboardList };
+const TYPE_LABELS = { Chat: 'Chat', 'Face-To-Face': 'Face-To-Face', Review: 'Review' };
 const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', completed: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
 
 const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (item.type === 'chat' && !disableChatNav) {
+    if (item.type === 'Chat' && !disableChatNav) {
       navigate(`/messages?user=${item.studentId}`);
     } else {
       onSelect(item);
@@ -221,13 +221,13 @@ const CounselorSessionManagementPage = () => {
           type: a.type,
           time: a.time,
           date: a.date,
-          status: a.type === 'f2f' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'completed',
+          status: a.type === 'Face-To-Face' && (a.status === 'active' || a.status === 'confirmed') ? 'approved' : a.status === 'active' ? 'active' : a.status === 'pending' ? 'waiting' : 'completed',
           dbStatus: a.status,
           concern: a.concern || 'No concern specified',
           notes: a.notes || '',
         });
         const active = res.data.filter((a) => a.status !== 'completed' && a.status !== 'cancelled' && a.status !== 'declined').map(mapItem);
-        const past = res.data.filter((a) => a.status === 'completed' && a.type === 'chat').map(mapItem);
+        const past = res.data.filter((a) => a.status === 'completed' && a.type === 'Chat').map(mapItem);
         setQueueItems(active);
         setPastChatItems(past);
         if (active.length > 0) {
@@ -248,9 +248,9 @@ const CounselorSessionManagementPage = () => {
   }, [selectedSession]);
 
   const queueByType = [
-    { type: 'active chat', label: 'Active Chat', items: queueItems.filter((q) => q.type === 'chat' && q.dbStatus === 'active') },
-    { type: 'face-to-face', label: 'Face-to-Face', items: queueItems.filter((q) => q.type === 'f2f') },
-    { type: 'completed', label: 'Completed Sessions', items: queueItems.filter((q) => q.type === 'completed' && q.dbStatus === 'completed') },
+    { type: 'Active Chat', label: 'Active Chat', items: queueItems.filter((q) => q.type === 'Chat' && q.dbStatus === 'active') },
+    { type: 'Face-To-Face', label: 'Face-To-Face', items: queueItems.filter((q) => q.type === 'Face-To-Face') },
+    { type: 'Review', label: 'Review', items: queueItems.filter((q) => q.type === 'Review') },
   ];
 
   if (loading) return <PageShell title="Session Manager" subtitle="Monitor active sessions"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
@@ -267,7 +267,7 @@ const CounselorSessionManagementPage = () => {
               </div>
               <div className="space-y-2">
                 {group.items.map((item) => (
-                  <QueueCard key={item.id} item={item} isSelected={selectedSession?.id === item.id} onSelect={setSelectedSession} showIdOnly={group.type === 'chat'} />
+                  <QueueCard key={item.id} item={item} isSelected={selectedSession?.id === item.id} onSelect={setSelectedSession} showIdOnly={group.type === 'Active Chat'} />
                 ))}
                 {group.items.length === 0 && (
                   <p className="text-xs text-neutral-400 py-3 text-center">No {group.type} sessions</p>

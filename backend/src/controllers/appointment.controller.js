@@ -1,4 +1,5 @@
 import Appointment from "../models/appointment.model.js";
+import Counselor from "../models/counselor.model.js";
 import User from "../models/user.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 
@@ -11,6 +12,18 @@ export const getAppointments = async (req, res) => {
     } else {
       appointments = await Appointment.find({ studentId: req.user._id }).sort({ date: -1, time: -1 });
     }
+
+    const counselorIds = [...new Set(appointments.map((appointment) => String(appointment.counselorId)))];
+    if (counselorIds.length > 0) {
+      const counselors = await Counselor.find({ _id: { $in: counselorIds } }).select("fullName _id").lean();
+      const counselorMap = Object.fromEntries(counselors.map((counselor) => [String(counselor._id), counselor.fullName]));
+
+      appointments = appointments.map((appointment) => ({
+        ...appointment.toObject(),
+        counselorName: counselorMap[String(appointment.counselorId)] || null,
+      }));
+    }
+
     res.json(appointments);
   } catch (error) {
     console.error("Error in getAppointments:", error.message);

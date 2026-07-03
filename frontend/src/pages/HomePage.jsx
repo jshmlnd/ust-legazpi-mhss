@@ -269,24 +269,27 @@ const HomePage = () => {
     } catch { toast.error("Failed to book session."); }
     finally { setF2fSubmitting(false); }
   };
-
+//
   return (
-    <main className="min-h-screen bg-white pt-[calc(68px+3rem)] pb-28 px-6 lg:px-10">
-      <div className="mx-auto max-w-[1200px]">
-
+    <main className="relative min-h-screen overflow-hidden">
+      <div
+        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[8px]"
+        style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
+      />
+      <div className="absolute inset-0 -z-10 bg-white/70" />
+      <div className="mx-auto max-w-[1200px] pt-[calc(68px+3rem)] pb-28 px-6 lg:px-10">
         {/* ──────── SECTION 1: HERO ──────── */}
-        <section className="mb-24 bg-base">
+        <section className="relative min-h-screen">
           <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
-            Good {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
+            {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
             <span className="font-medium">{firstName}</span><br />
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Static ID: STU-{genid}</span>
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Note: counselor can only see your static id</span>
+            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-500">Note: counselor can only see your static id</span>
           </h1>
-          <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-neutral-500 tracking-[-0.01em]">
+          <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-neutral-600 tracking-[-0.01em]">
             Welcome to the UST-Legazpi Mental Health Support System. Your well-being is our priority — access counseling
             services, schedule appointments, and explore resources designed to support you.
           </p>
-
           <Link
             to={SUGGESTIONS.linkHref}
             className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
@@ -322,7 +325,7 @@ const HomePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-neutral-200 overflow-hidden rounded-sm">
             {/* Card 1 — Active Chat / Pending Request / Request */}
-            <div className={`group relative bg-white p-8 transition-all duration-300 ${hasActiveChat || pendingRequest ? 'hover:bg-neutral-50' : ''}`}>
+            <div className={`group relative bg-white/20 glass p-8 transition-all duration-300 ${hasActiveChat || pendingRequest ? 'hover:bg-neutral-50' : ''}`}>
               {pendingRequest ? (
                 <>
                   <div className="flex items-center gap-2.5 mb-5">
@@ -385,13 +388,13 @@ const HomePage = () => {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500/60 opacity-75" />
                       <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
                     </span>
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-300">No Active Chat</span>
+                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">No Active Chat</span>
                   </div>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-300 mb-2">
+                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-500 mb-2">
                     {QUICK_ACTIONS[0].title}
                   </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-300 mb-4">No ongoing conversation at the moment.</p>
-                  <p className="text-[11px] text-neutral-200 mb-6">Start a session with your counselor.</p>
+                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">No ongoing conversation at the moment.</p>
+                  <p className="text-[11px] text-neutral-500 mb-6">Start a session with your counselor.</p>
                   <button
                     onClick={handleOpenRequest}
                     className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
@@ -403,7 +406,7 @@ const HomePage = () => {
             </div>
 
             {/* Card 2 — Scheduled Session / Declined / Book F2F */}
-            <div className="group relative bg-white p-8 transition-all duration-300 hover:bg-neutral-50">
+            <div className="group relative bg-white/20 glass p-8 transition-all duration-300">
               {upcomingF2f ? (
                 <>
                   <div className="flex items-center justify-between mb-5">
@@ -479,14 +482,14 @@ const HomePage = () => {
                 </>
               ) : (
                 <>
-                  <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-300">
+                  <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">
                     Not Scheduled
                   </span>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-300 mb-2">
+                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-500 mb-2">
                     Face-To-Face Session
                   </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-300 mb-4">No upcoming on-campus appointment.</p>
-                  <p className="text-[11px] text-neutral-200 mb-6">Book a face-to-face session with your counselor.</p>
+                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">No upcoming on-campus appointment.</p>
+                  <p className="text-[11px] text-neutral-500 mb-6">Book a face-to-face session with your counselor.</p>
                   <button
                     onClick={handleOpenF2f}
                     className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
@@ -499,23 +502,21 @@ const HomePage = () => {
 
             {/* Card 3 — Diary */}
             <div
-              className="group relative bg-white p-8 transition-all duration-300 hover:bg-neutral-50"
+              className="group relative bg-white/20 glass p-8"
               onMouseEnter={() => setDiaryHover(true)}
               onMouseLeave={() => setDiaryHover(false)}
             >
-              <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">
+              <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">
                 Personal
               </span>
-              <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
+              <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-500 mb-2">
                 {QUICK_ACTIONS[2].title}
               </h3>
               <p className="text-xs leading-[1.6] text-neutral-500 mb-4">{QUICK_ACTIONS[2].description}</p>
-              <p className="text-[11px] text-neutral-400 mb-6">{QUICK_ACTIONS[2].meta}</p>
+              <p className="text-[11px] text-neutral-500 mb-6">{QUICK_ACTIONS[2].meta}</p>
               <Link
                 to={typeof QUICK_ACTIONS[2].href === 'function' ? QUICK_ACTIONS[2].href(authUser?._id) : QUICK_ACTIONS[2].href}
-                className={`inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm ${diaryHover
-                    ? "text-white bg-neutral-900"
-                    : "text-neutral-900 bg-transparent border border-neutral-300"
+                className={`inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm  text-white bg-neutral-900 hover:bg-neutral-800 transition-colors
                   }`}
               >
                 {QUICK_ACTIONS[2].cta}
@@ -527,13 +528,13 @@ const HomePage = () => {
         {/* ──────── SECTION 3: UNIVERSITY GUIDANCE & COUNSELING SERVICES ──────── */}
         <section>
           <div className="mb-12">
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400">
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-600">
               University Services
             </span>
             <h2 className="mt-3 text-2xl font-light tracking-[-0.02em] text-neutral-900">
               Guidance &amp; Counseling
             </h2>
-            <p className="mt-2 max-w-[520px] text-sm leading-[1.7] text-neutral-500">
+            <p className="mt-2 max-w-[520px] text-sm leading-[1.7] text-neutral-600">
               The University of Santo Tomas–Legazpi is committed to fostering a supportive campus environment. Explore
               the services available to help you thrive academically, personally, and emotionally.
             </p>
@@ -543,12 +544,12 @@ const HomePage = () => {
             {SERVICE_CARDS.map((card) => (
               <article
                 key={card.number}
-                className="group relative bg-white p-8 transition-all duration-300 hover:bg-neutral-50 cursor-default"
+                className="group relative bg-white/20 glass p-8 transition-all duration-300 hover:bg-neutral-50 cursor-default"
               >
                 <span className="text-[13px] font-mono font-semibold text-neutral-300 group-hover:text-neutral-900 transition-colors duration-300">
                   {card.number}
                 </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-900">{card.title}</h3>
+                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-600">{card.title}</h3>
                 <p className="mt-3 text-xs leading-[1.8] text-neutral-500">{card.description}</p>
                 <div className="mt-6 h-px w-8 bg-neutral-300 group-hover:w-full group-hover:bg-neutral-900 transition-all duration-300" />
               </article>
@@ -557,12 +558,12 @@ const HomePage = () => {
         </section>
 
         {/* ──────── FOOTER ──────── */}
-        <footer className="mt-28 pt-8 border-t border-neutral-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <footer className="mt-28 pt-8 border-t border-neutral-200 bg-neutral-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-[11px] text-neutral-400 tracking-[0.05em]">
             &copy; {new Date().getFullYear()} University of Santo Tomas&ndash;Legazpi. All rights reserved.
           </p>
           <div className="flex items-center gap-5">
-            <Link to={PATHS.RESOURCES} className="text-[11px] text-neutral-400 hover:text-neutral-900 transition-colors tracking-[0.05em]">Resources</Link>
+            <Link to={PATHS.RESOURCES} className="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors tracking-[0.05em]">Resources</Link>
             <span className="text-neutral-300">/</span>
             <Link to={PATHS.UNIVERSITY_UPDATES} className="text-[11px] text-neutral-400 hover:text-neutral-900 transition-colors tracking-[0.05em]">Updates</Link>
             <span className="text-neutral-300">/</span>

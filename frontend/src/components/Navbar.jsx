@@ -58,12 +58,12 @@ const NavLink = ({ link, isMobile }) => {
     <Link
       key={link.label}
       to={link.resolvedPath}
-      className={`${base} ${isMobile ? mobile : desktop} ${isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-900'}`}
+      className={`${base} ${isMobile ? mobile : desktop} ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}`}
     >
       {link.label}
       {!isMobile && (
         <span
-          className={`absolute -bottom-1 left-0 h-px bg-gray-900 transition-all duration-300 ${isActive ? 'w-full' : 'w-0 group-hover:w-full'}`}
+          className={`absolute -bottom-1 left-0 h-px bg-white transition-all duration-300 ${isActive ? 'w-full' : 'w-0 group-hover:w-full'}`}
         />
       )}
     </Link>
@@ -78,7 +78,7 @@ const MobileNavLink = ({ link, index, isOpen }) => {
     <Link
       key={link.label}
       to={link.resolvedPath}
-      className={`text-lg tracking-[0.2em] font-medium uppercase transition-all duration-500 ${isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-900'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      className={`text-lg tracking-[0.2em] font-medium uppercase transition-all duration-500 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
       style={{ transitionDelay: isOpen ? `${index * 120}ms` : '0ms' }}
     >
       {link.label}
@@ -93,7 +93,7 @@ const BrandLink = ({ homeTarget }) => (
       alt="UST-Legazpi Logo"
       className="size-12"
     />
-    <span className="text-sm tracking-[0.2em] font-medium text-gray-900 uppercase select-none">
+    <span className="text-sm tracking-[0.2em] font-medium text-white uppercase select-none">
       UST-Legazpi
     </span>
   </Link>
@@ -104,7 +104,7 @@ const AuthButton = ({ isAuthenticated, onLogout }) => {
     return (
       <button
         onClick={onLogout}
-        className="hidden md:inline-flex items-center px-5 py-[7px] text-xs tracking-[0.1em] font-medium uppercase rounded-full border border-gray-900 text-gray-900 bg-transparent hover:bg-gray-900 hover:text-white transition-all duration-300"
+        className="hidden md:inline-flex items-center px-5 py-[7px] text-xs tracking-[0.1em] font-medium uppercase rounded-full border border-white bg-transparent text-white hover:bg-white hover:text-black hover:font-bold transition-all duration-300"
       >
         Logout
       </button>
@@ -117,15 +117,15 @@ const AuthButton = ({ isAuthenticated, onLogout }) => {
 const HamburgerButton = ({ isOpen, onClick }) => (
   <button
     onClick={onClick}
-    className="md:hidden relative size-8 flex items-center justify-center text-gray-900"
+    className="md:hidden relative size-8 flex items-center justify-center text-white"
     aria-label={isOpen ? 'Close menu' : 'Open menu'}
   >
     <div className="flex flex-col items-center justify-center gap-[5px]">
       <span
-        className={`block h-[1.5px] w-5 bg-gray-900 rounded-full transition-all duration-300 ${isOpen ? 'rotate-45 translate-y-[6.5px]' : ''}`}
+        className={`block h-[1.5px] w-5 bg-white rounded-full transition-all duration-300 ${isOpen ? 'rotate-45 translate-y-[6.5px]' : ''}`}
       />
       <span
-        className={`block h-[1.5px] w-5 bg-gray-900 rounded-full transition-all duration-300 ${isOpen ? '-rotate-45 -translate-y-[6.5px]' : ''}`}
+        className={`block h-[1.5px] w-5 bg-white rounded-full transition-all duration-300 ${isOpen ? '-rotate-45 -translate-y-[6.5px]' : ''}`}
       />
     </div>
   </button>
@@ -133,7 +133,7 @@ const HamburgerButton = ({ isOpen, onClick }) => (
 
 const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
   <div
-    className={`fixed inset-0 z-40 bg-white flex flex-col items-center justify-center transition-all duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+    className={`fixed inset-0 z-40 bg-black/95 flex flex-col items-center justify-center transition-all duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
   >
     <nav className="flex flex-col items-center gap-10">
       {visibleLinks.map((link, index) => (
@@ -143,7 +143,7 @@ const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
       {isAuthenticated ? (
         <button
           onClick={onLogout}
-          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-gray-900 text-gray-900 hover:bg-gray-900 hover:text-white transition-all duration-500 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-white/20 text-white bg-white/10 hover:bg-white hover:text-black transition-all duration-500 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
           style={{ transitionDelay: isOpen ? `${visibleLinks.length * 120}ms` : '0ms' }}
         >
           Logout
@@ -183,7 +183,7 @@ const Navbar = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-white/80 backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 z-50 h-[68px] bg-black/60 backdrop-blur-sm border-b border-white/10">
         <div className="mx-auto max-w-[1440px] px-6 lg:px-10 h-full flex items-center justify-between">
           <BrandLink homeTarget={homeTarget} />
 

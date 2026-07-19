@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getSocket } from "../lib/socket";
+import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 
 const RTC_CONFIG = {
@@ -147,20 +148,25 @@ export const useCallStore = create((set, get) => ({
   },
 
   endCall: (notifyPeer = true) => {
-    const { peerId } = get();
+    const { peerId, callDuration } = get();
     if (notifyPeer && peerId) {
       const socket = getSocket();
       socket.emit("call:ended", { targetId: peerId });
     }
+    if (peerId) get()._logCall(peerId, callDuration);
     get().cleanup();
   },
 
   handleCallEnded: () => {
+    const { peerId, callDuration } = get();
+    if (peerId) get()._logCall(peerId, callDuration);
     toast("Call ended");
     get().cleanup();
   },
 
   handleCallRejected: () => {
+    const { peerId } = get();
+    if (peerId) get()._logCall(peerId, 0);
     toast("Call rejected");
     get().cleanup();
   },
@@ -172,6 +178,18 @@ export const useCallStore = create((set, get) => ({
         track.enabled = isMuted;
       });
       set({ isMuted: !isMuted });
+    }
+  },
+
+  _logCall: async (peerId, duration) => {
+    try {
+      await axiosInstance.post(`/message/send/${peerId}`, {
+        type: 'call-log',
+        callDuration: duration,
+        text: duration > 0 ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)` : 'Missed call',
+      });
+    } catch {
+      // silently fail — call log is non-critical
     }
   },
 

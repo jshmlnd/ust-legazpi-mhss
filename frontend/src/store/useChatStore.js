@@ -144,7 +144,8 @@ export const useChatStore = create((set, get) => ({
         set({ unreadCounts: { ...unreadCounts, [String(otherId)]: (unreadCounts[String(otherId)] || 0) + 1 } });
 
         const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
-        showNotification(senderName, message.text || 'Sent an image');
+        const notifBody = message.type === 'call-log' ? message.text : (message.text || 'Sent an image');
+        showNotification(senderName, notifBody);
       }
     });
 

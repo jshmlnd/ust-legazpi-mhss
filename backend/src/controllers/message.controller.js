@@ -42,7 +42,7 @@ export const getMessages = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
     try {
-        const { text, image } = req.body;
+        const { text, image, type, callDuration } = req.body;
         const { id: receiverId } = req.params;
         const senderId = req.user._id;
 
@@ -67,7 +67,7 @@ export const sendMessage = async (req, res) => {
         const senderModel = req.user.constructor.modelName;
         const receiverModel = senderModel === "User" ? "Counselor" : "User";
 
-        const newMessage = new Message({ senderId, senderModel, receiverId, receiverModel, text, image: imageUrl, });
+        const newMessage = new Message({ senderId, senderModel, receiverId, receiverModel, text, image: imageUrl, type: type || 'text', callDuration: callDuration || 0 });
 
         await newMessage.save();
 

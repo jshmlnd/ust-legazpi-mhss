@@ -10,7 +10,7 @@ const messageSchema = new mongoose.Schema(
         senderModel: {
             type: String,
             required: true,
-            enum: ['User', 'Counselor'] // Restricts values to your two model names
+            enum: ['User', 'Counselor']
         },
         receiverId: {
             type: Number,
@@ -22,11 +22,20 @@ const messageSchema = new mongoose.Schema(
             required: true,
             enum: ['User', 'Counselor']
         },
+        type: {
+            type: String,
+            enum: ['text', 'image', 'call-log'],
+            default: 'text',
+        },
         text: {
             type: String,
         },
         image: {
             type: String,
+        },
+        callDuration: {
+            type: Number,
+            default: 0,
         },
         read: {
             type: Boolean,

@@ -1,6 +1,6 @@
 # University Mental Health Support: Semi-Anonymous Student Counseling and Resource Mapping Web Application
 
-I, [`Joshua Klein A. Malonda`](https://github.com/jshmlnd), along with my research partner `Hanz Gregor P. Loria`, a 3rd year BS Computer Science student at the University of Santo Tomas - Legazpi. We are currently working on our undergraduate thesis entitled `"University Mental Health Support: Semi-Anonymous Student Counseling and Resource Mapping Web Application"`. 
+I, [`Joshua Klein A. Malonda`](https://github.com/jshmlnd), along with my research partner [`Hanz Gregor P. Loria`](https://github.com/grxg0r), a 3rd year BS Computer Science student at the University of Santo Tomas - Legazpi. We are currently working on our undergraduate thesis entitled `"University Mental Health Support: Semi-Anonymous Student Counseling and Resource Mapping Web Application"`. 
 
 ---
 

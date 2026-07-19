@@ -130,9 +130,9 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
               <tr key={`${session.id}-${session.date}-${session.time}`} className="border-t border-neutral-100 hover:bg-neutral-50 transition-colors">
                 <td className="px-6 py-3.5 text-sm font-medium text-neutral-900">{session.id}</td>
                 <td className="px-6 py-3.5">
-                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] uppercase ${session.type === 'chat' ? 'text-emerald-700' : 'text-neutral-600'}`}>
-                    <span className={`size-1.5 rounded-full ${session.type === 'chat' ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-                    {session.type === 'chat' ? 'Chat' : 'F2F'}
+                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'text-emerald-700' : 'text-neutral-600'}`}>
+                    <span className={`size-1.5 rounded-full ${session.type === 'Chat' ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
+                    {session.type === 'Chat' ? 'Chat' : 'F2F'}
                   </span>
                 </td>
                 <td className="px-6 py-3.5 text-sm text-neutral-600">{session.date} {session.time}</td>
@@ -171,7 +171,7 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
                     </div>
                   ) : session.status === 'active' ? (
                     <div className="flex items-center justify-end gap-2">
-                      {session.type === 'chat' ? (
+                      {session.type === 'Chat' ? (
                         <button
                           onClick={() => navigate(`${PATHS.MESSAGES}?user=${session.studentId}`)}
                           className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
@@ -258,7 +258,7 @@ const CounselorDashboardPage = () => {
       setUpcomingSessions((prev) =>
         prev.map((s) => (s._id === session._id ? { ...s, status: 'active' } : s))
       );
-      toast.success(`Accepted chat with ${session.id}`);
+      toast.success(`Accepted Chat with ${session.id}`);
     } catch { toast.error('Failed to accept request.'); }
     finally { setAcceptingId(null); }
   };
@@ -270,7 +270,7 @@ const CounselorDashboardPage = () => {
       setUpcomingSessions((prev) =>
         prev.map((s) => (s._id === session._id ? { ...s, status: 'declined' } : s))
       );
-      toast.success(`Declined chat with ${session.id}`);
+      toast.success(`Declined Chat with ${session.id}`);
     } catch { toast.error('Failed to decline request.'); }
     finally { setAcceptingId(null); }
   };

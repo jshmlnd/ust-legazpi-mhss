@@ -166,7 +166,7 @@ const SessionsPage = () => {
       await axiosInstance.post('/appointments', {
         counselorId: slot.counselorId,
         fullName: slot.fullName,
-        type: slot.type || 'chat',
+        type: slot.type || 'Chat',
         date: slot.date,
         time: slot.time,
         concern: '',

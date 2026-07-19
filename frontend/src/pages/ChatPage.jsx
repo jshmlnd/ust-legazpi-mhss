@@ -164,7 +164,7 @@ const StudentChatView = () => {
     const handler = (appointment) => {
       if (
         String(appointment.studentId) === String(authUser._id) &&
-        appointment.type === 'chat' &&
+        appointment.type === 'Chat' &&
         appointment.status === 'completed'
       ) {
         if (callState !== 'idle') endCall(false);
@@ -378,7 +378,7 @@ const CounselorChatView = () => {
     const handler = (appointment) => {
       if (
         String(appointment.studentId) === String(selectedUser._id) &&
-        appointment.type === 'chat'
+        appointment.type === 'Chat'
       ) {
         if (appointment.status === 'completed') {
           if (callState !== 'idle') endCall(false);

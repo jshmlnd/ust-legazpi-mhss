@@ -58,7 +58,7 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates 
             <div className="mt-1.5 space-y-0.5">
               {cell.bookings.slice(0, 3).map((b) => (
                 <div key={b._id} className={`text-[9px] font-medium px-1 py-0.5 rounded-sm truncate ${
-                  b.type === 'chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-700'
+                  b.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-700'
                 }`}>
                   {b.time} STU-{b.studentId}
                 </div>
@@ -122,14 +122,14 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-neutral-900">STU-{b.studentId}</p>
-                  <p className="text-[11px] text-neutral-400">{b.time} · {b.type === 'chat' ? 'Chat Session' : 'Face-to-Face'}</p>
+                  <p className="text-[11px] text-neutral-400">{b.time} · {b.type === 'Chat' ? 'Chat Session' : 'Face-to-Face'}</p>
                 </div>
               </div>
               <button
                 onClick={() => { onClose(); navigate(PATHS.MANAGE_SESSIONS); }}
                 className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
               >
-                {b.type === 'chat' ? 'Join' : 'View'}
+                {b.type === 'Chat' ? 'Join' : 'View'}
               </button>
             </div>
           ))}

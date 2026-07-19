@@ -35,7 +35,7 @@ const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) =
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
-            item.type === 'chat' ? 'bg-emerald-50 text-emerald-600' : item.type === 'f2f' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+            item.type === 'Chat' ? 'bg-emerald-50 text-emerald-600' : item.type === 'f2f' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
           }`}>
             <Icon size={15} />
           </div>

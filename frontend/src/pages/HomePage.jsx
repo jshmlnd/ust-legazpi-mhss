@@ -110,11 +110,11 @@ const HomePage = () => {
         axiosInstance.get("/message/users"),
       ]);
       const active = appRes.data.find(
-        (a) => a.type === "chat" && a.status === "active"
+        (a) => a.type === "Chat" && a.status === "active"
       );
       setHasActiveChat(!!active);
       const pending = appRes.data.find(
-        (a) => a.type === "chat" && a.status === "pending"
+        (a) => a.type === "Chat" && a.status === "pending"
       );
       if (pending) setPendingRequest(pending);
       const f2f = appRes.data.find(
@@ -129,7 +129,7 @@ const HomePage = () => {
       usersRes.data.forEach((c) => { map[c._id] = c.fullName; });
       setCounselorMap(map);
     } catch (err) {
-      console.error("Failed to check active chat:", err);
+      console.error("Failed to check active Chat:", err);
     }
   };
 
@@ -193,7 +193,7 @@ const HomePage = () => {
     try {
       const res = await axiosInstance.post("/appointments", {
         counselorId: Number(selectedCounselor),
-        type: "chat",
+        type: "Chat",
         date: new Date().toISOString().slice(0, 10),
         time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
         concern: concern.trim(),
@@ -204,7 +204,7 @@ const HomePage = () => {
       setSelectedCounselor("");
       setPendingRequest(res.data);
     } catch (err) {
-      toast.error("Failed to request chat session.");
+      toast.error("Failed to request Chat session.");
     } finally {
       setSubmitting(false);
     }

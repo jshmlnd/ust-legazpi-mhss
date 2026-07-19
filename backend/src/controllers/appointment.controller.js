@@ -103,7 +103,7 @@ export const getActiveAppointment = async (req, res) => {
     const appointment = await Appointment.findOne({
       studentId,
       counselorId: req.user._id,
-      type: "chat",
+      type: "Chat",
       status: { $in: ["active", "confirmed"] },
     });
     if (!appointment) return res.status(404).json({ error: "No active appointment found" });

@@ -62,7 +62,7 @@ export const getWeeklySentiment = async (req, res) => {
 
 export const getSessionDistribution = async (req, res) => {
   try {
-    const chatCount = await Appointment.countDocuments({ type: "chat" });
+    const chatCount = await Appointment.countDocuments({ type: "Chat" });
     const f2fCount = await Appointment.countDocuments({ type: "f2f" });
     res.json([
       { type: "Active Chat", count: chatCount },

@@ -51,11 +51,11 @@ export const sendMessage = async (req, res) => {
                 { studentId: senderId, counselorId: Number(receiverId) },
                 { studentId: Number(receiverId), counselorId: senderId },
             ],
-            type: "chat",
+            type: "Chat",
             status: { $in: ["active", "confirmed"] },
         });
         if (!activeAppointment) {
-            return res.status(403).json({ error: "No active chat session" });
+            return res.status(403).json({ error: "No active Chat session" });
         }
 
         let imageUrl;

@@ -232,17 +232,13 @@ export const useCallStore = create((set, get) => ({
   },
 
   handleCallEnded: async () => {
-    const { peerId, callDuration } = get();
-    if (peerId) await get()._logCall(peerId, callDuration);
-    toast("Call ended");
     await get().cleanup();
+    toast("Call ended");
   },
 
   handleCallRejected: async () => {
-    const { peerId } = get();
-    if (peerId) await get()._logCall(peerId, 0);
-    toast("Call rejected");
     await get().cleanup();
+    toast("Call rejected");
   },
 
   toggleMute: () => {

@@ -4,9 +4,9 @@ import { protectRoute } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-const APP_ID = process.env.AGORA_APP_ID || "640ea68b8daa4e83ba2a92bfbc1fca75";
-const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE || "0cc7abf15c374ed3a90827389c694930";
-const TOKEN_EXPIRATION = 3600;
+const APP_ID = process.env.AGORA_APP_ID;
+const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+const TOKEN_EXPIRATION = parseInt(process.env.TOKEN_EXPIRATION) || 3600;
 
 router.post("/token", protectRoute, (req, res) => {
     try {

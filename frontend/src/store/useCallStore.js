@@ -148,12 +148,15 @@ export const useCallStore = create((set, get) => ({
   },
 
   endCall: (notifyPeer = true) => {
-    const { peerId, callDuration } = get();
+    const { peerId, callDuration, callState } = get();
     if (notifyPeer && peerId) {
       const socket = getSocket();
       socket.emit("call:ended", { targetId: peerId });
     }
-    if (peerId) get()._logCall(peerId, callDuration);
+    if (peerId) {
+      const wasActive = callState === 'active';
+      get()._logCall(peerId, wasActive ? callDuration : 0, wasActive);
+    }
     get().cleanup();
   },
 
@@ -181,12 +184,15 @@ export const useCallStore = create((set, get) => ({
     }
   },
 
-  _logCall: async (peerId, duration) => {
+  _logCall: async (peerId, duration, wasActive = true) => {
     try {
+      const text = wasActive
+        ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)`
+        : 'Call cancelled';
       await axiosInstance.post(`/message/send/${peerId}`, {
         type: 'call-log',
         callDuration: duration,
-        text: duration > 0 ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)` : 'Missed call',
+        text,
       });
     } catch {
       // silently fail — call log is non-critical

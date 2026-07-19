@@ -26,7 +26,7 @@ export const NAV_ITEMS = [
   { label: 'Sessions', path: PATHS.SESSIONS, allowedRoles: ['student'] },
   { label: 'Resources', path: PATHS.RESOURCES, allowedRoles: ['student'] },
   { label: 'Self Care', path: PATHS.SELF_CARE, allowedRoles: ['student'] },
-  { label: 'Sessions', path: PATHS.MANAGE_SESSIONS, allowedRoles: ['counselor'] },
+  { label: 'Messages', path: PATHS.MESSAGES, allowedRoles: ['counselor'] },
   { label: 'Appointments', path: PATHS.COUNSELOR_SCHEDULE, allowedRoles: ['counselor'] },
   { label: 'Resources', path: PATHS.MANAGE_RESOURCES, allowedRoles: ['counselor'] },
   { label: 'Self-Care', path: PATHS.MANAGE_SELF_CARE, allowedRoles: ['counselor'] },

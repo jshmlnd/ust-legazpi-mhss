@@ -88,7 +88,7 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
 };
 
 const EmergencyBanner = ({ studentName, onReveal, onDismiss }) => (
-  <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center justify-between gap-4">
+  <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
     <div className="flex items-center gap-3 min-w-0">
       <div className="size-8 rounded-sm bg-red-100 flex items-center justify-center shrink-0">
         <AlertTriangle size={16} className="text-red-600" />
@@ -103,7 +103,7 @@ const EmergencyBanner = ({ studentName, onReveal, onDismiss }) => (
         onClick={onReveal}
         className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
       >
-        <Eye size={14} /> Reveal Identity
+        <Eye size={14} /> <span className="hidden sm:inline">Reveal Identity</span><span className="sm:hidden">Reveal</span>
       </button>
       <button onClick={onDismiss} className="text-[11px] text-red-500 hover:text-red-700 transition-colors uppercase tracking-[0.05em] font-medium">
         Dismiss
@@ -589,7 +589,7 @@ const CounselorChatView = () => {
     <div className="flex h-[calc(100vh-68px)] bg-white">
       <VoiceCallModal peerName={selectedUser ? `STU-${selectedUser._id}` : ''} />
       {/* ─── Sidebar ─── */}
-      <div className={`w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
+      <div className={`w-full lg:w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'
       }`}>
         <div className="px-5 py-[24px] border-b border-neutral-200">

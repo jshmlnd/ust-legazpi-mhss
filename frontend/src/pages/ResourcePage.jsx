@@ -339,7 +339,7 @@ const ResourcePage = () => {
       title="Wellness Resources"
       subtitle="Articles, hotlines, tools, and physical support centers"
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center border border-neutral-200 rounded-sm overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}

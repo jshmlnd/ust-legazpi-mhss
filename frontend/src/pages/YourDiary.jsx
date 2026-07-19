@@ -78,7 +78,7 @@ const EntryForm = ({ onSave, onClose }) => {
         />
         <div>
           <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-2">Mood</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {MOODS.map((m) => {
               const Icon = m.icon;
               const selected = mood === m.key;

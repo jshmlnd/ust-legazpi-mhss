@@ -114,7 +114,9 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
       {sessions.length === 0 ? (
         <div className="px-6 py-8 text-center text-xs text-neutral-400">No upcoming sessions.</div>
       ) : (
-      <div className="overflow-x-auto">
+      <>
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-t border-neutral-100">
@@ -198,6 +200,77 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
           </tbody>
         </table>
       </div>
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {sessions.map((session) => (
+          <div key={`card-${session.id}-${session.date}-${session.time}`} className="border border-neutral-100 rounded-sm p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-neutral-900">{session.id}</span>
+              <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'text-emerald-700' : 'text-neutral-600'}`}>
+                <span className={`size-1.5 rounded-full ${session.type === 'Chat' ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
+                {session.type === 'Chat' ? 'Chat' : 'F2F'}
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500">{session.date} {session.time}</p>
+            <div className="flex items-center justify-between">
+              {session.status === 'pending' ? (
+                <span className="text-[11px] font-medium text-amber-600">Awaiting</span>
+              ) : session.status === 'active' ? (
+                <span className="text-[11px] font-medium text-emerald-600">Accepted</span>
+              ) : session.status === 'declined' ? (
+                <span className="text-[11px] font-medium text-red-500">Declined</span>
+              ) : (
+                <span className="text-[11px] font-medium text-neutral-400">{session.status}</span>
+              )}
+              <div className="flex items-center gap-2">
+                {session.status === 'pending' ? (
+                  <>
+                    <button
+                      onClick={() => onAccept(session)}
+                      disabled={acceptingId === session.id}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
+                    >
+                      {acceptingId === session.id ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => onDecline(session)}
+                      disabled={acceptingId === session.id}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-red-600 hover:border-red-300 transition-colors rounded-sm disabled:opacity-50"
+                    >
+                      <X size={12} />
+                      Decline
+                    </button>
+                  </>
+                ) : session.status === 'active' ? (
+                  <>
+                    {session.type === 'Chat' ? (
+                      <button
+                        onClick={() => navigate(`${PATHS.MESSAGES}?user=${session.studentId}`)}
+                        className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                      >
+                        Join Chat
+                      </button>
+                    ) : (
+                      <span className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm">
+                        Approved
+                      </span>
+                    )}
+                    <button
+                      onClick={() => onEndSession(session)}
+                      disabled={endingSessionId === session.id}
+                      className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50"
+                    >
+                      {endingSessionId === session.id ? <Loader size={12} className="animate-spin" /> : 'End'}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      </>
       )}
     </div>
   );

@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { User, Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader } from 'lucide-react';
+import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
 import SectionDivider from '../components/SectionDivider';
+import AvatarUpload from '../components/AvatarUpload';
+import toast from 'react-hot-toast';
 
 const InfoRow = ({ label, value }) => (
   <div className="flex items-center justify-between py-3 border-b border-neutral-100 last:border-b-0">
@@ -187,7 +189,7 @@ const SecurityCard = () => {
 };
 
 const ProfilePage = () => {
-  const { authUser } = useAuthStore();
+  const { authUser, updateProfile } = useAuthStore();
   if (!authUser) return null;
 
   const isStudent = authUser.userType?.toLowerCase() === 'student';
@@ -199,15 +201,37 @@ const ProfilePage = () => {
     { icon: BookOpen, label: 'Program', value: authUser.program },
   ];
 
+  const handleUpload = async (base64) => {
+    try {
+      await updateProfile(base64);
+      toast.success('Profile picture updated');
+    } catch {
+      toast.error('Failed to update profile picture');
+    }
+  };
+
+  const handleRemove = async () => {
+    try {
+      await updateProfile('');
+      toast.success('Profile picture removed');
+    } catch {
+      toast.error('Failed to remove profile picture');
+    }
+  };
+
   return (
     <PageShell title="My Account" subtitle="Manage your profile and security settings">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white border border-neutral-200 rounded-sm p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="size-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500">
-                <User size={22} />
-              </div>
+            <div className="flex items-center gap-4 mb-5">
+              <AvatarUpload
+                profilePic={authUser.profilePic}
+                fullName={authUser.fullName}
+                onUpload={handleUpload}
+                onRemove={handleRemove}
+                size="lg"
+              />
               <div>
                 <h2 className="text-base font-medium text-neutral-900">{authUser.fullName || 'User'}</h2>
                 <span className="text-xs text-neutral-400">

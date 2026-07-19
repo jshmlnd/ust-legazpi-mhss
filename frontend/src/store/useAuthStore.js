@@ -1,8 +1,6 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
-
 export const useAuthStore = create((set) => ({
     authUser: null,
 
@@ -44,6 +42,20 @@ export const useAuthStore = create((set) => ({
             console.error("Logout error:", error);
         } finally {
             set({ authUser: null });
+        }
+    },
+
+    updateProfile: async (profilePic) => {
+        set({ isUpdating: true });
+        try {
+            const res = await axiosInstance.put("/auth/profile", { profilePic });
+            set({ authUser: res.data });
+            return res.data;
+        } catch (error) {
+            const message = error.response?.data?.message || "Failed to update profile";
+            throw new Error(message);
+        } finally {
+            set({ isUpdating: false });
         }
     },
 }));

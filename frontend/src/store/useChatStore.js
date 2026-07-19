@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { getSocket } from "../lib/socket";
+import { showNotification } from "../lib/notifications";
+import { useAuthStore } from "./useAuthStore";
 
 const CRISIS_KEYWORDS = [
   'self-harm', 'suicide', 'kill myself', 'want to die',
@@ -22,6 +24,7 @@ export const useChatStore = create((set, get) => ({
   onlineUsers: [],
   isSocketConnected: false,
   unreadCounts: {},
+  typingUsers: {},
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -68,6 +71,7 @@ export const useChatStore = create((set, get) => ({
     set({ selectedUser: user, messages: [], flaggedMessage: null });
     if (user) {
       get().markAsRead(user._id);
+      get().markMessagesAsRead(user._id);
       get().getMessages(user._id);
     }
   },
@@ -83,9 +87,27 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  markMessagesAsRead: (senderId) => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit("markAsRead", { senderId });
+  },
+
   incrementUnread: (userId) => {
     const { unreadCounts } = get();
     set({ unreadCounts: { ...unreadCounts, [userId]: (unreadCounts[userId] || 0) + 1 } });
+  },
+
+  emitTyping: (receiverId) => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit("typing", { receiverId });
+  },
+
+  emitStopTyping: (receiverId) => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit("stopTyping", { receiverId });
   },
 
   subscribeToMessages: () => {
@@ -113,12 +135,43 @@ export const useChatStore = create((set, get) => ({
         if (containsCrisisContent(message.text)) {
           set({ flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id } });
         }
+
+        get().markMessagesAsRead(message.senderId);
       } else {
         const otherId = String(message.senderId) === String(selectedUser?._id)
           ? message.receiverId
           : message.senderId;
         set({ unreadCounts: { ...unreadCounts, [String(otherId)]: (unreadCounts[String(otherId)] || 0) + 1 } });
+
+        const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
+        showNotification(senderName, message.text || 'Sent an image');
       }
+    });
+
+    socket.off("typing").on("typing", ({ userId }) => {
+      set((state) => ({
+        typingUsers: { ...state.typingUsers, [userId]: true },
+      }));
+    });
+
+    socket.off("stopTyping").on("stopTyping", ({ userId }) => {
+      set((state) => {
+        const updated = { ...state.typingUsers };
+        delete updated[userId];
+        return { typingUsers: updated };
+      });
+    });
+
+    socket.off("messagesRead").on("messagesRead", ({ readerId }) => {
+      const myId = useAuthStore.getState().authUser?._id;
+      if (!myId) return;
+      set((state) => ({
+        messages: state.messages.map((msg) =>
+          String(msg.senderId) === String(myId) && String(msg.receiverId) === String(readerId)
+            ? { ...msg, read: true }
+            : msg
+        ),
+      }));
     });
 
     socket.off("onlineUsers").on("onlineUsers", (userIds) => {
@@ -137,6 +190,9 @@ export const useChatStore = create((set, get) => ({
     socket.off("onlineUsers");
     socket.off("connect");
     socket.off("disconnect");
+    socket.off("typing");
+    socket.off("stopTyping");
+    socket.off("messagesRead");
   },
 
   clearFlaggedMessage: () => set({ flaggedMessage: null }),

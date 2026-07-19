@@ -56,7 +56,7 @@ const SERVICE_CARDS = [
     number: "01",
     title: "Mental Health Support",
     description:
-      "Confidential one-on-one counseling sessions with licensed professionals. Explore coping strategies, manage stress, and prioritize your well-being in a safe, supportive environment.",
+      "Confidential one-on-one counseling sessions. Explore coping strategies, manage stress, and prioritize your well-being in a safe, supportive environment.",
   },
   {
     number: "02",
@@ -558,7 +558,7 @@ const HomePage = () => {
         </section>
 
         {/* ──────── FOOTER ──────── */}
-        <footer className="mt-28 pt-8 border-t border-neutral-200 bg-neutral-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <footer className="mt-28 pt-8 border-t border-neutral-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-[11px] text-neutral-400 tracking-[0.05em]">
             &copy; {new Date().getFullYear()} University of Santo Tomas&ndash;Legazpi. All rights reserved.
           </p>

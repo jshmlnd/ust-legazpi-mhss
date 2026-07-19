@@ -27,6 +27,7 @@ import { Loader } from "lucide-react";
 
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
+import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
 
 
 const App = () => {
@@ -36,9 +37,14 @@ const App = () => {
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
   useEffect(() => {
+    registerServiceWorker();
+  }, []);
+
+  useEffect(() => {
     if (authUser) {
       connectSocket();
       subscribeToMessages();
+      requestNotificationPermission();
     }
     return () => {
       unsubscribeFromMessages();

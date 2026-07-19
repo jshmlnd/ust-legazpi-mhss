@@ -2,6 +2,7 @@ import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
+import Message from "../models/message.model.js";
 
 const userSocketMap = {};
 let io;
@@ -64,6 +65,91 @@ export const setupSocket = (httpServer) => {
     console.log(`User connected: ${socket.user.fullName} (${userId})`);
 
     io.emit("onlineUsers", Object.keys(userSocketMap));
+
+    socket.on("call:offer", ({ offer, calleeId }) => {
+      const targetSockets = userSocketMap[String(calleeId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("call:initiated", {
+            offer,
+            callerId: userId,
+            callerName: socket.user.fullName,
+            callerModel: socket.user.constructor.modelName,
+          });
+        }
+      }
+    });
+
+    socket.on("call:answer", ({ answer, callerId }) => {
+      const targetSockets = userSocketMap[String(callerId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("call:answer", { answer });
+        }
+      }
+    });
+
+    socket.on("call:ice-candidate", ({ candidate, targetId }) => {
+      const targetSockets = userSocketMap[String(targetId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("call:ice-candidate", { candidate });
+        }
+      }
+    });
+
+    socket.on("call:ended", ({ targetId }) => {
+      const targetSockets = userSocketMap[String(targetId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("call:ended");
+        }
+      }
+    });
+
+    socket.on("call:rejected", ({ callerId }) => {
+      const targetSockets = userSocketMap[String(callerId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("call:rejected");
+        }
+      }
+    });
+
+    socket.on("typing", ({ receiverId }) => {
+      const targetSockets = userSocketMap[String(receiverId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("typing", { userId: userId });
+        }
+      }
+    });
+
+    socket.on("stopTyping", ({ receiverId }) => {
+      const targetSockets = userSocketMap[String(receiverId)];
+      if (targetSockets) {
+        for (const socketId of targetSockets) {
+          io.to(socketId).emit("stopTyping", { userId: userId });
+        }
+      }
+    });
+
+    socket.on("markAsRead", async ({ senderId }) => {
+      try {
+        await Message.updateMany(
+          { senderId: senderId, receiverId: Number(userId), read: false },
+          { $set: { read: true } }
+        );
+        const targetSockets = userSocketMap[String(senderId)];
+        if (targetSockets) {
+          for (const socketId of targetSockets) {
+            io.to(socketId).emit("messagesRead", { readerId: userId });
+          }
+        }
+      } catch (error) {
+        console.error("Error marking messages as read:", error);
+      }
+    });
 
     socket.on("disconnect", () => {
       userSocketMap[userId].delete(socket.id);

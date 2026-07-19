@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban, WifiOff } from 'lucide-react';
+import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban, WifiOff, Phone, Check, CheckCheck, User } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
+import { useCallStore } from '../store/useCallStore';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
+import VoiceCallModal from '../components/VoiceCallModal';
+import AudioPlayer from '../components/AudioPlayer';
 
 const CRISIS_KEYWORDS = [
   'self-harm', 'suicide', 'kill myself', 'want to die',
@@ -32,9 +35,16 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => (
         <img src={message.image} alt="attachment" className="max-w-full rounded-sm mb-2" />
       )}
       {message.text && <p>{message.text}</p>}
-      <p className={`text-[10px] mt-1 ${isOwn ? 'text-neutral-400' : 'text-neutral-400'}`}>
-        {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </p>
+      <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+        <p className={`text-[10px] ${isOwn ? 'text-neutral-400' : 'text-neutral-400'}`}>
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </p>
+        {isOwn && (
+          message.read
+            ? <CheckCheck size={12} className="text-blue-400" />
+            : <Check size={12} className="text-neutral-400" />
+        )}
+      </div>
     </div>
   </div>
 );
@@ -64,22 +74,43 @@ const EmergencyBanner = ({ studentName, onReveal, onDismiss }) => (
   </div>
 );
 
-const MessageInput = ({ onSend, disabled }) => {
+const MessageInput = ({ onSend, disabled, receiverId }) => {
   const [text, setText] = useState('');
+  const typingTimerRef = useRef(null);
+  const { emitTyping, emitStopTyping } = useChatStore();
+
+  const handleChange = (e) => {
+    setText(e.target.value);
+    if (!receiverId || disabled) return;
+
+    emitTyping(receiverId);
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      emitStopTyping(receiverId);
+    }, 2000);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!text.trim() || disabled) return;
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    if (receiverId) emitStopTyping(receiverId);
     onSend({ text: text.trim() });
     setText('');
   };
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    };
+  }, []);
 
   return (
     <form onSubmit={handleSubmit} className="border-t border-neutral-200 px-6 py-4 bg-white">
       <div className="flex items-center gap-3">
         <input
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={handleChange}
           placeholder={disabled ? 'Select a conversation to start chatting' : 'Type a message...'}
           disabled={disabled}
           className="flex-1 bg-transparent border border-neutral-200 text-sm rounded-sm px-4 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -101,13 +132,19 @@ const StudentChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    getUsers, setSelectedUser, sendMessage, isSocketConnected,
+    getUsers, setSelectedUser, sendMessage, isSocketConnected, typingUsers,
   } = useChatStore();
+  const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
 
   useEffect(() => {
     getUsers();
+    subscribeToCallEvents();
+    return () => {
+      unsubscribeFromCallEvents();
+      if (callState !== 'idle') endCall(false);
+    };
   }, [getUsers]);
 
   useEffect(() => {
@@ -130,6 +167,7 @@ const StudentChatView = () => {
         appointment.type === 'chat' &&
         appointment.status === 'completed'
       ) {
+        if (callState !== 'idle') endCall(false);
         setSessionEnded(true);
         toast.success('Counselor ended the session');
         navigate(PATHS.HOME);
@@ -138,7 +176,7 @@ const StudentChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [authUser._id, navigate]);
+  }, [authUser._id, navigate, callState, endCall]);
 
   const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
 
@@ -146,17 +184,40 @@ const StudentChatView = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-68px)]">
+      <VoiceCallModal peerName={counselor?.fullName || 'Counselor'} />
+      <AudioPlayer />
       <div className="border-b border-neutral-200 px-6 py-4 bg-white shrink-0">
-        <p className="text-sm font-medium text-neutral-900">
-          {counselor ? counselor.fullName : 'Your Counselor'}
-        </p>
-        {sessionEnded ? (
-          <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
-        ) : (
-          <p className="text-[11px] text-neutral-400">
-            {counselor ? counselor.fullName : '—'}
-          </p>
-        )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
+              {counselor?.profilePic ? (
+                <img src={counselor.profilePic} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User size={16} className="text-neutral-400" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-medium text-neutral-900">
+                {counselor ? counselor.fullName : 'Your Counselor'}
+              </p>
+            {sessionEnded ? (
+              <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
+            ) : (
+              <p className="text-[11px] text-neutral-400">
+                {counselor ? counselor.fullName : '—'}
+              </p>
+            )}
+          </div>
+          {counselor && !sessionEnded && callState === 'idle' && (
+            <button
+              onClick={() => initiateCall(counselor._id)}
+              className="size-9 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-600 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
+              title="Start voice call"
+            >
+              <Phone size={15} />
+            </button>
+          )}
+        </div>
       </div>
 
       {!isSocketConnected && (
@@ -194,6 +255,13 @@ const StudentChatView = () => {
           ))
         )}
         <div ref={messagesEndRef} />
+        {typingUsers[counselor?._id] && (
+          <div className="flex justify-start mb-3">
+            <div className="bg-neutral-100 px-4 py-2.5 rounded-xl rounded-sm">
+              <p className="text-xs text-neutral-500 animate-pulse">typing...</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {sessionEnded && (
@@ -203,7 +271,7 @@ const StudentChatView = () => {
         </div>
       )}
 
-      <MessageInput onSend={handleSend} disabled={!counselor || sessionEnded} />
+      <MessageInput onSend={handleSend} disabled={!counselor || sessionEnded} receiverId={counselor?._id} />
     </div>
   );
 };
@@ -241,8 +309,9 @@ const CounselorChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     flaggedMessage, getUsers, setSelectedUser, sendMessage, clearFlaggedMessage, removeUser,
-    unreadCounts, isSocketConnected,
+    unreadCounts, isSocketConnected, typingUsers,
   } = useChatStore();
+  const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [activeAppointment, setActiveAppointment] = useState(null);
@@ -252,6 +321,11 @@ const CounselorChatView = () => {
 
   useEffect(() => {
     getUsers();
+    subscribeToCallEvents();
+    return () => {
+      unsubscribeFromCallEvents();
+      if (callState !== 'idle') endCall(false);
+    };
   }, [getUsers]);
 
   useEffect(() => {
@@ -306,6 +380,7 @@ const CounselorChatView = () => {
         appointment.type === 'chat'
       ) {
         if (appointment.status === 'completed') {
+          if (callState !== 'idle') endCall(false);
           setActiveAppointment(null);
           setSessionEndedBanner(true);
         } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
@@ -317,7 +392,7 @@ const CounselorChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [selectedUser]);
+  }, [selectedUser, callState, endCall]);
 
   const handleSend = useCallback((data) => {
     sendMessage(data);
@@ -337,6 +412,7 @@ const CounselorChatView = () => {
 
   const handleEndSession = async () => {
     if (!activeAppointment) return;
+    if (callState !== 'idle') endCall(true);
     setIsEndingSession(true);
     try {
       await axiosInstance.patch(`/appointments/${activeAppointment._id}`, { status: 'completed' });
@@ -365,6 +441,8 @@ const CounselorChatView = () => {
 
   return (
     <div className="flex h-[calc(100vh-68px)] bg-white">
+      <VoiceCallModal peerName={selectedUser ? `STU-${selectedUser._id}` : ''} />
+      <AudioPlayer />
       {/* ─── Sidebar ─── */}
       <div className={`w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'
@@ -429,33 +507,56 @@ const CounselorChatView = () => {
                 <ChevronLeft size={16} />
               </button>
               <div className="flex-1">
-                <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">
-                  STU-{selectedUser._id}
-                </p>
-                {sessionEndedBanner ? (
-                  <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
-                ) : (
-                  <>
-                    <p className="text-[11px] text-neutral-400">
-                      {selectedUser.department} · {selectedUser.program}
-                    </p>
-                    {activeAppointment?.startedAt && (
-                      <p className="text-[11px] text-neutral-400 mt-0.5">
-                        <SessionTimer startedAt={activeAppointment.startedAt} />
-                      </p>
+                <div className="flex items-center gap-3">
+                  <div className="size-9 rounded-full bg-neutral-100 flex items-center justify-center overflow-hidden shrink-0">
+                    {selectedUser?.profilePic ? (
+                      <img src={selectedUser.profilePic} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={14} className="text-neutral-400" />
                     )}
-                  </>
-                )}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">
+                      STU-{selectedUser._id}
+                    </p>
+                    {sessionEndedBanner ? (
+                      <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
+                    ) : (
+                      <>
+                        <p className="text-[11px] text-neutral-400">
+                          {selectedUser.department} · {selectedUser.program}
+                        </p>
+                        {activeAppointment?.startedAt && (
+                          <p className="text-[11px] text-neutral-400 mt-0.5">
+                            <SessionTimer startedAt={activeAppointment.startedAt} />
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
               {activeAppointment && !sessionEndedBanner && (
-                <button
-                  onClick={handleEndSession}
-                  disabled={isEndingSession}
-                  className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50 inline-flex items-center gap-2"
-                >
-                  {isEndingSession ? <Loader size={12} className="animate-spin" /> : null}
-                  End Session
-                </button>
+                <div className="flex items-center gap-2">
+                  {callState === 'idle' && (
+                    <button
+                      onClick={() => initiateCall(selectedUser._id)}
+                      className="px-3 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition-colors rounded-sm inline-flex items-center gap-2"
+                      title="Start voice call"
+                    >
+                      <Phone size={13} />
+                      Call
+                    </button>
+                  )}
+                  <button
+                    onClick={handleEndSession}
+                    disabled={isEndingSession}
+                    className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50 inline-flex items-center gap-2"
+                  >
+                    {isEndingSession ? <Loader size={12} className="animate-spin" /> : null}
+                    End Session
+                  </button>
+                </div>
               )}
             </div>
 
@@ -497,6 +598,13 @@ const CounselorChatView = () => {
                 ))
               )}
               <div ref={messagesEndRef} />
+              {typingUsers[selectedUser._id] && (
+                <div className="flex justify-start mb-3">
+                  <div className="bg-neutral-100 px-4 py-2.5 rounded-xl rounded-sm">
+                    <p className="text-xs text-neutral-500 animate-pulse">typing...</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {sessionEndedBanner && (
@@ -506,7 +614,7 @@ const CounselorChatView = () => {
               </div>
             )}
 
-            <MessageInput onSend={handleSend} disabled={sessionEndedBanner || appointmentLoading} />
+            <MessageInput onSend={handleSend} disabled={sessionEndedBanner || appointmentLoading} receiverId={selectedUser?._id} />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-neutral-50/50">

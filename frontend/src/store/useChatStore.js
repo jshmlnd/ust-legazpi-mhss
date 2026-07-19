@@ -70,11 +70,13 @@ export const useChatStore = create((set, get) => ({
   },
 
   setSelectedUser: (user, appointmentId) => {
-    set({ selectedUser: user, messages: [], flaggedMessage: null });
+    set({ selectedUser: user, messages: [] });
     if (user) {
       get().markAsRead(user._id);
       get().markMessagesAsRead(user._id);
-      get().getMessages(user._id, appointmentId);
+      if (appointmentId) {
+        get().getMessages(user._id, appointmentId);
+      }
     }
   },
 

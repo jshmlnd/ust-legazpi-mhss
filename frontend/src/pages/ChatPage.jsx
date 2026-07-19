@@ -254,16 +254,20 @@ const StudentChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    getUsers, setSelectedUser, sendMessage, isSocketConnected, typingUsers,
+    getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
+    isSocketConnected, typingUsers,
   } = useChatStore();
   const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
+  const [activeAppointment, setActiveAppointment] = useState(null);
 
   useEffect(() => {
     getUsers();
+    subscribeToMessages();
     subscribeToCallEvents();
     return () => {
+      unsubscribeFromMessages();
       unsubscribeFromCallEvents();
       if (callState !== 'idle') endCall(false);
     };
@@ -278,6 +282,21 @@ const StudentChatView = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!selectedUser) return;
+    const fetchAppointment = async () => {
+      try {
+        const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
+        setActiveAppointment(res.data);
+        getMessages(selectedUser._id, res.data?._id);
+      } catch {
+        setActiveAppointment(null);
+        getMessages(selectedUser._id);
+      }
+    };
+    fetchAppointment();
+  }, [selectedUser]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -430,7 +449,8 @@ const CounselorChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    flaggedMessage, getUsers, setSelectedUser, sendMessage, clearFlaggedMessage, removeUser,
+    flaggedMessage, getUsers, setSelectedUser, sendMessage, getMessages,
+    subscribeToMessages, unsubscribeFromMessages, clearFlaggedMessage, removeUser,
     unreadCounts, isSocketConnected, typingUsers,
   } = useChatStore();
   const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
@@ -443,8 +463,10 @@ const CounselorChatView = () => {
 
   useEffect(() => {
     getUsers();
+    subscribeToMessages();
     subscribeToCallEvents();
     return () => {
+      unsubscribeFromMessages();
       unsubscribeFromCallEvents();
       if (callState !== 'idle') endCall(false);
     };
@@ -482,9 +504,11 @@ const CounselorChatView = () => {
         } else {
           setSessionEndedBanner(false);
         }
+        getMessages(selectedUser._id, res.data?._id);
       } catch {
         setActiveAppointment(null);
         setSessionEndedBanner(true);
+        getMessages(selectedUser._id);
       } finally {
         setAppointmentLoading(false);
       }

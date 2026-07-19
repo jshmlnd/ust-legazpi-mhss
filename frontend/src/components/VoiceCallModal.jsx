@@ -15,12 +15,25 @@ const VoiceCallModal = ({ peerName }) => {
   } = useCallStore();
 
   const audioRef = useRef(null);
+  const ringRef = useRef(null);
 
   useEffect(() => {
     if (audioRef.current && remoteStream) {
       audioRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
+
+  useEffect(() => {
+    const ring = ringRef.current;
+    if (!ring) return;
+    if (callState === 'ringing') {
+      ring.currentTime = 0;
+      ring.play().catch(() => {});
+    } else {
+      ring.pause();
+      ring.currentTime = 0;
+    }
+  }, [callState]);
 
   if (callState === 'idle') return null;
 
@@ -32,6 +45,7 @@ const VoiceCallModal = ({ peerName }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <audio ref={audioRef} autoPlay />
+      <audio ref={ringRef} src="/ring.mp3" loop />
 
       <div className="bg-white rounded-sm shadow-xl w-full max-w-sm mx-4 overflow-hidden">
         {isIncoming ? (

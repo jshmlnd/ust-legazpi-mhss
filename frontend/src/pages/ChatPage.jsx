@@ -208,7 +208,8 @@ const StudentChatView = () => {
               </p>
             )}
           </div>
-          {counselor && !sessionEnded && callState === 'idle' && (
+        </div>
+        {counselor && !sessionEnded && callState === 'idle' && (
             <button
               onClick={() => initiateCall(counselor._id)}
               className="size-9 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-600 hover:text-emerald-600 hover:border-emerald-300 transition-colors"
@@ -272,7 +273,6 @@ const StudentChatView = () => {
       )}
 
       <MessageInput onSend={handleSend} disabled={!counselor || sessionEnded} receiverId={counselor?._id} />
-    </div>
     </div>
   );
 };

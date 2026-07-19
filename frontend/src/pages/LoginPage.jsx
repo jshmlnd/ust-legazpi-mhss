@@ -34,7 +34,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-full pt-32 flex items-center justify-center px-6">
+    <div className="min-h-full pt-32 flex items-center justify-center px-6" style={{ backgroundImage: 'url(https://ik.imagekit.io/zjkm666/background.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
       <div className="w-full max-w-sm">
         <div className="mb-12 text-center">
           <h1 className="text-xl tracking-[0.2em] font-medium text-gray-900 uppercase mb-3">

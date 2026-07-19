@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { getSocket } from "../lib/socket";
 import { axiosInstance } from "../lib/axios";
+import { useChatStore } from "./useChatStore";
 import toast from "react-hot-toast";
 
 const RTC_CONFIG = {
@@ -189,11 +190,15 @@ export const useCallStore = create((set, get) => ({
       const text = wasActive
         ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)`
         : 'Call cancelled';
-      await axiosInstance.post(`/message/send/${peerId}`, {
+      const res = await axiosInstance.post(`/message/send/${peerId}`, {
         type: 'call-log',
         callDuration: duration,
         text,
       });
+      const { selectedUser, messages } = useChatStore.getState();
+      if (selectedUser && String(selectedUser._id) === String(peerId)) {
+        useChatStore.setState({ messages: [...messages, res.data] });
+      }
     } catch {
       // silently fail — call log is non-critical
     }

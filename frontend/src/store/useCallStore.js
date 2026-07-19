@@ -17,7 +17,7 @@ const generateUid = (userId) => {
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
   }
-  return Math.abs(hash);
+  return Math.abs(hash) || 1;
 };
 
 let agoraClient = null;
@@ -149,7 +149,7 @@ export const useCallStore = create((set, get) => ({
         ? "Microphone access denied. Please allow microphone access and try again."
         : "Could not start call. Please try again.";
       toast.error(msg);
-      get().cleanup();
+      await get().cleanup();
     }
   },
 
@@ -188,7 +188,7 @@ export const useCallStore = create((set, get) => ({
         ? "Microphone access denied. Please allow microphone access and try again."
         : "Could not join call. Please try again.";
       toast.error(msg);
-      get().cleanup();
+      await get().cleanup();
     }
   },
 
@@ -206,7 +206,7 @@ export const useCallStore = create((set, get) => ({
   },
 
   endCall: async (notifyPeer = true) => {
-    const { peerId, callDuration, callState, localAudioTrack } = get();
+    const { peerId, callDuration, callState } = get();
     if (notifyPeer && peerId) {
       const socket = getSocket();
       socket.emit("call:ended", { targetId: peerId });
@@ -215,21 +215,21 @@ export const useCallStore = create((set, get) => ({
       const wasActive = callState === "active";
       await get()._logCall(peerId, wasActive ? callDuration : 0, wasActive);
     }
-    get().cleanup();
+    await get().cleanup();
   },
 
   handleCallEnded: async () => {
     const { peerId, callDuration } = get();
     if (peerId) await get()._logCall(peerId, callDuration);
     toast("Call ended");
-    get().cleanup();
+    await get().cleanup();
   },
 
   handleCallRejected: async () => {
     const { peerId } = get();
     if (peerId) await get()._logCall(peerId, 0);
     toast("Call rejected");
-    get().cleanup();
+    await get().cleanup();
   },
 
   toggleMute: () => {
@@ -240,14 +240,15 @@ export const useCallStore = create((set, get) => ({
     }
   },
 
-  cleanup: () => {
-    const { localAudioTrack, callTimer, callState } = get();
+  cleanup: async () => {
+    const { localAudioTrack, callTimer } = get();
     if (callTimer) clearInterval(callTimer);
     if (localAudioTrack) {
       localAudioTrack.close();
     }
     if (agoraClient) {
-      agoraClient.leave();
+      try { await agoraClient.leave(); } catch (e) { console.warn("Agora leave failed:", e); }
+      agoraClient = null;
     }
 
     set({

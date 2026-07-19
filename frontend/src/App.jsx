@@ -23,16 +23,19 @@ import StudentIdentityPage from './pages/StudentIdentityPage';
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from './store/useAuthStore';
 import { useChatStore } from './store/useChatStore';
+import { useCallStore } from './store/useCallStore';
 import { Loader } from "lucide-react";
 
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
+import VoiceCallModal from './components/VoiceCallModal';
 
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
-  const { subscribeToMessages, unsubscribeFromMessages } = useChatStore();
+  const { subscribeToMessages, unsubscribeFromMessages, selectedUser } = useChatStore();
+  const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
@@ -44,13 +47,15 @@ const App = () => {
     if (authUser) {
       connectSocket();
       subscribeToMessages();
+      subscribeToCallEvents();
       requestNotificationPermission();
     }
     return () => {
       unsubscribeFromMessages();
+      unsubscribeFromCallEvents();
       disconnectSocket();
     };
-  }, [authUser, subscribeToMessages, unsubscribeFromMessages]);
+  }, [authUser, subscribeToMessages, unsubscribeFromMessages, subscribeToCallEvents, unsubscribeFromCallEvents]);
 
   console.log({ authUser });
 
@@ -65,6 +70,13 @@ const App = () => {
 
     <Navbar />
     <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+    <VoiceCallModal
+      peerName={
+        incomingCall?.callerName ||
+        selectedUser?.fullName ||
+        ''
+      }
+    />
 
     <Routes>
       {/* Student Routes */}

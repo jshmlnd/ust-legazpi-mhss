@@ -8,7 +8,6 @@ import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
-import VoiceCallModal from '../components/VoiceCallModal';
 
 const CRISIS_KEYWORDS = [
   'self-harm', 'suicide', 'kill myself', 'want to die',
@@ -257,7 +256,7 @@ const StudentChatView = () => {
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
     isSocketConnected, typingUsers,
   } = useChatStore();
-  const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
+  const { callState, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [activeAppointment, setActiveAppointment] = useState(null);
@@ -265,10 +264,8 @@ const StudentChatView = () => {
   useEffect(() => {
     getUsers();
     subscribeToMessages();
-    subscribeToCallEvents();
     return () => {
       unsubscribeFromMessages();
-      unsubscribeFromCallEvents();
       if (callState !== 'idle') endCall(false);
     };
   }, [getUsers]);
@@ -325,7 +322,6 @@ const StudentChatView = () => {
 
   return (
     <div className="flex flex-col h-[calc(100vh-68px)]">
-      <VoiceCallModal peerName={counselor?.fullName || 'Counselor'} />
       <div className="border-b border-neutral-200 px-6 py-4 bg-white shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -453,7 +449,7 @@ const CounselorChatView = () => {
     subscribeToMessages, unsubscribeFromMessages, clearFlaggedMessage, removeUser,
     unreadCounts, isSocketConnected, typingUsers,
   } = useChatStore();
-  const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
+  const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [activeAppointment, setActiveAppointment] = useState(null);
@@ -464,10 +460,8 @@ const CounselorChatView = () => {
   useEffect(() => {
     getUsers();
     subscribeToMessages();
-    subscribeToCallEvents();
     return () => {
       unsubscribeFromMessages();
-      unsubscribeFromCallEvents();
       if (callState !== 'idle') endCall(false);
     };
   }, [getUsers]);
@@ -587,7 +581,6 @@ const CounselorChatView = () => {
 
   return (
     <div className="flex h-[calc(100vh-68px)] bg-white">
-      <VoiceCallModal peerName={selectedUser ? `STU-${selectedUser._id}` : ''} />
       {/* ─── Sidebar ─── */}
       <div className={`w-full lg:w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'

@@ -14,12 +14,6 @@ const DLP_PATTERNS = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024;
 
-const detectFileType = (mimetype, originalname) => {
-    if (mimetype.startsWith('video/')) return 'video';
-    if (mimetype.startsWith('image/')) return 'image';
-    return 'file';
-};
-
 const scanForMalware = (filename) => {
     const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0];
     return MALWARE_EXTENSIONS.includes(ext);
@@ -71,6 +65,17 @@ export const getMessages = async (req, res) => {
         res.status(200).json(messages);
     } catch (error) {
         console.log("Error in getMessages controller: ", error.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+export const deleteMessagesByAppointment = async (req, res) => {
+    try {
+        const { appointmentId } = req.params;
+        await Message.deleteMany({ appointmentId });
+        res.status(200).json({ message: "Messages deleted" });
+    } catch (error) {
+        console.log("Error in deleteMessagesByAppointment: ", error.message);
         res.status(500).json({ error: "Internal Server Error" });
     }
 };

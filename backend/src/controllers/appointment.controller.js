@@ -1,6 +1,7 @@
 import Appointment from "../models/appointment.model.js";
 import Counselor from "../models/counselor.model.js";
 import User from "../models/user.model.js";
+import Message from "../models/message.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 
 export const getAppointments = async (req, res) => {
@@ -99,6 +100,10 @@ export const updateAppointment = async (req, res) => {
 
     Object.assign(appointment, req.body);
     await appointment.save();
+
+    if (req.body.status === 'completed' && appointment.type === 'Chat') {
+      await Message.deleteMany({ appointmentId: appointment._id });
+    }
 
     const io = getIO();
     if (io) {

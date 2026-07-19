@@ -21,6 +21,7 @@ export const useCallStore = create((set, get) => ({
   isMuted: false,
   callDuration: 0,
   callTimer: null,
+  _logged: false,
 
   initiateCall: async (calleeId) => {
     try {
@@ -186,6 +187,8 @@ export const useCallStore = create((set, get) => ({
   },
 
   _logCall: async (peerId, duration, wasActive = true) => {
+    if (get()._logged) return;
+    set({ _logged: true });
     try {
       const text = wasActive
         ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)`
@@ -230,6 +233,7 @@ export const useCallStore = create((set, get) => ({
       isMuted: false,
       callDuration: 0,
       callTimer: null,
+      _logged: false,
     });
   },
 

@@ -180,7 +180,7 @@ const StudentChatView = () => {
 
   const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
 
-  const counselor = selectedUser;
+  const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-68px)]">
@@ -204,7 +204,7 @@ const StudentChatView = () => {
               <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
             ) : (
               <p className="text-[11px] text-neutral-400">
-                {counselor ? counselor.fullName : '—'}
+                {counselor ? counselor.department : '—'}
               </p>
             )}
           </div>

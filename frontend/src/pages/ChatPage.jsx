@@ -9,7 +9,6 @@ import { getSocket } from '../lib/socket';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 import VoiceCallModal from '../components/VoiceCallModal';
-import AudioPlayer from '../components/AudioPlayer';
 
 const CRISIS_KEYWORDS = [
   'self-harm', 'suicide', 'kill myself', 'want to die',
@@ -308,7 +307,6 @@ const StudentChatView = () => {
   return (
     <div className="flex flex-col h-[calc(100vh-68px)]">
       <VoiceCallModal peerName={counselor?.fullName || 'Counselor'} />
-      <AudioPlayer />
       <div className="border-b border-neutral-200 px-6 py-4 bg-white shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -566,7 +564,6 @@ const CounselorChatView = () => {
   return (
     <div className="flex h-[calc(100vh-68px)] bg-white">
       <VoiceCallModal peerName={selectedUser ? `STU-${selectedUser._id}` : ''} />
-      <AudioPlayer />
       {/* ─── Sidebar ─── */}
       <div className={`w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'

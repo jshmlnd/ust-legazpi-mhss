@@ -273,6 +273,7 @@ const StudentChatView = () => {
 
       <MessageInput onSend={handleSend} disabled={!counselor || sessionEnded} receiverId={counselor?._id} />
     </div>
+    </div>
   );
 };
 

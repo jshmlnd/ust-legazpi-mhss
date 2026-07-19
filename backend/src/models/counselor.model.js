@@ -30,7 +30,19 @@ const counselorSchema = new mongoose.Schema(
         userType: {
             type: String,
             default: "Counselor",
-        }
+        },
+        twoFactorEnabled: {
+            type: Boolean,
+            default: false,
+        },
+        otp: {
+            type: String,
+            default: null,
+        },
+        otpExpiry: {
+            type: Date,
+            default: null,
+        },
     },
     { timestamps: true, _id: false });
 

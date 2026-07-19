@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban, WifiOff, Phone, Check, CheckCheck, User } from 'lucide-react';
+import { Send, AlertTriangle, Eye, Loader, ChevronLeft, Ban, WifiOff, Phone, Check, CheckCheck, User, Paperclip, File, Video, Image as ImageIcon, X } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { useChatStore } from '../store/useChatStore';
 import { useCallStore } from '../store/useCallStore';
@@ -35,6 +35,13 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
     );
   }
 
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+  };
+
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
@@ -49,15 +56,31 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
         {message.image && (
           <img src={message.image} alt="attachment" className="max-w-full rounded-sm mb-2" />
         )}
+        {message.type === 'file' && message.fileUrl && (
+          <a href={message.fileUrl} target="_blank" rel="noopener noreferrer"
+            className={`flex items-center gap-2 p-2 rounded-sm mb-2 ${isOwn ? 'bg-neutral-800' : 'bg-neutral-200'}`}>
+            <File size={16} />
+            <div className="min-w-0">
+              <p className="text-xs font-medium truncate">{message.fileName}</p>
+              <p className="text-[10px] opacity-60">{formatFileSize(message.fileSize)}</p>
+            </div>
+          </a>
+        )}
+        {message.type === 'video' && message.fileUrl && (
+          <video src={message.fileUrl} controls className="max-w-full rounded-sm mb-2 max-h-64" />
+        )}
         {message.text && <p>{message.text}</p>}
         <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
           <p className={`text-[10px] ${isOwn ? 'text-neutral-400' : 'text-neutral-400'}`}>
             {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </p>
           {isOwn && (
-            message.read
-              ? <CheckCheck size={12} className="text-blue-400" />
-              : <Check size={12} className="text-neutral-400" />
+            <span className="flex items-center gap-0.5">
+              {message.read
+                ? <><CheckCheck size={12} className="text-blue-400" /><span className="text-[10px] text-blue-400">Read</span></>
+                : <><Check size={12} className="text-neutral-400" /><span className="text-[10px] text-neutral-400">Sent</span></>
+              }
+            </span>
           )}
         </div>
       </div>
@@ -92,8 +115,14 @@ const EmergencyBanner = ({ studentName, onReveal, onDismiss }) => (
 
 const MessageInput = ({ onSend, disabled, receiverId }) => {
   const [text, setText] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const typingTimerRef = useRef(null);
+  const fileInputRef = useRef(null);
   const { emitTyping, emitStopTyping } = useChatStore();
+
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024;
 
   const handleChange = (e) => {
     setText(e.target.value);
@@ -106,12 +135,64 @@ const MessageInput = ({ onSend, disabled, receiverId }) => {
     }, 2000);
   };
 
-  const handleSubmit = (e) => {
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const isVideo = file.type.startsWith('video/');
+    const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_FILE_SIZE;
+
+    if (file.size > maxSize) {
+      toast.error(isVideo ? 'Video exceeds 5GB limit' : 'File exceeds 10MB limit');
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!text.trim() || disabled) return;
+    if (disabled) return;
+    if (!text.trim() && !selectedFile) return;
+
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
     if (receiverId) emitStopTyping(receiverId);
-    onSend({ text: text.trim() });
+
+    if (selectedFile) {
+      setUploading(true);
+      try {
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+
+        const isVideo = selectedFile.type.startsWith('video/');
+        const isImage = selectedFile.type.startsWith('image/');
+
+        if (isImage) {
+          onSend({ text: text.trim() || undefined, image: base64 });
+        } else {
+          const type = isVideo ? 'video' : 'file';
+          onSend({ text: text.trim() || undefined, type, fileUrl: base64, fileName: selectedFile.name, fileSize: selectedFile.size });
+        }
+
+        setSelectedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      } catch {
+        toast.error('Failed to upload file');
+      } finally {
+        setUploading(false);
+      }
+    } else {
+      onSend({ text: text.trim() });
+    }
     setText('');
   };
 
@@ -123,7 +204,33 @@ const MessageInput = ({ onSend, disabled, receiverId }) => {
 
   return (
     <form onSubmit={handleSubmit} className="border-t border-neutral-200 px-6 py-4 bg-white">
+      {selectedFile && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-neutral-50 rounded-sm border border-neutral-200">
+          {selectedFile.type.startsWith('video/') ? <Video size={14} className="text-neutral-500 shrink-0" /> :
+           selectedFile.type.startsWith('image/') ? <ImageIcon size={14} className="text-neutral-500 shrink-0" /> :
+           <File size={14} className="text-neutral-500 shrink-0" />}
+          <span className="text-xs text-neutral-600 truncate flex-1">{selectedFile.name}</span>
+          <button type="button" onClick={handleRemoveFile} className="text-neutral-400 hover:text-neutral-600">
+            <X size={14} />
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-3">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          className="hidden"
+          accept="image/*,video/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || uploading}
+          className="size-10 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-300 transition-colors shrink-0 disabled:opacity-50"
+        >
+          <Paperclip size={15} />
+        </button>
         <input
           value={text}
           onChange={handleChange}
@@ -133,10 +240,10 @@ const MessageInput = ({ onSend, disabled, receiverId }) => {
         />
         <button
           type="submit"
-          disabled={!text.trim() || disabled}
+          disabled={(!text.trim() && !selectedFile) || disabled || uploading}
           className="size-10 flex items-center justify-center rounded-sm bg-neutral-900 text-white hover:bg-neutral-800 disabled:bg-neutral-200 disabled:text-neutral-400 transition-colors shrink-0"
         >
-          <Send size={15} />
+          {uploading ? <Loader size={15} className="animate-spin" /> : <Send size={15} />}
         </button>
       </div>
     </form>

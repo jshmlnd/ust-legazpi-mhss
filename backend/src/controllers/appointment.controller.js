@@ -34,6 +34,23 @@ export const getAppointments = async (req, res) => {
 export const createAppointment = async (req, res) => {
   try {
     const { counselorId, type, date, time, concern } = req.body;
+
+    if (type === 'Face-To-Face') {
+      const existingF2F = await Appointment.findOne({
+        counselorId,
+        type: 'Face-To-Face',
+        date,
+        time,
+        status: { $in: ['pending', 'confirmed', 'active'] },
+      });
+      if (existingF2F) {
+        return res.status(409).json({
+          error: "Counselor already has a Face-To-Face session booked on this date and time",
+          conflict: existingF2F,
+        });
+      }
+    }
+
     const appointment = new Appointment({
       studentId: req.user._id,
       counselorId,
@@ -47,6 +64,9 @@ export const createAppointment = async (req, res) => {
     const io = getIO();
     if (io) {
       getReceiverSocketIds(String(counselorId)).forEach(socketId => {
+        io.to(socketId).emit("appointment:updated", appointment);
+      });
+      getReceiverSocketIds(String(req.user._id)).forEach(socketId => {
         io.to(socketId).emit("appointment:updated", appointment);
       });
     }

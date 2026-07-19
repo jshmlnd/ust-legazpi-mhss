@@ -38,10 +38,11 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
-  getMessages: async (userId) => {
+  getMessages: async (userId, appointmentId) => {
     set({ isMessagesLoading: true });
     try {
-      const res = await axiosInstance.get(`/message/${userId}`);
+      const params = appointmentId ? `?appointmentId=${appointmentId}` : '';
+      const res = await axiosInstance.get(`/message/${userId}${params}`);
       set({ messages: res.data });
     } catch (error) {
       toast.error("Failed to load messages");
@@ -63,16 +64,17 @@ export const useChatStore = create((set, get) => ({
         set({ flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id } });
       }
     } catch (error) {
-      toast.error("Failed to send message");
+      const msg = error.response?.data?.error || "Failed to send message";
+      toast.error(msg);
     }
   },
 
-  setSelectedUser: (user) => {
+  setSelectedUser: (user, appointmentId) => {
     set({ selectedUser: user, messages: [], flaggedMessage: null });
     if (user) {
       get().markAsRead(user._id);
       get().markMessagesAsRead(user._id);
-      get().getMessages(user._id);
+      get().getMessages(user._id, appointmentId);
     }
   },
 

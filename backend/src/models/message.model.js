@@ -22,9 +22,14 @@ const messageSchema = new mongoose.Schema(
             required: true,
             enum: ['User', 'Counselor']
         },
+        appointmentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Appointment',
+            default: null,
+        },
         type: {
             type: String,
-            enum: ['text', 'image', 'call-log'],
+            enum: ['text', 'image', 'file', 'video', 'call-log'],
             default: 'text',
         },
         text: {
@@ -32,6 +37,16 @@ const messageSchema = new mongoose.Schema(
         },
         image: {
             type: String,
+        },
+        fileUrl: {
+            type: String,
+        },
+        fileName: {
+            type: String,
+        },
+        fileSize: {
+            type: Number,
+            default: 0,
         },
         callDuration: {
             type: Number,

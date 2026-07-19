@@ -648,16 +648,40 @@ const HomePage = () => {
             </select>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date</label>
-            <input
-              type="date"
-              value={f2fDate}
-              onChange={(e) => handleF2fDateChange(e.target.value)}
-              min={new Date().toISOString().slice(0, 10)}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-            />
-          </div>
+          {f2fCounselorId && f2fAllSlots.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Dates</label>
+              <div className="flex flex-wrap gap-2">
+                {[...new Set(f2fAllSlots.filter(s => s.isAvailable).map(s => s.date))].sort().map((date) => (
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={() => handleF2fDateChange(date)}
+                    className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                      f2fDate === date
+                        ? 'bg-neutral-900 text-white border-neutral-900'
+                        : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                    }`}
+                  >
+                    {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {f2fCounselorId && f2fAllSlots.length > 0 && (
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date (Manual)</label>
+              <input
+                type="date"
+                value={f2fDate}
+                onChange={(e) => handleF2fDateChange(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+              />
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>

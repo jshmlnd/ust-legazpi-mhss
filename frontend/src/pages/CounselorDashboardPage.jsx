@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, Loader } from 'lucide-react';
+import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -238,6 +238,79 @@ const CounselorDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);
   const [endingSessionId, setEndingSessionId] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
+  const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+
+  const fetchSuggestions = async () => {
+    try {
+      const res = await axiosInstance.get('/suggestions');
+      setSuggestions(res.data);
+    } catch {}
+  };
+
+  const fetchAnnouncements = async () => {
+    try {
+      const res = await axiosInstance.get('/announcements');
+      setAnnouncements(res.data);
+    } catch {}
+  };
+
+  const deleteSuggestion = async (id) => {
+    try {
+      await axiosInstance.delete(`/suggestions/${id}`);
+      setSuggestions((prev) => prev.filter((s) => s._id !== id));
+      toast.success('Suggestion removed');
+    } catch {
+      toast.error('Failed to delete suggestion');
+    }
+  };
+
+  const restoreSuggestion = async (id) => {
+    try {
+      await axiosInstance.patch(`/suggestions/${id}/restore`);
+      fetchSuggestions();
+      toast.success('Suggestion restored');
+    } catch {
+      toast.error('Failed to restore suggestion');
+    }
+  };
+
+  const createAnnouncement = async () => {
+    if (!announcementForm.title.trim() || !announcementForm.body.trim()) return;
+    setCreatingAnnouncement(true);
+    try {
+      const res = await axiosInstance.post('/announcements', announcementForm);
+      setAnnouncements((prev) => [res.data, ...prev]);
+      setAnnouncementForm({ title: '', body: '' });
+      toast.success('Announcement created');
+    } catch {
+      toast.error('Failed to create announcement');
+    } finally {
+      setCreatingAnnouncement(false);
+    }
+  };
+
+  const deleteAnnouncement = async (id) => {
+    try {
+      await axiosInstance.delete(`/announcements/${id}`);
+      setAnnouncements((prev) => prev.filter((a) => a._id !== id));
+      toast.success('Announcement deleted');
+    } catch {
+      toast.error('Failed to delete announcement');
+    }
+  };
+
+  const restoreAnnouncement = async (id) => {
+    try {
+      await axiosInstance.patch(`/announcements/${id}/restore`);
+      fetchAnnouncements();
+      toast.success('Announcement restored');
+    } catch {
+      toast.error('Failed to restore announcement');
+    }
+  };
 
   const handleEndSession = async (session) => {
     setEndingSessionId(session.id);
@@ -304,6 +377,8 @@ const CounselorDashboardPage = () => {
     };
 
     fetchData();
+    fetchSuggestions();
+    fetchAnnouncements();
 
     const socket = getSocket();
     if (socket) {
@@ -381,6 +456,114 @@ const CounselorDashboardPage = () => {
           </div>
           <div className="lg:col-span-1">
             <ResourceTracking />
+          </div>
+        </div>
+
+        <div className="mt-8">
+          <div className="mb-4 flex items-center gap-4">
+            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400">Suggestions & Announcements</span>
+            <span className="h-px flex-1 bg-neutral-200" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white border border-neutral-200 rounded-sm">
+              <div className="px-6 pt-6 pb-3 flex items-center gap-2.5">
+                <MessageSquare size={16} className="text-neutral-500" />
+                <div>
+                  <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Student Suggestions</span>
+                  <h3 className="mt-0.5 text-sm font-medium text-neutral-900">{suggestions.length} submissions</h3>
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {suggestions.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-xs text-neutral-400">No suggestions yet.</div>
+                ) : (
+                  suggestions.map((s) => (
+                    <div key={s._id} className="px-6 py-3 border-t border-neutral-100 hover:bg-neutral-50 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs text-neutral-900">{s.message}</p>
+                          <p className="text-[10px] text-neutral-400 mt-1">
+                            STU-{s.studentId} · {new Date(s.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {s.isDeleted ? (
+                            <button onClick={() => restoreSuggestion(s._id)} className="text-neutral-400 hover:text-emerald-600 transition-colors" title="Restore">
+                              <RotateCcw size={12} />
+                            </button>
+                          ) : (
+                            <button onClick={() => deleteSuggestion(s._id)} className="text-neutral-400 hover:text-red-500 transition-colors" title="Delete">
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white border border-neutral-200 rounded-sm">
+              <div className="px-6 pt-6 pb-3 flex items-center gap-2.5">
+                <Megaphone size={16} className="text-neutral-500" />
+                <div>
+                  <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Announcements</span>
+                  <h3 className="mt-0.5 text-sm font-medium text-neutral-900">{announcements.length} total</h3>
+                </div>
+              </div>
+              <div className="px-6 pb-4 space-y-3">
+                <input
+                  value={announcementForm.title}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
+                  placeholder="Announcement title"
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                />
+                <textarea
+                  value={announcementForm.body}
+                  onChange={(e) => setAnnouncementForm({ ...announcementForm, body: e.target.value })}
+                  placeholder="Write your announcement..."
+                  rows={3}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+                />
+                <button
+                  onClick={createAnnouncement}
+                  disabled={!announcementForm.title.trim() || !announcementForm.body.trim() || creatingAnnouncement}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm"
+                >
+                  {creatingAnnouncement ? <Loader size={12} className="animate-spin" /> : <Megaphone size={12} />}
+                  Post Announcement
+                </button>
+              </div>
+              <div className="max-h-60 overflow-y-auto border-t border-neutral-100">
+                {announcements.length === 0 ? (
+                  <div className="px-6 py-6 text-center text-xs text-neutral-400">No announcements.</div>
+                ) : (
+                  announcements.map((a) => (
+                    <div key={a._id} className="px-6 py-3 border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 transition-colors">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-neutral-900">{a.title}</p>
+                          <p className="text-[10px] text-neutral-400 mt-0.5">{new Date(a.createdAt).toLocaleDateString()}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {a.isDeleted ? (
+                            <button onClick={() => restoreAnnouncement(a._id)} className="text-neutral-400 hover:text-emerald-600 transition-colors" title="Restore">
+                              <RotateCcw size={12} />
+                            </button>
+                          ) : (
+                            <button onClick={() => deleteAnnouncement(a._id)} className="text-neutral-400 hover:text-red-500 transition-colors" title="Delete">
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 

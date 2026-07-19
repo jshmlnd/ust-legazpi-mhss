@@ -3,6 +3,127 @@ import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+    },
+});
+
+const generateOTP = () => {
+    return Math.floor(10000 + Math.random() * 90000).toString();
+};
+
+export const sendOTP = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        const otp = generateOTP();
+        const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+        account.otp = otp;
+        account.otpExpiry = otpExpiry;
+        await account.save();
+
+        await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: account.email,
+            subject: "Your Verification Code",
+            text: `Your verification code is: ${otp}. It expires in 10 minutes.`,
+        });
+
+        res.status(200).json({ message: "OTP sent successfully" });
+    } catch (error) {
+        console.log("Error in sendOTP controller: ", error.message);
+        return res.status(500).json({ message: "Failed to send OTP" });
+    }
+};
+
+export const verifyOTP = async (req, res) => {
+    try {
+        const { otp } = req.body;
+        const userId = req.user._id;
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.otp || !account.otpExpiry) {
+            return res.status(400).json({ message: "No OTP pending verification" });
+        }
+
+        if (new Date() > account.otpExpiry) {
+            account.otp = null;
+            account.otpExpiry = null;
+            await account.save();
+            return res.status(400).json({ message: "OTP has expired" });
+        }
+
+        if (account.otp !== otp) {
+            return res.status(400).json({ message: "Invalid OTP" });
+        }
+
+        account.otp = null;
+        account.otpExpiry = null;
+        account.twoFactorEnabled = true;
+        await account.save();
+
+        res.status(200).json({ message: "Two-factor authentication enabled" });
+    } catch (error) {
+        console.log("Error in verifyOTP controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const disable2FA = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        account.twoFactorEnabled = false;
+        account.otp = null;
+        account.otpExpiry = null;
+        await account.save();
+
+        res.status(200).json({ message: "Two-factor authentication disabled" });
+    } catch (error) {
+        console.log("Error in disable2FA controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const updateProfileDetails = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { fullName, email, phone, department, program, yearLevel } = req.body;
+
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (fullName) account.fullName = fullName;
+        if (email) account.email = email;
+        if (phone !== undefined && account.phone !== undefined) account.phone = phone;
+        if (department && account.department !== undefined) account.department = department;
+        if (program && account.program !== undefined) account.program = program;
+        if (yearLevel && account.yearLevel !== undefined) account.yearLevel = yearLevel;
+
+        await account.save();
+
+        const updated = await Model.findById(userId).select("-password");
+        res.status(200).json(updated);
+    } catch (error) {
+        console.log("Error in updateProfileDetails controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
 
 export const login = async (req , res) => {
     const { studentId, counselorId, password } = req.body;

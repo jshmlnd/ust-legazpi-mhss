@@ -1,5 +1,6 @@
 import express from "express";
-import { RtcTokenBuilder, Role } from "agora-access-token";
+import pkg from "agora-access-token";
+const { RtcTokenBuilder, RtcRole } = pkg;
 import { protectRoute } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -10,6 +11,11 @@ const TOKEN_EXPIRATION = parseInt(process.env.TOKEN_EXPIRATION) || 3600;
 
 router.post("/token", protectRoute, (req, res) => {
     try {
+        if (!APP_ID || !APP_CERTIFICATE) {
+            console.error("[Agora] Missing env vars: AGORA_APP_ID =", !!APP_ID, "AGORA_APP_CERTIFICATE =", !!APP_CERTIFICATE);
+            return res.status(500).json({ error: "Agora credentials not configured on server" });
+        }
+
         const { channelName, uid } = req.body;
 
         if (!channelName || !uid) {
@@ -24,7 +30,7 @@ router.post("/token", protectRoute, (req, res) => {
             APP_CERTIFICATE,
             channelName,
             parseInt(uid),
-            Role.PUBLISHER,
+            RtcRole.PUBLISHER,
             privilegeExpire
         );
 

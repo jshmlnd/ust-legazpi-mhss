@@ -82,8 +82,13 @@ export const useCallStore = create((set, get) => ({
 
   _fetchToken: async (channelName) => {
     const uid = get()._getUid();
-    const res = await axiosInstance.post("/agora/token", { channelName, uid });
-    return res.data;
+    try {
+      const res = await axiosInstance.post("/agora/token", { channelName, uid });
+      return res.data;
+    } catch (err) {
+      const detail = err.response?.data?.error || err.message;
+      throw new Error(`Token fetch failed: ${detail}`);
+    }
   },
 
   _startTimer: () => {
@@ -120,14 +125,25 @@ export const useCallStore = create((set, get) => ({
   initiateCall: async (calleeId) => {
     try {
       const channelName = get()._getChannelName(calleeId);
+      console.log("[Agora] initiating call to", calleeId, "channel:", channelName);
+
       const client = get()._getClient();
+      console.log("[Agora] client created");
+
       const { token, appId } = await get()._fetchToken(channelName);
+      console.log("[Agora] token fetched, appId:", appId);
+
       const uid = get()._getUid();
+      console.log("[Agora] uid:", uid);
 
       await client.join(appId, channelName, token, uid);
+      console.log("[Agora] joined channel");
 
       const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      console.log("[Agora] mic track created");
+
       await client.publish([localAudioTrack]);
+      console.log("[Agora] published");
 
       const socket = getSocket();
       socket.emit("call:offer", {
@@ -144,11 +160,8 @@ export const useCallStore = create((set, get) => ({
 
       get()._startTimer();
     } catch (error) {
-      console.error("Failed to initiate call:", error);
-      const msg = error.message?.includes("microphone") || error.message?.includes("NotAllowed") || error.message?.includes("Permission")
-        ? "Microphone access denied. Please allow microphone access and try again."
-        : "Could not start call. Please try again.";
-      toast.error(msg);
+      console.error("[Agora] Failed to initiate call:", error);
+      toast.error(`Call failed: ${error.message || "Unknown error"}`);
       await get().cleanup();
     }
   },

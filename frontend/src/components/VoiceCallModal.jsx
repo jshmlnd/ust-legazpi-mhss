@@ -20,6 +20,7 @@ const VoiceCallModal = ({ peerName }) => {
   useEffect(() => {
     if (audioRef.current && remoteStream) {
       audioRef.current.srcObject = remoteStream;
+      audioRef.current.play().catch(() => {});
     }
   }, [remoteStream]);
 

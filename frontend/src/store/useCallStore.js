@@ -22,6 +22,7 @@ export const useCallStore = create((set, get) => ({
   callDuration: 0,
   callTimer: null,
   _logged: false,
+  _pendingIceCandidates: [],
 
   initiateCall: async (calleeId) => {
     try {
@@ -103,6 +104,8 @@ export const useCallStore = create((set, get) => ({
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
 
+      get()._flushPendingIceCandidates();
+
       const socket = getSocket();
       socket.emit("call:answer", {
         answer,
@@ -130,13 +133,22 @@ export const useCallStore = create((set, get) => ({
     if (peerConnection) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
       set({ callState: "active" });
+      get()._flushPendingIceCandidates();
     }
   },
 
   handleIceCandidate: async (candidate) => {
     const { peerConnection } = get();
     if (peerConnection) {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.warn("Failed to add ICE candidate:", e);
+      }
+    } else {
+      set((state) => ({
+        _pendingIceCandidates: [...state._pendingIceCandidates, candidate],
+      }));
     }
   },
 
@@ -207,6 +219,19 @@ export const useCallStore = create((set, get) => ({
     }
   },
 
+  _flushPendingIceCandidates: async () => {
+    const { peerConnection, _pendingIceCandidates } = get();
+    if (!peerConnection || _pendingIceCandidates.length === 0) return;
+    for (const candidate of _pendingIceCandidates) {
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.warn("Failed to add buffered ICE candidate:", e);
+      }
+    }
+    set({ _pendingIceCandidates: [] });
+  },
+
   _startTimer: () => {
     const existing = get().callTimer;
     if (existing) clearInterval(existing);
@@ -234,6 +259,7 @@ export const useCallStore = create((set, get) => ({
       callDuration: 0,
       callTimer: null,
       _logged: false,
+      _pendingIceCandidates: [],
     });
   },
 

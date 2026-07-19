@@ -124,8 +124,9 @@ export const useCallStore = create((set, get) => ({
       const { token, appId } = await get()._fetchToken(channelName);
       const uid = get()._getUid();
 
-      const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
       await client.join(appId, channelName, token, uid);
+
+      const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
       await client.publish([localAudioTrack]);
 
       const socket = getSocket();
@@ -144,7 +145,10 @@ export const useCallStore = create((set, get) => ({
       get()._startTimer();
     } catch (error) {
       console.error("Failed to initiate call:", error);
-      toast.error("Could not access microphone");
+      const msg = error.message?.includes("microphone") || error.message?.includes("NotAllowed") || error.message?.includes("Permission")
+        ? "Microphone access denied. Please allow microphone access and try again."
+        : "Could not start call. Please try again.";
+      toast.error(msg);
       get().cleanup();
     }
   },
@@ -159,8 +163,9 @@ export const useCallStore = create((set, get) => ({
       const { token, appId } = await get()._fetchToken(data.channelName);
       const uid = get()._getUid();
 
-      const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
       await client.join(appId, data.channelName, token, uid);
+
+      const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
       await client.publish([localAudioTrack]);
 
       const socket = getSocket();
@@ -179,7 +184,10 @@ export const useCallStore = create((set, get) => ({
       get()._startTimer();
     } catch (error) {
       console.error("Failed to accept call:", error);
-      toast.error("Could not access microphone");
+      const msg = error.message?.includes("microphone") || error.message?.includes("NotAllowed")
+        ? "Microphone access denied. Please allow microphone access and try again."
+        : "Could not join call. Please try again.";
+      toast.error(msg);
       get().cleanup();
     }
   },

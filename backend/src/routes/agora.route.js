@@ -1,5 +1,5 @@
 import express from "express";
-import { RtcTokenBuilder, RtcRole } from "agora-access-token";
+import { RtcTokenBuilder, Role } from "agora-access-token";
 import { protectRoute } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -24,7 +24,7 @@ router.post("/token", protectRoute, (req, res) => {
             APP_CERTIFICATE,
             channelName,
             parseInt(uid),
-            RtcRole.PUBLISHER,
+            Role.PUBLISHER,
             privilegeExpire
         );
 

@@ -3,37 +3,12 @@ import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-let transporter = null;
-
-const getTransporter = async () => {
-    if (transporter) return transporter;
-
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-        transporter = nodemailer.createTransport({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS,
-            },
-        });
-        return transporter;
-    }
-
-    // Ethereal test account (for development/demo)
-    const testAccount = await nodemailer.createTestAccount();
-    transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-        },
-    });
-    console.log("[Email] Using Ethereal test account:", testAccount.user);
-    return transporter;
+const getResend = () => {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) throw new Error("RESEND_API_KEY not configured");
+    return new Resend(apiKey);
 };
 
 const generateOTP = () => {
@@ -54,16 +29,13 @@ export const sendOTP = async (req, res) => {
         account.otpExpiry = otpExpiry;
         await account.save();
 
-        const mailTransporter = await getTransporter();
-        const info = await mailTransporter.sendMail({
-            from: process.env.EMAIL_USER || 'OTP <noreply@ethereal.email>',
+        const resend = getResend();
+        await resend.emails.send({
+            from: process.env.RESEND_FROM || "MHSS <onboarding@resend.dev>",
             to: account.email,
             subject: "Your Verification Code",
             text: `Your verification code is: ${otp}. It expires in 10 minutes.`,
         });
-
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        if (previewUrl) console.log("[Email] OTP preview:", previewUrl);
 
         res.status(200).json({ message: "OTP sent successfully" });
     } catch (error) {

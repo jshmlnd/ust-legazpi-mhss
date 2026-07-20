@@ -33,20 +33,6 @@ export const useCallStore = create((set, get) => ({
   callTimer: null,
   _logged: false,
 
-  _playRemoteAudio: (user, retries = 5) => {
-    const track = user.audioTrack;
-    if (!track) return;
-    track
-      .play()
-      .then(() => console.log("[Agora] remote audio playing, uid:", user.uid))
-      .catch((err) => {
-        console.warn("[Agora] audio play failed, retrying...", err.message);
-        if (retries > 0) {
-          setTimeout(() => get()._playRemoteAudio(user, retries - 1), 500);
-        }
-      });
-  },
-
   _getClient: () => {
     if (!agoraClient) {
       agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
@@ -54,13 +40,30 @@ export const useCallStore = create((set, get) => ({
       agoraClient.on("user-published", async (user, mediaType) => {
         try {
           await agoraClient.subscribe(user, mediaType);
-          console.log("[Agora] subscribed to user", user.uid, "mediaType:", mediaType);
-          if (mediaType === "audio") {
-            get()._playRemoteAudio(user);
-          }
+          console.log("[Agora] subscribed to uid:", user.uid, "type:", mediaType);
         } catch (err) {
-          console.error("[Agora] subscribe failed:", err);
+          console.error("[Agora] subscribe failed for uid", user.uid, err);
+          return;
         }
+
+        if (mediaType === "audio") {
+          const attemptPlay = (retries = 5) => {
+            const remote = agoraClient?.remoteUsers.find((u) => u.uid === user.uid);
+            const track = remote?.audioTrack;
+            if (!track) {
+              if (retries > 0) setTimeout(() => attemptPlay(retries - 1), 300);
+              return;
+            }
+            track.play().then(() => {
+              console.log("[Agora] remote audio playing, uid:", user.uid);
+            }).catch((err) => {
+              console.warn("[Agora] audio play failed, retrying...", err.message);
+              if (retries > 0) setTimeout(() => attemptPlay(retries - 1), 500);
+            });
+          };
+          attemptPlay();
+        }
+
         set((state) => {
           const exists = state.remoteUsers.find((u) => u.uid === user.uid);
           if (exists) {

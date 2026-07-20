@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
@@ -48,182 +48,6 @@ const ValidationRule = ({ passes, label }) => (
     {label}
   </div>
 );
-
-const OtpInput = ({ value, onChange }) => {
-  const inputRefs = useRef([]);
-
-  const handleChange = (index, e) => {
-    const digit = e.target.value.replace(/\D/g, '').slice(-1);
-    const next = [...value];
-    next[index] = digit;
-    onChange(next);
-    if (digit && index < 4) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyDown = (index, e) => {
-    if (e.key === 'Backspace' && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 5);
-    if (pasted) {
-      const next = pasted.split('');
-      while (next.length < 5) next.push('');
-      onChange(next);
-      const focusIndex = Math.min(pasted.length, 4);
-      inputRefs.current[focusIndex]?.focus();
-    }
-  };
-
-  useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
-
-  return (
-    <div className="flex gap-2 justify-center">
-      {value.map((digit, i) => (
-        <input
-          key={i}
-          ref={(el) => { inputRefs.current[i] = el; }}
-          type="text"
-          inputMode="numeric"
-          maxLength={1}
-          value={digit}
-          onChange={(e) => handleChange(i, e)}
-          onKeyDown={(e) => handleKeyDown(i, e)}
-          onPaste={handlePaste}
-          className="size-12 bg-transparent border border-neutral-200 text-center text-lg font-mono text-neutral-900 rounded-sm focus:border-neutral-900 outline-none transition-colors"
-        />
-      ))}
-    </div>
-  );
-};
-
-const TwoFactorCard = ({ authUser }) => {
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState(['', '', '', '', '']);
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState(null);
-
-  const is2FAEnabled = authUser.twoFactorEnabled;
-
-  const handleSendOTP = async () => {
-    setLoading(true);
-    setStatus(null);
-    try {
-      await axiosInstance.post('/auth/send-otp');
-      setOtpSent(true);
-      toast.success('OTP sent to your email');
-    } catch (err) {
-      setStatus({ type: 'error', message: err.response?.data?.message || 'Failed to send OTP' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    const otpString = otp.join('');
-    if (otpString.length !== 5) return;
-    setLoading(true);
-    setStatus(null);
-    try {
-      await axiosInstance.post('/auth/verify-otp', { otp: otpString });
-      setStatus({ type: 'success', message: 'Two-factor authentication enabled' });
-      setOtpSent(false);
-      setOtp(['', '', '', '', '']);
-      window.location.reload();
-    } catch (err) {
-      setStatus({ type: 'error', message: err.response?.data?.message || 'Invalid OTP' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisable2FA = async () => {
-    setLoading(true);
-    try {
-      await axiosInstance.post('/auth/disable-2fa');
-      toast.success('Two-factor authentication disabled');
-      window.location.reload();
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to disable 2FA');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-6">
-      <div className="flex items-center gap-2.5 mb-5">
-        <div className="size-9 rounded-sm bg-neutral-100 flex items-center justify-center text-neutral-500">
-          <Lock size={16} />
-        </div>
-        <div>
-          <h3 className="text-sm font-medium text-neutral-900">Two-Factor Authentication</h3>
-          <p className="text-[11px] text-neutral-400">Add an extra layer of security with email OTP</p>
-        </div>
-      </div>
-
-      {status && (
-        <div className={`mb-4 px-4 py-3 rounded-sm text-xs font-medium border ${
-          status.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
-        }`}>
-          {status.message}
-        </div>
-      )}
-
-      {is2FAEnabled ? (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="size-2 rounded-full bg-emerald-500" />
-            <span className="text-sm text-neutral-700">2FA is enabled</span>
-          </div>
-          <button
-            onClick={handleDisable2FA}
-            disabled={loading}
-            className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors rounded-sm"
-          >
-            {loading ? <Loader size={12} className="animate-spin" /> : 'Disable'}
-          </button>
-        </div>
-      ) : !otpSent ? (
-        <button
-          onClick={handleSendOTP}
-          disabled={loading}
-          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm"
-        >
-          {loading ? <Loader size={14} className="animate-spin" /> : <Mail size={14} />}
-          {loading ? 'Sending...' : 'Enable 2FA via Email'}
-        </button>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-xs text-neutral-500">Enter the 5-digit code sent to your email:</p>
-          <OtpInput value={otp} onChange={setOtp} />
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setOtpSent(false); setOtp(['', '', '', '', '']); setStatus(null); }}
-              className="flex-1 px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleVerifyOTP}
-              disabled={otp.join('').length !== 5 || loading}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm"
-            >
-              {loading ? <Loader size={14} className="animate-spin" /> : 'Verify'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const SecurityCard = () => {
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -500,7 +324,6 @@ const ProfilePage = () => {
 
         <div className="lg:col-span-3 space-y-6">
           <SecurityCard />
-          <TwoFactorCard authUser={authUser} />
         </div>
       </div>
     </PageShell>

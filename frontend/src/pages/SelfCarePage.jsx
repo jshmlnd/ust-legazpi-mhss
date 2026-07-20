@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, GripVertical, Check, ChevronDown, ChevronUp, Sparkles, ArrowUpToLine, ArrowDownToLine, Trash2 } from 'lucide-react';
+import { Plus, GripVertical, ChevronDown, ChevronUp, Sparkles, ArrowUpToLine, ArrowDownToLine, Trash2 } from 'lucide-react';
 import { Reorder, useDragControls, AnimatePresence, motion } from 'framer-motion';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
@@ -12,24 +12,15 @@ import toast from 'react-hot-toast';
 
 const SPRING = { type: 'spring', stiffness: 500, damping: 40, mass: 1 };
 
-const ActivityItem = ({ activity, onToggle }) => (
-  <label className="flex items-center gap-3 py-2.5 px-4 hover:bg-neutral-50 transition-colors cursor-pointer group">
-    <div className={`size-4 rounded-sm border-2 flex items-center justify-center transition-all duration-200 ${
-      activity.completed ? 'bg-neutral-900 border-neutral-900' : 'border-neutral-300 group-hover:border-neutral-500'
-    }`}>
-      {activity.completed && <Check size={10} className="text-white" />}
-    </div>
-    <span className={`text-sm flex-1 transition-colors ${activity.completed ? 'text-neutral-400 line-through' : 'text-neutral-700'}`}>
-      {activity.label}
-    </span>
-  </label>
+const ActivityItem = ({ activity }) => (
+  <div className="py-2.5 px-4">
+    <span className="text-sm text-neutral-700">{activity.label}</span>
+  </div>
 );
 
-const ModuleCard = ({ module, expanded, onToggle, onToggleActivity, onDelete, onMoveTop, onMoveBottom, isCounselor }) => {
+const ModuleCard = ({ module, expanded, onToggle, onDelete, onMoveTop, onMoveBottom, isCounselor }) => {
   const controls = useDragControls();
-  const done = module.activities.filter((a) => a.completed).length;
   const total = module.activities.length;
-  const pct = Math.round((done / total) * 100);
 
   return (
     <Reorder.Item
@@ -89,15 +80,10 @@ const ModuleCard = ({ module, expanded, onToggle, onToggleActivity, onDelete, on
             <Sparkles size={16} className="text-neutral-400 shrink-0" />
             <div className="min-w-0">
               <h3 className="text-sm font-medium text-neutral-900 truncate">{module.title}</h3>
-              <p className="text-[11px] text-neutral-400 mt-0.5">{done}/{total} activities completed</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="hidden sm:block w-24 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-              <div className="h-full bg-neutral-900 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-            </div>
-            {expanded ? <ChevronUp size={16} className="text-neutral-400" /> : <ChevronDown size={16} className="text-neutral-400" />}
-          </div>
+          {expanded ? <ChevronUp size={16} className="text-neutral-400 shrink-0" /> : <ChevronDown size={16} className="text-neutral-400 shrink-0" />}
         </button>
 
         <AnimatePresence initial={false}>
@@ -112,7 +98,7 @@ const ModuleCard = ({ module, expanded, onToggle, onToggleActivity, onDelete, on
             >
               <div className="pb-2">
                 {module.activities.map((a) => (
-                  <ActivityItem key={a._id || a.id} activity={a} onToggle={onToggleActivity} />
+                  <ActivityItem key={a._id || a.id} activity={a} />
                 ))}
               </div>
             </motion.div>
@@ -133,7 +119,7 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
     if (!title.trim() || filtered.length === 0) return;
     onSubmit({
       title: title.trim(),
-      activities: filtered.map((label) => ({ label, completed: false })),
+      activities: filtered.map((label) => ({ label })),
     });
     setTitle('');
     setActivities(['', '', '']);
@@ -191,13 +177,6 @@ const SelfCarePage = () => {
       }
     };
     fetchModules();
-  }, []);
-
-  const handleToggleActivity = useCallback(async (activityId) => {
-    setModules((prev) => prev.map((m) => ({
-      ...m,
-      activities: m.activities.map((a) => (a._id || a.id) === activityId ? { ...a, completed: !a.completed } : a),
-    })));
   }, []);
 
   const handleReorder = useCallback(async (reordered) => {
@@ -281,7 +260,6 @@ const SelfCarePage = () => {
                 module={m}
                 expanded={expandedId === m._id}
                 onToggle={() => setExpandedId(expandedId === m._id ? null : m._id)}
-                onToggleActivity={handleToggleActivity}
                 onDelete={handleDeleteModule}
                 onMoveTop={handleMoveTop}
                 onMoveBottom={handleMoveBottom}

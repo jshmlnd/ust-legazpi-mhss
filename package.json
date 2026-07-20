@@ -5,9 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npm install agora-rtc-sdk-ng --prefix frontend && npm install agora-access-token --prefix backend",
-    "start": "npm run start --prefix backend",
-    "commit": "node scripts/auto-commit.mjs --commit",
-    "commit:msg": "node scripts/auto-commit.mjs"
+    "start": "npm run start --prefix backend"
   },
   "repository": {
     "type": "git",

@@ -9,7 +9,6 @@ export const PATHS = {
   MESSAGES: '/messages',
   UNIVERSITY_UPDATES: '/university-updates',
   SUGGESTIONS: '/suggestions',
-  AI_CHAT: '/ai-chat',
   DASHBOARD: '/dashboard',
   MANAGE_SESSIONS: '/manage/sessions',
 
@@ -25,7 +24,6 @@ export const PATHS = {
 
 export const NAV_ITEMS = [
   { label: 'Sessions', path: PATHS.SESSIONS, allowedRoles: ['student'] },
-  { label: 'AI Support', path: PATHS.AI_CHAT, allowedRoles: ['student'] },
   { label: 'Resources', path: PATHS.RESOURCES, allowedRoles: ['student'] },
   { label: 'Self Care', path: PATHS.SELF_CARE, allowedRoles: ['student'] },
   { label: 'Messages', path: PATHS.MESSAGES, allowedRoles: ['counselor'] },

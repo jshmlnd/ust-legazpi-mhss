@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, Lock } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
@@ -49,9 +49,64 @@ const ValidationRule = ({ passes, label }) => (
   </div>
 );
 
+const OtpInput = ({ value, onChange }) => {
+  const inputRefs = useRef([]);
+
+  const handleChange = (index, e) => {
+    const digit = e.target.value.replace(/\D/g, '').slice(-1);
+    const next = [...value];
+    next[index] = digit;
+    onChange(next);
+    if (digit && index < 4) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !value[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 5);
+    if (pasted) {
+      const next = pasted.split('');
+      while (next.length < 5) next.push('');
+      onChange(next);
+      const focusIndex = Math.min(pasted.length, 4);
+      inputRefs.current[focusIndex]?.focus();
+    }
+  };
+
+  useEffect(() => {
+    inputRefs.current[0]?.focus();
+  }, []);
+
+  return (
+    <div className="flex gap-2 justify-center">
+      {value.map((digit, i) => (
+        <input
+          key={i}
+          ref={(el) => { inputRefs.current[i] = el; }}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={digit}
+          onChange={(e) => handleChange(i, e)}
+          onKeyDown={(e) => handleKeyDown(i, e)}
+          onPaste={handlePaste}
+          className="size-12 bg-transparent border border-neutral-200 text-center text-lg font-mono text-neutral-900 rounded-sm focus:border-neutral-900 outline-none transition-colors"
+        />
+      ))}
+    </div>
+  );
+};
+
 const TwoFactorCard = ({ authUser }) => {
   const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState(['', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
 
@@ -72,14 +127,15 @@ const TwoFactorCard = ({ authUser }) => {
   };
 
   const handleVerifyOTP = async () => {
-    if (otp.length !== 5) return;
+    const otpString = otp.join('');
+    if (otpString.length !== 5) return;
     setLoading(true);
     setStatus(null);
     try {
-      await axiosInstance.post('/auth/verify-otp', { otp });
+      await axiosInstance.post('/auth/verify-otp', { otp: otpString });
       setStatus({ type: 'success', message: 'Two-factor authentication enabled' });
       setOtpSent(false);
-      setOtp('');
+      setOtp(['', '', '', '', '']);
       window.location.reload();
     } catch (err) {
       setStatus({ type: 'error', message: err.response?.data?.message || 'Invalid OTP' });
@@ -147,24 +203,17 @@ const TwoFactorCard = ({ authUser }) => {
       ) : (
         <div className="space-y-3">
           <p className="text-xs text-neutral-500">Enter the 5-digit code sent to your email:</p>
-          <input
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 5))}
-            placeholder="00000"
-            maxLength={5}
-            className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-4 py-2.5 text-center tracking-[0.5em] font-mono text-neutral-900 placeholder-neutral-300 focus:border-neutral-900 outline-none transition-colors"
-          />
+          <OtpInput value={otp} onChange={setOtp} />
           <div className="flex gap-2">
             <button
-              onClick={() => { setOtpSent(false); setOtp(''); setStatus(null); }}
+              onClick={() => { setOtpSent(false); setOtp(['', '', '', '', '']); setStatus(null); }}
               className="flex-1 px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleVerifyOTP}
-              disabled={otp.length !== 5 || loading}
+              disabled={otp.join('').length !== 5 || loading}
               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm"
             >
               {loading ? <Loader size={14} className="animate-spin" /> : 'Verify'}

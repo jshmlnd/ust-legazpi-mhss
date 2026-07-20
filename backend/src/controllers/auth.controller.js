@@ -9,15 +9,17 @@ let transporter = null;
 
 const getTransporter = () => {
     if (transporter) return transporter;
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+    console.log("[Email] Config:", user ? "USER set" : "USER missing", pass ? "PASS set" : "PASS missing");
+    if (!user || !pass) {
         throw new Error("EMAIL_USER and EMAIL_PASS env vars are required");
     }
     transporter = nodemailer.createTransport({
         service: 'gmail',
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
+        auth: { user, pass },
+        connectionTimeout: 10000,
+        greetingTimeout: 5000,
     });
     return transporter;
 };
@@ -44,12 +46,18 @@ export const sendOTP = async (req, res) => {
         account.otpExpiry = otpExpiry;
         await account.save();
 
-        await mailTransporter.sendMail({
+        console.log("[OTP] Sending email...");
+        const sendPromise = mailTransporter.sendMail({
             from: process.env.EMAIL_USER,
             to: account.email,
             subject: "Your Verification Code",
             text: `Your verification code is: ${otp}. It expires in 10 minutes.`,
         });
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Email send timed out after 15s")), 15000)
+        );
+        await Promise.race([sendPromise, timeoutPromise]);
+        console.log("[OTP] Email sent");
 
         console.log("[OTP] Sent successfully to:", account.email);
         res.status(200).json({ message: "OTP sent successfully" });

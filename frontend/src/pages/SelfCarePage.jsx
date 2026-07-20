@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Sparkles, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Sparkles, Trash2 } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
@@ -17,12 +17,11 @@ const ActivityItem = ({ activity }) => (
 );
 
 const ModuleCard = ({ module, onDelete, isCounselor }) => {
-  const [expanded, setExpanded] = useState(false);
   const total = module.activities.length;
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm overflow-hidden flex flex-col">
-      <div className="p-5 flex-1">
+      <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-2.5">
             <div className="size-8 rounded-sm bg-neutral-100 flex items-center justify-center">
@@ -43,19 +42,9 @@ const ModuleCard = ({ module, onDelete, isCounselor }) => {
             </button>
           )}
         </div>
-
-        {total > 0 && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-700 transition-colors"
-          >
-            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            {expanded ? 'Hide' : 'View'} activities
-          </button>
-        )}
       </div>
 
-      {expanded && total > 0 && (
+      {total > 0 && (
         <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/50">
           <ul className="space-y-0.5">
             {module.activities.map((a) => (

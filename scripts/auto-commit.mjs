@@ -67,4 +67,17 @@ let subject = `${type}${scopePart}: ${summary}`;
 if (detail) subject += ` — ${detail}`;
 if (subject.length > 72) subject = subject.slice(0, 69) + "...";
 
-console.log(subject);
+// If called with --commit flag, stage all and commit
+if (process.argv.includes("--commit")) {
+  execSync("git add -A", { encoding: "utf-8" });
+  // Check if there's anything staged after re-staging
+  const newDiff = execSync("git diff --cached --stat", { encoding: "utf-8" }).trim();
+  if (!newDiff) {
+    console.error("No staged changes to commit.");
+    process.exit(1);
+  }
+  execSync(`git commit -m "${subject.replace(/"/g, '\\"')}"`, { encoding: "utf-8" });
+  console.log(`Committed: ${subject}`);
+} else {
+  console.log(subject);
+}

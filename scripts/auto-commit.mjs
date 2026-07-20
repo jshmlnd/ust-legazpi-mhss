@@ -19,84 +19,102 @@ for (const line of lines) {
   else modified.push(filePath);
 }
 
-// Infer scope from directory structure
-const scopes = new Set();
-for (const filePath of [...added, ...modified, ...deleted]) {
-  const parts = filePath.split("/");
-  if (parts.length >= 2) {
-    // Use top-level dir (frontend, backend) or file area
-    if (["frontend", "backend"].includes(parts[0])) {
-      if (parts.length >= 3) scopes.add(parts.slice(0, 2).join("/"));
-      else scopes.add(parts[0]);
-    } else {
-      scopes.add(parts[0]);
-    }
-  }
-}
+// Get actual code changes to infer what was done
+let fullDiff = "";
+try {
+  fullDiff = execSync("git diff --cached", { encoding: "utf-8", maxBuffer: 1024 * 1024 });
+} catch { /* ignore */ }
 
-// Conventional Commit type inference
+// Extract added/removed code lines (skip diff metadata)
+const codeLines = fullDiff.split("\n").filter((l) => {
+  if (l.startsWith("+++") || l.startsWith("---")) return false;
+  if (!l.startsWith("+") && !l.startsWith("-")) return false;
+  const content = l.slice(1);
+  if (/features\.push\(/.test(content)) return false;
+  if (/if\s*\(\/.*\/\.test\(/.test(content)) return false;
+  return true;
+});
+const codeContent = codeLines.map((l) => l.slice(1)).join("\n");
+const addedCode = codeLines.filter((l) => l.startsWith("+")).map((l) => l.slice(1)).join("\n");
+const removedCode = codeLines.filter((l) => l.startsWith("-")).map((l) => l.slice(1)).join("\n");
+
+// Conventional Commit type
 function inferType() {
   const allPaths = [...added, ...modified, ...deleted].join(" ").toLowerCase();
-
-  // Prioritized rules
   if (/test|spec|__test__|\.test\.|\.spec\./i.test(allPaths)) return "test";
   if (/readme|docs?|\.md$/i.test(allPaths) && added.length > 0 && modified.length === 0) return "docs";
   if (/config|\.env|package|tsconfig|vite|eslint|\.prettier/i.test(allPaths)) return "chore";
   if (/style|css|tailwind|theme|color|font|\.scss|\.less/i.test(allPaths)) return "style";
-  if (/ci|\.github|dockerfile|docker-compose|\.yml|\.yaml/i.test(allPaths)) return "ci";
+  if (/ci|\.github|dockerfile|docker-compose/i.test(allPaths)) return "ci";
 
-  // Default: feat for new files, fix for modifications, refactor for mixed
+  // Infer from code changes
+  const allCode = codeContent.toLowerCase();
+  if (/\bfix\b|\bbug\b|\berror\b|\bpatch\b|\bissue\b|\bresolve\b/.test(allCode)) return "fix";
+  if (/\bremove\b|\bdelete\b|\bdrop\b|\bstrip\b/.test(allCode) && removedCode.length > addedCode.length) return "refactor";
+
   if (added.length > 0 && modified.length === 0 && deleted.length === 0) return "feat";
   if (deleted.length > 0 && added.length === 0) return "refactor";
-  if (modified.length > added.length) return "fix";
-  return "feat";
+  return "update";
 }
 
 const type = inferType();
-const scope = scopes.size === 1 ? [...scopes][0] : scopes.size > 1 ? "multi" : "";
 
-// Build concise file summary
-const totalFiles = added.length + modified.length + deleted.length;
-const summaryParts = [];
-if (added.length) summaryParts.push(`${added.length} file${added.length > 1 ? "s" : ""} added`);
-if (modified.length) summaryParts.push(`${modified.length} file${modified.length > 1 ? "s" : ""} modified`);
-if (deleted.length) summaryParts.push(`${deleted.length} file${deleted.length > 1 ? "s" : ""} deleted`);
-const summary = summaryParts.join(", ");
+// Generate a concise description from the changes
+function describe() {
+  const allPaths = [...added, ...modified, ...deleted];
 
-// Build body with file details
-const bodyLines = [];
+  // Single file changes — describe specifically
+  if (allPaths.length === 1) {
+    const filePath = allPaths[0];
+    const fileName = filePath.split("/").pop().replace(/\.[^.]+$/, "");
 
-const formatFile = (filePath, label) => {
-  const parts = filePath.split("/");
-  const shortPath = parts.length > 3 ? ".../" + parts.slice(-2).join("/") : parts.join("/");
-  return `  ${label} ${shortPath}`;
-};
+    if (added.length === 1) {
+      // What was added?
+      if (/controller|route|model|middleware/i.test(fileName)) return `add ${fileName}`;
+      if (/component|page|modal|form/i.test(fileName)) return `add ${fileName}`;
+      if (/store|lib|util|helper/i.test(fileName)) return `add ${fileName}`;
+      return `add ${fileName}`;
+    }
+    if (deleted.length === 1) return `remove ${fileName}`;
 
-if (added.length) {
-  bodyLines.push("");
-  bodyLines.push("Added:");
-  added.forEach((f) => bodyLines.push(formatFile(f, "+")));
+    // Modified — describe what changed in code
+    const hints = [];
+    if (/import\s/.test(addedCode) && !/import\s/.test(removedCode)) hints.push("add imports");
+    if (/import\s/.test(removedCode) && !/import\s/.test(addedCode)) hints.push("remove imports");
+    if (/export\s/.test(addedCode)) hints.push("add export");
+    if (/console\.(log|error|warn)/.test(addedCode) && !/console\.(log|error|warn)/.test(removedCode)) hints.push("add logging");
+    if (/console\.(log|error|warn)/.test(removedCode) && !/console\.(log|error|warn)/.test(addedCode)) hints.push("remove logging");
+    if (/toast\.(success|error|loading)/.test(addedCode)) hints.push("add toast");
+    if (/try\s*\{/.test(addedCode) && !/try\s*\{/.test(removedCode)) hints.push("add error handling");
+    if (/async\s|await\s/.test(addedCode) && !/async\s|await\s/.test(removedCode)) hints.push("add async");
+    if (/socket\.(emit|on)/.test(addedCode) && !/socket\.(emit|on)/.test(removedCode)) hints.push("add socket events");
+    if (/className/.test(addedCode) && !/className/.test(removedCode)) hints.push("add styles");
+    if (/\bnull\b/.test(addedCode) && /\bnull\b/.test(removedCode)) hints.push("null handling");
+    if (/\bnew\b/.test(addedCode) && !/\bnew\b/.test(removedCode)) hints.push("add instantiation");
+
+    if (hints.length > 0) return `${hints.slice(0, 2).join(" and ")} in ${fileName}`;
+    return `update ${fileName}`;
+  }
+
+  // Multi-file changes — describe by scope
+  const dirs = new Set(allPaths.map((p) => p.split("/")[0]));
+  const scopes = [...dirs].filter((d) => ["frontend", "backend"].includes(d));
+
+  if (scopes.length === 1) {
+    const area = scopes[0];
+    const subDirs = new Set(
+      allPaths.filter((p) => p.startsWith(area + "/")).map((p) => p.split("/")[1])
+    );
+    if (subDirs.size === 1) return `update ${area}/${[...subDirs][0]}`;
+    return `update ${area}`;
+  }
+
+  if (dirs.size === 1) return `update ${[...dirs][0]}`;
+  return `update ${allPaths.length} files`;
 }
-if (modified.length) {
-  bodyLines.push("");
-  bodyLines.push("Modified:");
-  modified.forEach((f) => bodyLines.push(formatFile(f, "~")));
-}
-if (deleted.length) {
-  bodyLines.push("");
-  bodyLines.push("Deleted:");
-  deleted.forEach((f) => bodyLines.push(formatFile(f, "-")));
-}
 
-// Construct message
-const scopePart = scope ? `(${scope})` : "";
-let subject = `${type}${scopePart}: ${summary}`;
-if (subject.length > 72) subject = subject.slice(0, 69) + "...";
+const subject = `${type}: ${describe()}`;
 
-const body = bodyLines.length > 0 ? bodyLines.join("\n") : "";
-const message = body ? `${subject}\n${body}` : subject;
-
-// Output
 if (process.argv.includes("--commit")) {
   execSync("git add -A", { encoding: "utf-8" });
   const recheck = execSync("git diff --cached --stat", { encoding: "utf-8" }).trim();
@@ -104,8 +122,8 @@ if (process.argv.includes("--commit")) {
     console.error("No staged changes to commit.");
     process.exit(1);
   }
-  execSync(`git commit -m ${JSON.stringify(message)}`, { encoding: "utf-8" });
-  console.log(`Committed:\n${message}`);
+  execSync(`git commit -m ${JSON.stringify(subject)}`, { encoding: "utf-8" });
+  console.log(`Committed: ${subject}`);
 } else {
-  console.log(message);
+  console.log(subject);
 }

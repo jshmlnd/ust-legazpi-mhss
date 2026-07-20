@@ -5,13 +5,36 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-});
+let transporter = null;
+
+const getTransporter = async () => {
+    if (transporter) return transporter;
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        transporter = nodemailer.createTransport({
+            service: 'gmail',
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+        });
+        return transporter;
+    }
+
+    // Ethereal test account (for development/demo)
+    const testAccount = await nodemailer.createTestAccount();
+    transporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+            user: testAccount.user,
+            pass: testAccount.pass,
+        },
+    });
+    console.log("[Email] Using Ethereal test account:", testAccount.user);
+    return transporter;
+};
 
 const generateOTP = () => {
     return Math.floor(10000 + Math.random() * 90000).toString();
@@ -31,12 +54,16 @@ export const sendOTP = async (req, res) => {
         account.otpExpiry = otpExpiry;
         await account.save();
 
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
+        const mailTransporter = await getTransporter();
+        const info = await mailTransporter.sendMail({
+            from: process.env.EMAIL_USER || 'OTP <noreply@ethereal.email>',
             to: account.email,
             subject: "Your Verification Code",
             text: `Your verification code is: ${otp}. It expires in 10 minutes.`,
         });
+
+        const previewUrl = nodemailer.getTestMessageUrl(info);
+        if (previewUrl) console.log("[Email] OTP preview:", previewUrl);
 
         res.status(200).json({ message: "OTP sent successfully" });
     } catch (error) {

@@ -23,6 +23,10 @@ export const sendOTP = async (req, res) => {
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
         const account = await Model.findById(userId);
         if (!account) return res.status(404).json({ message: "Account not found" });
+        if (!account.email) return res.status(400).json({ message: "No email on file. Please update your profile first." });
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ message: "Email service not configured" });
+
+        console.log("[OTP] Sending to:", account.email, "from:", process.env.EMAIL_USER);
 
         const otp = generateOTP();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -38,9 +42,10 @@ export const sendOTP = async (req, res) => {
             text: `Your verification code is: ${otp}. It expires in 10 minutes.`,
         });
 
+        console.log("[OTP] Sent successfully to:", account.email);
         res.status(200).json({ message: "OTP sent successfully" });
     } catch (error) {
-        console.log("Error in sendOTP controller: ", error.message);
+        console.error("[OTP] Error:", error.message, error.stack);
         return res.status(500).json({ message: "Failed to send OTP" });
     }
 };

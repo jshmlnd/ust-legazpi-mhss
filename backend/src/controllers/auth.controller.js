@@ -5,13 +5,22 @@ import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
-});
+let transporter = null;
+
+const getTransporter = () => {
+    if (transporter) return transporter;
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+        throw new Error("EMAIL_USER and EMAIL_PASS env vars are required");
+    }
+    transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+    });
+    return transporter;
+};
 
 const generateOTP = () => {
     return Math.floor(10000 + Math.random() * 90000).toString();
@@ -24,10 +33,10 @@ export const sendOTP = async (req, res) => {
         const account = await Model.findById(userId);
         if (!account) return res.status(404).json({ message: "Account not found" });
         if (!account.email) return res.status(400).json({ message: "No email on file. Please update your profile first." });
-        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return res.status(500).json({ message: "Email service not configured" });
 
         console.log("[OTP] Sending to:", account.email, "from:", process.env.EMAIL_USER);
 
+        const mailTransporter = getTransporter();
         const otp = generateOTP();
         const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -35,7 +44,7 @@ export const sendOTP = async (req, res) => {
         account.otpExpiry = otpExpiry;
         await account.save();
 
-        await transporter.sendMail({
+        await mailTransporter.sendMail({
             from: process.env.EMAIL_USER,
             to: account.email,
             subject: "Your Verification Code",

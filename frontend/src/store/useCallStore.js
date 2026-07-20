@@ -33,14 +33,33 @@ export const useCallStore = create((set, get) => ({
   callTimer: null,
   _logged: false,
 
+  _playRemoteAudio: (user, retries = 5) => {
+    const track = user.audioTrack;
+    if (!track) return;
+    track
+      .play()
+      .then(() => console.log("[Agora] remote audio playing, uid:", user.uid))
+      .catch((err) => {
+        console.warn("[Agora] audio play failed, retrying...", err.message);
+        if (retries > 0) {
+          setTimeout(() => get()._playRemoteAudio(user, retries - 1), 500);
+        }
+      });
+  },
+
   _getClient: () => {
     if (!agoraClient) {
       agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
       agoraClient.on("user-published", async (user, mediaType) => {
-        await agoraClient.subscribe(user, mediaType);
-        if (mediaType === "audio") {
-          user.audioTrack?.play();
+        try {
+          await agoraClient.subscribe(user, mediaType);
+          console.log("[Agora] subscribed to user", user.uid, "mediaType:", mediaType);
+          if (mediaType === "audio") {
+            get()._playRemoteAudio(user);
+          }
+        } catch (err) {
+          console.error("[Agora] subscribe failed:", err);
         }
         set((state) => {
           const exists = state.remoteUsers.find((u) => u.uid === user.uid);
@@ -61,7 +80,12 @@ export const useCallStore = create((set, get) => ({
         }
       });
 
+      agoraClient.on("user-joined", (user) => {
+        console.log("[Agora] remote user joined:", user.uid);
+      });
+
       agoraClient.on("user-left", (user) => {
+        console.log("[Agora] remote user left:", user.uid);
         set((state) => ({
           remoteUsers: state.remoteUsers.filter((u) => u.uid !== user.uid),
         }));
@@ -175,11 +199,15 @@ export const useCallStore = create((set, get) => ({
       const client = get()._getClient();
       const { token, appId } = await get()._fetchToken(data.channelName);
       const uid = get()._getUid();
+      console.log("[Agora] accepting call, channel:", data.channelName, "uid:", uid);
 
       await client.join(appId, data.channelName, token, uid);
+      console.log("[Agora] joined channel");
 
       const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      console.log("[Agora] mic track created");
       await client.publish([localAudioTrack]);
+      console.log("[Agora] published");
 
       const socket = getSocket();
       socket.emit("call:answer", {

@@ -37,6 +37,17 @@ const App = () => {
   const { subscribeToMessages, unsubscribeFromMessages, selectedUser } = useChatStore();
   const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
 
+  const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
+  const peerDisplayName = (() => {
+    if (incomingCall?.callerName) {
+      return isCounselor ? `STU-${incomingCall.callerId}` : incomingCall.callerName;
+    }
+    if (selectedUser) {
+      return isCounselor ? `STU-${selectedUser._id}` : selectedUser.fullName;
+    }
+    return '';
+  })();
+
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
   useEffect(() => {
@@ -71,11 +82,7 @@ const App = () => {
     <Navbar />
     <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
     <VoiceCallModal
-      peerName={
-        incomingCall?.callerName ||
-        selectedUser?.fullName ||
-        ''
-      }
+      peerName={peerDisplayName}
     />
 
     <Routes>

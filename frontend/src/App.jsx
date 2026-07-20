@@ -14,6 +14,7 @@ import CounselorSessionManagement from "./pages/CounselorSessionManagementPage";
 import CounselorSchedulingPage from "./pages/CounselorSchedulingSystemPage";
 import CounselorAnnouncementManagerPage from "./pages/CounselorAnnouncementManagerPage";
 import ChatPage from "./pages/ChatPage";
+import AIChatPage from "./pages/AIChatPage";
 import UniversityUpdates from './pages/UniversityUpdates';
 import SuggestionsPage from './pages/SuggestionsPage';
 
@@ -98,7 +99,8 @@ const App = () => {
 
 
       {/* Shared Route */}
-      <Route path={PATHS.MESSAGES} element={authUser ? <ChatPage /> : <Navigate to={PATHS.LOGIN} /> } /> 
+      <Route path={PATHS.MESSAGES} element={authUser ? <ChatPage /> : <Navigate to={PATHS.LOGIN} /> } />
+      <Route path={PATHS.AI_CHAT} element={authUser ? <AIChatPage /> : <Navigate to={PATHS.LOGIN} /> } />
       <Route path={PATHS.UNIVERSITY_UPDATES} element={authUser ? < UniversityUpdates/> : <Navigate to={PATHS.LOGIN} /> } />
 
       {/* Counselor Routes */}

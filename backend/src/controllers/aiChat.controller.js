@@ -38,42 +38,40 @@ export const chat = async (req, res) => {
       return res.status(400).json({ error: "messages array is required" });
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    console.log("[AI] API key configured:", !!apiKey, "length:", apiKey?.length);
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return res.status(500).json({ error: "AI service not configured" });
     }
 
-    const apiMessages = [
-      { role: "system", content: MENTAL_HEALTH_SYSTEM_PROMPT },
-      ...messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    ];
+    const contents = messages.map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: apiMessages,
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: MENTAL_HEALTH_SYSTEM_PROMPT }] }, ...contents],
+          generationConfig: {
+            maxOutputTokens: 500,
+            temperature: 0.7,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errText = await response.text().catch(() => "unknown");
-      console.error("[AI] OpenAI error:", response.status, errText);
+      console.error("[AI] Gemini error:", response.status, errText);
       return res.status(502).json({ error: `AI service error: ${response.status}` });
     }
 
     const data = await response.json();
-    const reply = data.choices?.[0]?.message?.content || "I'm here to help. Could you tell me more about how you're feeling?";
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text
+      || "I'm here to help. Could you tell me more about how you're feeling?";
 
     res.json({ reply });
   } catch (error) {

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, GripVertical, ChevronDown, ChevronUp, Sparkles, ArrowUpToLine, ArrowDownToLine, Trash2 } from 'lucide-react';
-import { Reorder, useDragControls, AnimatePresence, motion } from 'framer-motion';
+import { Plus, Sparkles, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
@@ -10,102 +9,62 @@ import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
 
-const SPRING = { type: 'spring', stiffness: 500, damping: 40, mass: 1 };
-
 const ActivityItem = ({ activity }) => (
-  <div className="py-2.5 px-4">
-    <span className="text-sm text-neutral-700">{activity.label}</span>
-  </div>
+  <li className="flex items-start gap-2 py-1.5">
+    <span className="size-1.5 rounded-full bg-neutral-300 mt-1.5 shrink-0" />
+    <span className="text-sm text-neutral-600 leading-relaxed">{activity.label}</span>
+  </li>
 );
 
-const ModuleCard = ({ module, expanded, onToggle, onDelete, onMoveTop, onMoveBottom, isCounselor }) => {
-  const controls = useDragControls();
+const ModuleCard = ({ module, onDelete, isCounselor }) => {
+  const [expanded, setExpanded] = useState(false);
   const total = module.activities.length;
 
   return (
-    <Reorder.Item
-      value={module}
-      id={module._id}
-      dragControls={controls}
-      dragListener={false}
-      layout
-      layoutId={`module-${module._id}`}
-      transition={SPRING}
-      whileDrag={{
-        scale: 1.02,
-        opacity: 0.9,
-        boxShadow: '0 0 0 1px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.06)',
-        zIndex: 50,
-      }}
-      className="bg-white border border-neutral-200 rounded-sm list-none relative"
-    >
-      <div className="relative">
-        {isCounselor && (
-          <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
-            <button
-              onClick={() => onMoveTop(module._id)}
-              className="size-7 flex items-center justify-center rounded-sm bg-white border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
-              title="Move to top"
-            >
-              <ArrowUpToLine size={12} />
-            </button>
-            <button
-              onClick={() => onMoveBottom(module._id)}
-              className="size-7 flex items-center justify-center rounded-sm bg-white border border-neutral-200 text-neutral-400 hover:text-neutral-900 transition-colors"
-              title="Move to bottom"
-            >
-              <ArrowDownToLine size={12} />
-            </button>
-            <button
-              onClick={() => onDelete(module._id)}
-              className="size-7 flex items-center justify-center rounded-sm bg-white border border-neutral-200 text-neutral-400 hover:text-red-600 transition-colors"
-              title="Delete module"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        )}
-
-        <button onClick={onToggle} className="w-full flex items-center justify-between px-6 py-4 text-left">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {isCounselor && (
-              <button
-                onPointerDown={(e) => controls.start(e)}
-                className="size-8 shrink-0 flex items-center justify-center rounded-sm text-neutral-300 hover:text-neutral-500 hover:bg-neutral-100 transition-colors cursor-grab active:cursor-grabbing touch-none"
-                title="Drag to reorder"
-              >
-                <GripVertical size={16} />
-              </button>
-            )}
-            <Sparkles size={16} className="text-neutral-400 shrink-0" />
-            <div className="min-w-0">
-              <h3 className="text-sm font-medium text-neutral-900 truncate">{module.title}</h3>
+    <div className="bg-white border border-neutral-200 rounded-sm overflow-hidden flex flex-col">
+      <div className="p-5 flex-1">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="size-8 rounded-sm bg-neutral-100 flex items-center justify-center">
+              <Sparkles size={14} className="text-neutral-500" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-neutral-900">{module.title}</h3>
               <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
             </div>
           </div>
-          {expanded ? <ChevronUp size={16} className="text-neutral-400 shrink-0" /> : <ChevronDown size={16} className="text-neutral-400 shrink-0" />}
-        </button>
-
-        <AnimatePresence initial={false}>
-          {expanded && (
-            <motion.div
-              key="activities"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              className="border-t border-neutral-100 overflow-hidden"
+          {isCounselor && (
+            <button
+              onClick={() => onDelete(module._id)}
+              className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              title="Delete module"
             >
-              <div className="pb-2">
-                {module.activities.map((a) => (
-                  <ActivityItem key={a._id || a.id} activity={a} />
-                ))}
-              </div>
-            </motion.div>
+              <Trash2 size={13} />
+            </button>
           )}
-        </AnimatePresence>
+        </div>
+
+        {total > 0 && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-[11px] text-neutral-500 hover:text-neutral-700 transition-colors"
+          >
+            {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {expanded ? 'Hide' : 'View'} activities
+          </button>
+        )}
       </div>
-    </Reorder.Item>
+
+      {expanded && total > 0 && (
+        <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/50">
+          <ul className="space-y-0.5">
+            {module.activities.map((a) => (
+              <ActivityItem key={a._id || a.id} activity={a} />
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -162,7 +121,6 @@ const SelfCarePage = () => {
   const isCounselor = role === 'counselor';
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
@@ -179,35 +137,6 @@ const SelfCarePage = () => {
     fetchModules();
   }, []);
 
-  const handleReorder = useCallback(async (reordered) => {
-    setModules(reordered);
-    try {
-      await axiosInstance.patch('/self-care/reorder', { orderedIds: reordered.map((m) => m._id) });
-    } catch (err) {
-      console.error('Failed to reorder:', err);
-    }
-  }, []);
-
-  const handleMoveTop = useCallback(async (id) => {
-    setModules((prev) => {
-      const idx = prev.findIndex((m) => m._id === id);
-      if (idx <= 0) return prev;
-      const item = prev[idx];
-      const rest = prev.filter((m) => m._id !== id);
-      return [item, ...rest];
-    });
-  }, []);
-
-  const handleMoveBottom = useCallback(async (id) => {
-    setModules((prev) => {
-      const idx = prev.findIndex((m) => m._id === id);
-      if (idx < 0 || idx === prev.length - 1) return prev;
-      const item = prev[idx];
-      const rest = prev.filter((m) => m._id !== id);
-      return [...rest, item];
-    });
-  }, []);
-
   const handleAddModule = useCallback(async (mod) => {
     try {
       const res = await axiosInstance.post('/self-care', mod);
@@ -222,7 +151,6 @@ const SelfCarePage = () => {
     try {
       await axiosInstance.delete(`/self-care/${id}`);
       setModules((prev) => prev.filter((m) => m._id !== id));
-      setExpandedId((prev) => (prev === id ? null : prev));
       toast.success('Module deleted');
     } catch (err) {
       toast.error('Failed to delete module');
@@ -246,28 +174,16 @@ const SelfCarePage = () => {
       {modules.length === 0 ? (
         <EmptyState icon={Sparkles} title="No self-care modules yet" description={isCounselor ? 'Create wellness modules with guided activities for students.' : 'Check back for self-care routines.'} />
       ) : (
-        <Reorder.Group
-          axis="y"
-          values={modules}
-          onReorder={handleReorder}
-          className="space-y-px bg-neutral-200 rounded-sm overflow-hidden"
-          layoutScroll
-        >
-          <AnimatePresence initial={false}>
-            {modules.map((m) => (
-              <ModuleCard
-                key={m._id}
-                module={m}
-                expanded={expandedId === m._id}
-                onToggle={() => setExpandedId(expandedId === m._id ? null : m._id)}
-                onDelete={handleDeleteModule}
-                onMoveTop={handleMoveTop}
-                onMoveBottom={handleMoveBottom}
-                isCounselor={isCounselor}
-              />
-            ))}
-          </AnimatePresence>
-        </Reorder.Group>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {modules.map((m) => (
+            <ModuleCard
+              key={m._id}
+              module={m}
+              onDelete={handleDeleteModule}
+              isCounselor={isCounselor}
+            />
+          ))}
+        </div>
       )}
 
       <ModuleFormModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleAddModule} />

@@ -80,9 +80,11 @@ const AIChatPage = () => {
       const assistantMessage = { role: 'assistant', content: res.data.reply };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
+      const detail = err.response?.data?.error || err.message;
+      console.error("[AI Chat] Error:", detail);
       const errorMessage = {
         role: 'assistant',
-        content: "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.",
+        content: `Sorry, something went wrong. ${detail || 'Please try again.'}`,
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {

@@ -39,6 +39,7 @@ export const chat = async (req, res) => {
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
+    console.log("[AI] API key configured:", !!apiKey, "length:", apiKey?.length);
     if (!apiKey) {
       return res.status(500).json({ error: "AI service not configured" });
     }
@@ -66,9 +67,9 @@ export const chat = async (req, res) => {
     });
 
     if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      console.error("[AI] OpenAI error:", err);
-      return res.status(502).json({ error: "AI service unavailable" });
+      const errText = await response.text().catch(() => "unknown");
+      console.error("[AI] OpenAI error:", response.status, errText);
+      return res.status(502).json({ error: `AI service error: ${response.status}` });
     }
 
     const data = await response.json();

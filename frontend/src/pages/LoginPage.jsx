@@ -28,7 +28,7 @@ const LoginPage = () => {
       const user = await login(studentId.trim(), password);
       const isCounselor = user?.userType?.toLowerCase() === 'counselor';
       const isAdministrator = user?.userType?.toLowerCase() === 'administrator';
-      navigate(isCounselor ? PATHS.DASHBOARD : isAdministrator ? PATHS.ADMIN_REGISTER_STUDENT : PATHS.HOME);
+      navigate(isCounselor ? PATHS.DASHBOARD : isAdministrator ? PATHS.ADMIN : PATHS.HOME);
 
     } catch (error) {
       toast.error(error.message);

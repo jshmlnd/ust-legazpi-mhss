@@ -21,6 +21,7 @@ import YourDiary from './pages/YourDiary';
 import StudentIdentityPage from './pages/StudentIdentityPage';
 import RegisterStudentPage from './pages/RegisterStudentPage';
 import RegisterCounselorPage from './pages/RegisterCounselorPage';
+import Administrator from './pages/Administrator';
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from './store/useAuthStore';
@@ -113,6 +114,7 @@ if(isCheckingAuth && !authUser) return (
       <Route path={PATHS.PROFILE} element={authUser ? <Navigate to={PATHS.MY_ACCOUNT} /> : <Navigate to={PATHS.LOGIN}/> } />
 
       {/* Admin Routes */}
+      <Route path={PATHS.ADMIN} element={authUser?.userType?.toLowerCase() === 'administrator' ? <Administrator /> : <Navigate to={PATHS.LOGIN} />} />
       <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterStudentPage /> : <Navigate to={PATHS.LOGIN} />} />
       <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterCounselorPage /> : <Navigate to={PATHS.LOGIN} />} />
     </Routes>

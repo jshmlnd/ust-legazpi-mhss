@@ -72,18 +72,7 @@ const userSchema = new mongoose.Schema(
             contact: { type: String, default: '' },
             address: { type: String, default: '' },
         },
-        twoFactorEnabled: {
-            type: Boolean,
-            default: false,
-        },
-        otp: {
-            type: String,
-            default: null,
-        },
-        otpExpiry: {
-            type: Date,
-            default: null,
-        },
+
     },
     { timestamps: true, _id: false });
 

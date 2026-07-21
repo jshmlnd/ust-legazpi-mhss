@@ -19,12 +19,17 @@ const containsCrisisContent = (text) =>
   CRISIS_KEYWORDS.some((kw) => text?.toLowerCase().includes(kw));
 
 const MessageBubble = ({ message, isOwn, isCrisis }) => {
-  if (message.type === 'call-log') {
+  if (message.callerId !== undefined) {
+    const mins = Math.floor((message.duration || 0) / 60);
+    const secs = (message.duration || 0) % 60;
+    const statusText = message.status === 'cancelled'
+      ? 'Call cancelled'
+      : `Voice call ended (${mins}m ${secs}s)`;
     return (
       <div className="flex justify-center mb-3">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-100 text-neutral-500 text-xs">
           <Phone size={12} />
-          <span>{message.text}</span>
+          <span>{statusText}</span>
           <span className="text-neutral-400">
             {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>

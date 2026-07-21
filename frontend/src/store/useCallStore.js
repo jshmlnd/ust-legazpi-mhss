@@ -132,18 +132,11 @@ export const useCallStore = create((set, get) => ({
     if (get()._logged) return;
     set({ _logged: true });
     try {
-      const text = wasActive
-        ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)`
-        : "Call cancelled";
-      const res = await axiosInstance.post(`/message/send/${peerId}`, {
-        type: "call-log",
-        callDuration: duration,
-        text,
+      await axiosInstance.post('/call-logs', {
+        receiverId: peerId,
+        duration,
+        status: wasActive ? 'ended' : 'cancelled',
       });
-      const { selectedUser, messages } = useChatStore.getState();
-      if (selectedUser && String(selectedUser._id) === String(peerId)) {
-        useChatStore.setState({ messages: [...messages, res.data] });
-      }
     } catch {
       // silently fail
     }

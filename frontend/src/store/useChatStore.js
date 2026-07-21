@@ -42,8 +42,13 @@ export const useChatStore = create((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       const params = appointmentId ? `?appointmentId=${appointmentId}` : '';
-      const res = await axiosInstance.get(`/message/${userId}${params}`);
-      set({ messages: res.data });
+      const [msgRes, logRes] = await Promise.all([
+        axiosInstance.get(`/message/${userId}${params}`),
+        axiosInstance.get(`/call-logs/${userId}`),
+      ]);
+      const combined = [...msgRes.data, ...logRes.data]
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      set({ messages: combined });
     } catch (error) {
       toast.error("Failed to load messages");
     } finally {
@@ -148,8 +153,20 @@ export const useChatStore = create((set, get) => ({
         set({ unreadCounts: { ...unreadCounts, [String(otherId)]: (unreadCounts[String(otherId)] || 0) + 1 } });
 
         const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
-        const notifBody = message.type === 'call-log' ? message.text : (message.text || 'Sent an image');
+        const notifBody = message.text || 'Sent an image';
         showNotification(senderName, notifBody);
+      }
+    });
+
+    socket.off("callLog").on("callLog", (callLog) => {
+      const { selectedUser, messages } = get();
+      const isRelevant =
+        selectedUser &&
+        (String(callLog.callerId) === String(selectedUser._id) ||
+          String(callLog.receiverId) === String(selectedUser._id));
+
+      if (isRelevant) {
+        set({ messages: [...messages, callLog] });
       }
     });
 
@@ -192,6 +209,7 @@ export const useChatStore = create((set, get) => ({
     const socket = getSocket();
     if (!socket) return;
     socket.off("newMessage");
+    socket.off("callLog");
     socket.off("onlineUsers");
     socket.off("connect");
     socket.off("disconnect");

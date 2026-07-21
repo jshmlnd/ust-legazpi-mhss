@@ -23,6 +23,7 @@ export const PATHS = {
 };
 
 export const NAV_ITEMS = [
+  { label: 'Home', path: PATHS.HOME, allowedRoles: ['student', 'counselor'] },
   { label: 'Sessions', path: PATHS.SESSIONS, allowedRoles: ['student'] },
   { label: 'Resources', path: PATHS.RESOURCES, allowedRoles: ['student'] },
   { label: 'Self Care', path: PATHS.SELF_CARE, allowedRoles: ['student'] },

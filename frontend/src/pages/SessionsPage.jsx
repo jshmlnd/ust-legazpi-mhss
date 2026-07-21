@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
+import Skeleton from '../components/Skeleton';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 
@@ -212,7 +213,22 @@ const SessionsPage = () => {
     }
   };
 
-  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return (
+    <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+        <div className="lg:col-span-1">
+          <Skeleton className="h-64 w-full" />
+        </div>
+        <div className="lg:col-span-2 space-y-5">
+          <Skeleton className="h-4 w-32 mb-3" />
+          <div className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </div>
+      </div>
+    </PageShell>
+  );
 
   return (
     <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">

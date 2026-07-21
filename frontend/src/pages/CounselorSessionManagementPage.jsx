@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 import PageShell from '../components/PageShell';
 import SectionDivider from '../components/SectionDivider';
+import Skeleton from '../components/Skeleton';
 
 const TYPE_ICONS = { Chat: MessageCircle, 'Face-To-Face': User, Review: ClipboardList };
 const TYPE_LABELS = { Chat: 'Chat', 'Face-To-Face': 'Face-To-Face', Review: 'Review' };
@@ -253,7 +254,21 @@ const CounselorSessionManagementPage = () => {
     { type: 'Review', label: 'Review', items: queueItems.filter((q) => q.type === 'Review') },
   ];
 
-  if (loading) return <PageShell title="Session Manager" subtitle="Monitor active sessions"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return (
+    <PageShell title="Session Manager" subtitle="Monitor active sessions">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="lg:col-span-2 space-y-5">
+          <Skeleton className="h-4 w-24 mb-2" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+        <div className="lg:col-span-3">
+          <Skeleton className="h-64 w-full" />
+        </div>
+      </div>
+    </PageShell>
+  );
 
   return (
     <PageShell title="Session Manager" subtitle="Monitor active sessions, record notes, and assign self-care tasks">

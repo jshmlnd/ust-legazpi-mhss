@@ -5,6 +5,7 @@ import { getSocket } from '../lib/socket';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
+import Skeleton from '../components/Skeleton';
 import toast from 'react-hot-toast';
 
 const getTotalReactions = (reactions) => {
@@ -210,7 +211,19 @@ const CounselorAnnouncementManagerPage = () => {
     { label: 'Most Reactions', value: mostReacted },
   ];
 
-  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return (
+    <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-200 rounded-sm overflow-hidden mb-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white px-6 py-5">
+            <Skeleton className="h-3 w-20 mb-2" />
+            <Skeleton className="h-6 w-12" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-64 w-full" />
+    </PageShell>
+  );
 
   return (
     <PageShell

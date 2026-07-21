@@ -120,7 +120,7 @@ const CounselorAnnouncementManagerPage = () => {
       setDeletedAnnouncements((prev) => prev.filter((a) => !selected.has(a._id)));
       setSelected(new Set());
       toast.success(`Deleted ${selected.size} announcement(s)`);
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete announcements');
     }
   };
@@ -130,7 +130,7 @@ const CounselorAnnouncementManagerPage = () => {
       await axiosInstance.delete(`/announcements/${id}`);
       setAnnouncements((prev) => prev.filter((a) => a._id !== id));
 
-      const undo = toast(
+      toast(
         (t) => (
           <div className="flex items-center gap-3">
             <span className="text-sm">Deleted "{title}"</span>
@@ -153,7 +153,7 @@ const CounselorAnnouncementManagerPage = () => {
         ),
         { duration: 5000 }
       );
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete announcement');
     }
   };
@@ -163,7 +163,7 @@ const CounselorAnnouncementManagerPage = () => {
       await axiosInstance.patch(`/announcements/${id}/restore`);
       toast.success('Announcement restored');
       fetchAnnouncements();
-    } catch (err) {
+    } catch {
       toast.error('Failed to restore announcement');
     }
   };
@@ -174,7 +174,7 @@ const CounselorAnnouncementManagerPage = () => {
       setAnnouncements((prev) => [res.data, ...prev]);
       setCreateModalOpen(false);
       toast.success('Announcement created');
-    } catch (err) {
+    } catch {
       toast.error('Failed to create announcement');
     }
   };
@@ -187,7 +187,7 @@ const CounselorAnnouncementManagerPage = () => {
       setEditModalOpen(false);
       setEditingAnnouncement(null);
       toast.success('Announcement updated');
-    } catch (err) {
+    } catch {
       toast.error('Failed to update announcement');
     }
   };

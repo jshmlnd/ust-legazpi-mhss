@@ -131,7 +131,7 @@ const SelfCarePage = () => {
       const res = await axiosInstance.post('/self-care', mod);
       setModules((prev) => [...prev, res.data]);
       toast.success('Module created');
-    } catch (err) {
+    } catch {
       toast.error('Failed to create module');
     }
   }, []);
@@ -141,7 +141,7 @@ const SelfCarePage = () => {
       await axiosInstance.delete(`/self-care/${id}`);
       setModules((prev) => prev.filter((m) => m._id !== id));
       toast.success('Module deleted');
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete module');
     }
   }, []);

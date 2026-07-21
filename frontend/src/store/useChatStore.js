@@ -31,7 +31,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get("/message/users");
       set({ users: res.data });
-    } catch (error) {
+    } catch {
       toast.error("Failed to load contacts");
     } finally {
       set({ isUsersLoading: false });
@@ -49,7 +49,7 @@ export const useChatStore = create((set, get) => ({
       const combined = [...msgRes.data, ...logRes.data]
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       set({ messages: combined });
-    } catch (error) {
+    } catch {
       toast.error("Failed to load messages");
     } finally {
       set({ isMessagesLoading: false });

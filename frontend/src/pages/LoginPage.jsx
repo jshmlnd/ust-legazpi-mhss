@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
 import toast from 'react-hot-toast';
@@ -27,7 +27,9 @@ const LoginPage = () => {
     try {
       const user = await login(studentId.trim(), password);
       const isCounselor = user?.userType?.toLowerCase() === 'counselor';
-      navigate(isCounselor ? PATHS.DASHBOARD : PATHS.HOME);
+      const isAdministrator = user?.userType?.toLowerCase() === 'administrator';
+      navigate(isCounselor ? PATHS.DASHBOARD : isAdministrator ? PATHS.ADMIN_REGISTER_STUDENT : PATHS.HOME);
+
     } catch (error) {
       toast.error(error.message);
     }

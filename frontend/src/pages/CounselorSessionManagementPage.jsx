@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, User, FileText, ClipboardList, Send, Check, Plus, Clock, MoreHorizontal, Loader, Save } from 'lucide-react';
+import { MessageCircle, User, FileText, ClipboardList, Clock, Loader, Save, Plus } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
-import { useAuthStore } from '../store/useAuthStore';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 import PageShell from '../components/PageShell';
-import SectionDivider from '../components/SectionDivider';
 
 const TYPE_ICONS = { Chat: MessageCircle, 'Face-To-Face': User, Review: ClipboardList };
 const TYPE_LABELS = { Chat: 'Chat', 'Face-To-Face': 'Face-To-Face', Review: 'Review' };

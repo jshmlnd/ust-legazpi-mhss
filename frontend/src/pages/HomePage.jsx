@@ -9,11 +9,6 @@ import { PATHS } from '../lib/routes';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
 
-const ALL_TIMES = [
-  '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
-  '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM',
-];
-
 const ANNOUNCEMENT = {
   tag: "NOTICE",
   text: "Counseling services are available for walk-in appointments every Monday and Thursday, 8:00 AM – 4:00 PM at the Office of Guidance and Testing.",
@@ -75,7 +70,6 @@ const SERVICE_CARDS = [
 const HomePage = () => {
   const { authUser } = useAuthStore();
   const navigate = useNavigate();
-  const [diaryHover, setDiaryHover] = useState(false);
 
   const firstName = authUser?.fullName?.split(" ")[0] ?? "Student";
   const genid = authUser?._id;
@@ -203,7 +197,7 @@ const HomePage = () => {
       setConcern("");
       setSelectedCounselor("");
       setPendingRequest(res.data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to request Chat session.");
     } finally {
       setSubmitting(false);
@@ -505,8 +499,6 @@ const HomePage = () => {
             {/* Card 3 — Diary */}
             <div
               className="group relative bg-white/20 glass p-8"
-              onMouseEnter={() => setDiaryHover(true)}
-              onMouseLeave={() => setDiaryHover(false)}
             >
               <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">
                 Personal

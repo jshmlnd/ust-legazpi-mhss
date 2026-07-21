@@ -78,7 +78,7 @@ const AnnouncementComposer = ({ onPost }) => {
     try {
       const res = await onPost({ title: title.trim(), body: body.trim(), author: 'Counseling Office' });
       if (res) { setTitle(''); setBody(''); }
-    } catch (err) {
+    } catch {
       // error handled by parent
     }
   };

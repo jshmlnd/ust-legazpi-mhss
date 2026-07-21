@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, CalendarCheck, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
+import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
-import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
@@ -174,7 +173,7 @@ const SessionsPage = () => {
       toast.success(`Booked ${slot.time}`);
       const res = await axiosInstance.get('/appointments');
       setAppointments(res.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to book slot');
     }
   };

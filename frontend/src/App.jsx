@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 
 import Navbar from "./components/Navbar";
@@ -19,6 +19,8 @@ import SuggestionsPage from './pages/SuggestionsPage';
 
 import YourDiary from './pages/YourDiary';
 import StudentIdentityPage from './pages/StudentIdentityPage';
+import RegisterStudentPage from './pages/RegisterStudentPage';
+import RegisterCounselorPage from './pages/RegisterCounselorPage';
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from './store/useAuthStore';
@@ -68,9 +70,7 @@ const App = () => {
     };
   }, [authUser, subscribeToMessages, unsubscribeFromMessages, subscribeToCallEvents, unsubscribeFromCallEvents]);
 
-  console.log({ authUser });
-
-  if(isCheckingAuth && !authUser) return (
+if(isCheckingAuth && !authUser) return (
     <div className="flex items-center justify-center h-screen">
       <Loader className="size-10 animate-spin" />
     </div>
@@ -110,8 +110,11 @@ const App = () => {
       <Route path={PATHS.MANAGE_RESOURCES} element={authUser ? <ResourcePage /> : <Navigate to={PATHS.LOGIN} /> } />
       <Route path={PATHS.STUDENT_IDENTITY} element={authUser ? <StudentIdentityPage /> : <Navigate to={PATHS.LOGIN}/> } />
       <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={authUser ? <StudentIdentityPage /> : <Navigate to={PATHS.LOGIN}/> } />
-      <Route path={PATHS.SETTINGS} element={authUser ? <ProfilePage /> : <Navigate to={PATHS.LOGIN}/> } />
       <Route path={PATHS.PROFILE} element={authUser ? <Navigate to={PATHS.MY_ACCOUNT} /> : <Navigate to={PATHS.LOGIN}/> } />
+
+      {/* Admin Routes */}
+      <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterStudentPage /> : <Navigate to={PATHS.LOGIN} />} />
+      <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterCounselorPage /> : <Navigate to={PATHS.LOGIN} />} />
     </Routes>
 
   </div>);

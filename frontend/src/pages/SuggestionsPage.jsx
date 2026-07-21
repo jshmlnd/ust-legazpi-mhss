@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Lightbulb, Send, Trash2, Loader, Clock } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import Skeleton from '../components/Skeleton';
 import toast from 'react-hot-toast';
 
 const SuggestionsPage = () => {
@@ -97,10 +96,8 @@ const SuggestionsPage = () => {
 
         <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
           {loading ? (
-            <div className="bg-white px-6 py-6 space-y-4">
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
-              <Skeleton className="h-16 w-full" />
+            <div className="bg-white px-6 py-12 flex items-center justify-center">
+              <Loader size={18} className="animate-spin text-neutral-400" />
             </div>
           ) : suggestions.length === 0 ? (
             <div className="bg-white px-6 py-12 text-center">

@@ -10,7 +10,6 @@ import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
-import Skeleton from '../components/Skeleton';
 import toast from 'react-hot-toast';
 
 const RESOURCE_TYPES = [
@@ -333,15 +332,7 @@ const ResourcePage = () => {
     setSelectedId((prev) => (prev === r._id ? null : r._id));
   }, []);
 
-  if (loading) return (
-    <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Skeleton key={i} className="h-40 w-full" />
-        ))}
-      </div>
-    </PageShell>
-  );
+  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
     <PageShell

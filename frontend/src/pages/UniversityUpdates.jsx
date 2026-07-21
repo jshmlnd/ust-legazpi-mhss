@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
-import Skeleton from '../components/Skeleton';
 import toast from 'react-hot-toast';
 
 const REACTIONS = [
@@ -168,15 +167,7 @@ const UniversityUpdates = () => {
     }
   };
 
-  if (loading) return (
-    <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings">
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-48 w-full" />
-      </div>
-    </PageShell>
-  );
+  if (loading) return <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
     <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings">

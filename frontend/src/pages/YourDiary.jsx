@@ -5,7 +5,6 @@ import PageShell from '../components/PageShell';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import SectionDivider from '../components/SectionDivider';
-import Skeleton from '../components/Skeleton';
 import toast from 'react-hot-toast';
 
 const MOODS = [
@@ -185,15 +184,7 @@ const YourDiary = () => {
     }
   };
 
-  if (loading) return (
-    <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections">
-      <div className="space-y-4">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    </PageShell>
-  );
+  if (loading) return <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
     <PageShell

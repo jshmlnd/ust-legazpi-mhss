@@ -6,7 +6,6 @@ import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
-import Skeleton from '../components/Skeleton';
 import { PATHS } from '../lib/routes';
 import toast from 'react-hot-toast';
 
@@ -204,18 +203,7 @@ const CounselorSchedulingSystemPage = () => {
     }
   };
 
-  if (loading) return (
-    <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings">
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="flex-1 min-w-0">
-          <Skeleton className="h-64 w-full" />
-        </div>
-        <div className="w-full lg:w-80">
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </div>
-    </PageShell>
-  );
+  if (loading) return <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
     <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings">

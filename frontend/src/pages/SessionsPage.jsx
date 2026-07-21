@@ -228,7 +228,7 @@ const SessionsPage = () => {
         </div>
 
         <div className="lg:col-span-2 space-y-5">
-          <div>
+          <div id="upcoming-sessions">
             <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Chat Sessions</h3>
             {upcoming.length === 0 ? (
               <EmptyState icon={CalendarDays} title="No upcoming sessions" description="Book a session with your counselor to get started." />

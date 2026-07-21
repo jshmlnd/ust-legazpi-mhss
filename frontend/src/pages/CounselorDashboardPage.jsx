@@ -103,7 +103,7 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
   const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
   return (
-    <div id="upcoming-sessions" className="bg-white border border-neutral-200 rounded-sm">
+    <div className="bg-white border border-neutral-200 rounded-sm">
       <div className="px-6 pt-6 pb-3 flex items-center justify-between">
         <div>
           <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Upcoming Sessions</span>

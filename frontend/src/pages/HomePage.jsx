@@ -266,8 +266,10 @@ const HomePage = () => {
       toast.success("Face-to-face session booked! Awaiting counselor confirmation.");
       setF2fOpen(false);
       fetchActiveChat();
-    } catch { toast.error("Failed to book session."); }
-    finally { setF2fSubmitting(false); }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || "Failed to book session.";
+      toast.error(msg);
+    } finally { setF2fSubmitting(false); }
   };
 //
   return (

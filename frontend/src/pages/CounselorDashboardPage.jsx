@@ -132,9 +132,8 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
               <tr key={`${session.id}-${session.date}-${session.time}`} className="border-t border-neutral-100 hover:bg-neutral-50 transition-colors">
                 <td className="px-6 py-3.5 text-sm font-medium text-neutral-900">{session.id}</td>
                 <td className="px-6 py-3.5">
-                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'text-emerald-700' : 'text-neutral-600'}`}>
-                    <span className={`size-1.5 rounded-full ${session.type === 'Chat' ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-                    {session.type === 'Chat' ? 'Chat' : 'F2F'}
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] font-semibold tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}
                   </span>
                 </td>
                 <td className="px-6 py-3.5 text-sm text-neutral-600">{session.date} {session.time}</td>
@@ -206,9 +205,8 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
           <div key={`card-${session.id}-${session.date}-${session.time}`} className="border border-neutral-100 rounded-sm p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-neutral-900">{session.id}</span>
-              <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'text-emerald-700' : 'text-neutral-600'}`}>
-                <span className={`size-1.5 rounded-full ${session.type === 'Chat' ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-                {session.type === 'Chat' ? 'Chat' : 'F2F'}
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] font-semibold tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}
               </span>
             </div>
             <p className="text-xs text-neutral-500">{session.date} {session.time}</p>

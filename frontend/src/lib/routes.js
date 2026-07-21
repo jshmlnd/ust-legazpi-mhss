@@ -9,21 +9,21 @@ export const PATHS = {
   MESSAGES: '/messages',
   UNIVERSITY_UPDATES: '/university-updates',
   SUGGESTIONS: '/suggestions',
+  
   DASHBOARD: '/dashboard',
   MANAGE_SESSIONS: '/manage/sessions',
-
   MANAGE_ANNOUNCEMENT: '/manage/announcement',
   MANAGE_SELF_CARE: '/manage/self-care',
   MANAGE_RESOURCES: '/manage/resources',
   COUNSELOR_SCHEDULE: '/appointments',
   STUDENT_IDENTITY: '/identity/user',
   STUDENT_IDENTITY_DETAIL: '/identity/user/:id',
-  SETTINGS: '/settings',
   PROFILE: '/profile',
 };
 
 export const NAV_ITEMS = [
-  { label: 'Home', path: PATHS.HOME, allowedRoles: ['student', 'counselor'] },
+  { label: 'Home', path: PATHS.HOME, allowedRoles: ['student'] },
+  { label: 'Dashboard', path: PATHS.DASHBOARD, allowedRoles: ['counselor'] },
   { label: 'Sessions', path: PATHS.SESSIONS, allowedRoles: ['student'] },
   { label: 'Resources', path: PATHS.RESOURCES, allowedRoles: ['student'] },
   { label: 'Self Care', path: PATHS.SELF_CARE, allowedRoles: ['student'] },

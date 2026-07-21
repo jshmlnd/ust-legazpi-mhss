@@ -126,7 +126,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
                 </div>
               </div>
               <button
-                onClick={() => { onClose(); navigate(PATHS.MANAGE_SESSIONS); }}
+                onClick={() => { onClose(); navigate(PATHS.UPCOMING_SESSIONS); }}
                 className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
               >
                 {b.type === 'Chat' ? 'Join' : 'View'}

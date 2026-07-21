@@ -258,7 +258,7 @@ const HomePage = () => {
     try {
       await axiosInstance.post("/appointments", {
         counselorId: Number(f2fCounselorId),
-        type: "f2f",
+        type: "Face-To-Face",
         date: f2fDate,
         time: f2fTime,
         concern: f2fConcern.trim(),
@@ -670,37 +670,26 @@ const HomePage = () => {
             </div>
           )}
 
-          {f2fCounselorId && f2fAllSlots.length > 0 && (
+{f2fCounselorId && f2fAllSlots.length > 0 && (
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date (Manual)</label>
-              <input
-                type="date"
-                value={f2fDate}
-                onChange={(e) => handleF2fDateChange(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-              />
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>
+              {f2fLoadingSlots ? (
+                <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading available times...</div>
+              ) : (
+                <select
+                  value={f2fTime}
+                  onChange={(e) => setF2fTime(e.target.value)}
+                  disabled={!f2fCounselorId || !f2fDate}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors disabled:opacity-40"
+                >
+                  <option value="">Select a time slot</option>
+                  {f2fAvailableTimes.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>
-            {f2fLoadingSlots ? (
-              <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading available times...</div>
-            ) : (
-              <select
-                value={f2fTime}
-                onChange={(e) => setF2fTime(e.target.value)}
-                disabled={!f2fCounselorId || !f2fDate}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors disabled:opacity-40"
-              >
-                <option value="">Select a time slot</option>
-                {f2fAvailableTimes.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            )}
-          </div>
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Concern (optional)</label>

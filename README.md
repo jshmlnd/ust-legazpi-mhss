@@ -30,3 +30,15 @@ I, [`Joshua Klein A. Malonda`](https://github.com/jshmlnd), along with my resear
 | Real-time | Socket.IO |
 | Dev Tool | Nodemon |
 | File Upload | Cloudinary |
+
+###### Accounts:
+
+| Student No. | Password |
+| ----------- | :------: |
+| 4210043 | 04210043 |
+| 4230306 | 04230306 |
+| 4230023 | 04230023 |
+| 4210021 | 04210021 |
+| 4200420 | 04200420 |
+| 4220051 | 04220051 |
+

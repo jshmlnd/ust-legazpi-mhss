@@ -100,7 +100,6 @@ const AnalyticsSummary = ({ data }) => (
 
 const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSession, endingSessionId }) => {
   const navigate = useNavigate();
-  const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm">
@@ -306,7 +305,6 @@ const CounselorDashboardPage = () => {
   const [sessionDistribution, setSessionDistribution] = useState([]);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [summaryData, setSummaryData] = useState({ peakHours: '—', topResources: '—', avgDuration: '—', accessPct: 0 });
-  const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);
   const [endingSessionId, setEndingSessionId] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
@@ -318,14 +316,14 @@ const CounselorDashboardPage = () => {
     try {
       const res = await axiosInstance.get('/suggestions');
       setSuggestions(res.data);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const fetchAnnouncements = async () => {
     try {
       const res = await axiosInstance.get('/announcements');
       setAnnouncements(res.data);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const deleteSuggestion = async (id) => {
@@ -442,8 +440,6 @@ const CounselorDashboardPage = () => {
         setSummaryData(summaryRes.data);
       } catch (err) {
         console.error('Failed to fetch dashboard:', err);
-      } finally {
-        setLoading(false);
       }
     };
 

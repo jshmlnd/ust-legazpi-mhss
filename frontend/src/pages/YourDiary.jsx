@@ -4,7 +4,6 @@ import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
-import SectionDivider from '../components/SectionDivider';
 import toast from 'react-hot-toast';
 
 const MOODS = [
@@ -179,7 +178,7 @@ const YourDiary = () => {
       await axiosInstance.delete(`/journal/${id}`);
       setEntries((prev) => prev.filter((e) => e._id !== id));
       toast.success('Entry deleted');
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete entry');
     }
   };

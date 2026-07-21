@@ -7,13 +7,6 @@ import SectionDivider from '../components/SectionDivider';
 import AvatarUpload from '../components/AvatarUpload';
 import toast from 'react-hot-toast';
 
-const InfoRow = ({ label, value }) => (
-  <div className="flex items-center justify-between py-3 border-b border-neutral-100 last:border-b-0">
-    <span className="text-xs text-neutral-500">{label}</span>
-    <span className="text-sm font-medium text-neutral-900 text-right max-w-[60%] truncate">{value || '—'}</span>
-  </div>
-);
-
 const StrengthBar = ({ score }) => {
   const levels = [
     { label: 'Weak', color: 'bg-red-500', width: '25%', textColor: 'text-red-600' },

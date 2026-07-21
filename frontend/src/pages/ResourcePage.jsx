@@ -292,7 +292,7 @@ const ResourcePage = () => {
       setModalOpen(false);
       setEditing(null);
       toast.success(editing ? 'Resource updated' : 'Resource added');
-    } catch (err) {
+    } catch {
       toast.error('Failed to save resource');
     }
   }, [editing]);
@@ -303,7 +303,7 @@ const ResourcePage = () => {
       setResources((prev) => prev.filter((r) => r._id !== id));
       setSelectedId((prev) => (prev === id ? null : prev));
       toast.success('Resource deleted');
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete resource');
     }
   }, []);

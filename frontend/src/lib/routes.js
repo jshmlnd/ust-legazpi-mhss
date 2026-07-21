@@ -19,6 +19,9 @@ export const PATHS = {
   STUDENT_IDENTITY: '/identity/user',
   STUDENT_IDENTITY_DETAIL: '/identity/user/:id',
   PROFILE: '/profile',
+
+  ADMIN_REGISTER_STUDENT: '/admin/register-student',
+  ADMIN_REGISTER_COUNSELOR: '/admin/register-counselor',
 };
 
 export const NAV_ITEMS = [
@@ -33,4 +36,6 @@ export const NAV_ITEMS = [
   { label: 'Self-Care', path: PATHS.MANAGE_SELF_CARE, allowedRoles: ['counselor'] },
   { label: 'Announcements', path: PATHS.MANAGE_ANNOUNCEMENT, allowedRoles: ['counselor'] },
   { label: 'My Account', path: PATHS.MY_ACCOUNT, allowedRoles: ['student', 'counselor'] },
+  { label: 'Register Student', path: PATHS.ADMIN_REGISTER_STUDENT, allowedRoles: ['administrator'] },
+  { label: 'Register Counselor', path: PATHS.ADMIN_REGISTER_COUNSELOR, allowedRoles: ['administrator'] },
 ];

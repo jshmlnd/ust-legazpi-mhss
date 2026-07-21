@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Clock, User, Ban, Plus, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, CalendarDays } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import Modal from '../components/Modal';
-import FormField from '../components/FormField';
 import { PATHS } from '../lib/routes';
 import toast from 'react-hot-toast';
 
@@ -198,7 +197,7 @@ const CounselorSchedulingSystemPage = () => {
       const slotRes = await axiosInstance.get(`/availability/${authUser._id}`);
       setSlots(slotRes.data);
       toast.success(updated.includes(time) ? 'Slot added' : 'Slot removed');
-    } catch (err) {
+    } catch {
       toast.error('Failed to update slot');
     }
   };

@@ -3,7 +3,6 @@ import AgoraRTC from "agora-rtc-sdk-ng";
 import { getSocket } from "../lib/socket";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
-import { useChatStore } from "./useChatStore";
 import toast from "react-hot-toast";
 
 const generateChannelName = (userId1, userId2) => {
@@ -114,7 +113,7 @@ export const useCallStore = create((set, get) => ({
       return res.data;
     } catch (err) {
       const detail = err.response?.data?.error || err.message;
-      throw new Error(`Token fetch failed: ${detail}`);
+      throw new Error(`Token fetch failed: ${detail}`, { cause: err });
     }
   },
 

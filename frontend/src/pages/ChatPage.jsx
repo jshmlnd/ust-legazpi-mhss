@@ -91,7 +91,7 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
   );
 };
 
-const EmergencyBanner = ({ studentName, onReveal, onDismiss }) => (
+const EmergencyBanner = ({ onReveal, onDismiss }) => (
   <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
     <div className="flex items-center gap-3 min-w-0">
       <div className="size-8 rounded-sm bg-red-100 flex items-center justify-center shrink-0">
@@ -261,10 +261,9 @@ const StudentChatView = () => {
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
     isSocketConnected, typingUsers,
   } = useChatStore();
-  const { callState, endCall } = useCallStore();
+  const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
-  const [activeAppointment, setActiveAppointment] = useState(null);
 
   useEffect(() => {
     getUsers();
@@ -273,7 +272,7 @@ const StudentChatView = () => {
       unsubscribeFromMessages();
       if (callState !== 'idle') endCall(false);
     };
-  }, [getUsers]);
+  }, [getUsers, subscribeToMessages, unsubscribeFromMessages, callState, endCall]);
 
   useEffect(() => {
     if (users.length > 0 && !selectedUser) {
@@ -290,15 +289,13 @@ const StudentChatView = () => {
     const fetchAppointment = async () => {
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
-        setActiveAppointment(res.data);
         getMessages(selectedUser._id, res.data?._id);
       } catch {
-        setActiveAppointment(null);
         getMessages(selectedUser._id);
       }
     };
     fetchAppointment();
-  }, [selectedUser]);
+  }, [selectedUser, getMessages]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -469,7 +466,7 @@ const CounselorChatView = () => {
       unsubscribeFromMessages();
       if (callState !== 'idle') endCall(false);
     };
-  }, [getUsers]);
+  }, [getUsers, subscribeToMessages, unsubscribeFromMessages, callState, endCall]);
 
   useEffect(() => {
     if (users.length > 0) {
@@ -513,7 +510,7 @@ const CounselorChatView = () => {
       }
     };
     fetchAppointment();
-  }, [selectedUser]);
+  }, [selectedUser, getMessages]);
 
   useEffect(() => {
     const socket = getSocket();

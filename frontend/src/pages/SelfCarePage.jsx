@@ -232,7 +232,7 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
             </button>
           )}
         </div>
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="sticky bottom-0 bg-white pt-3 -mx-6 px-6 -mb-5 pb-5 border-t border-neutral-100 flex items-center justify-end gap-3">
           <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
           <button type="submit" className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">Create Module</button>
         </div>

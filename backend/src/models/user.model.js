@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema(
         department: {
             type: String,
             required: [true, 'Department is required'],
-            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA'], message: `{VALUE} is not a valid department` },
+            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA', 'LAW'], message: `{VALUE} is not a valid department` },
         },
         program: {
             type: String,

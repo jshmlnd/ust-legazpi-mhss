@@ -1,9 +1,15 @@
 import { Link } from 'react-router-dom';
-import { UserPlus, Stethoscope } from 'lucide-react';
+import { UserPlus, Stethoscope, Users } from 'lucide-react';
 import PageShell from '../components/PageShell';
 import { PATHS } from '../lib/routes';
 
 const cards = [
+  {
+    title: 'Manage Users',
+    description: 'View, edit, or remove existing student and counselor accounts.',
+    icon: Users,
+    to: PATHS.ADMIN_MANAGE_USERS,
+  },
   {
     title: 'Register Student',
     description: 'Create a new student account for the mental health support system.',
@@ -21,7 +27,7 @@ const cards = [
 const Administrator = () => {
   return (
     <PageShell title="Administrator" subtitle="Manage system accounts">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-3xl">
         {cards.map((card) => (
           <Link
             key={card.to}

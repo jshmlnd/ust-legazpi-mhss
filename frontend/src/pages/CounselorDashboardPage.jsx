@@ -397,9 +397,7 @@ const CounselorDashboardPage = () => {
     setAcceptingId(session.id);
     try {
       await axiosInstance.patch(`/appointments/${session._id}`, { status: 'active' });
-      setUpcomingSessions((prev) =>
-        prev.map((s) => (s._id === session._id ? { ...s, status: 'active' } : s))
-      );
+      setUpcomingSessions((prev) => prev.filter((s) => s._id !== session._id));
       toast.success(`Accepted Chat with ${session.id}`);
     } catch { toast.error('Failed to accept request.'); }
     finally { setAcceptingId(null); }
@@ -409,9 +407,7 @@ const CounselorDashboardPage = () => {
     setAcceptingId(session.id);
     try {
       await axiosInstance.patch(`/appointments/${session._id}`, { status: 'declined' });
-      setUpcomingSessions((prev) =>
-        prev.map((s) => (s._id === session._id ? { ...s, status: 'declined' } : s))
-      );
+      setUpcomingSessions((prev) => prev.filter((s) => s._id !== session._id));
       toast.success(`Declined Chat with ${session.id}`);
     } catch { toast.error('Failed to decline request.'); }
     finally { setAcceptingId(null); }

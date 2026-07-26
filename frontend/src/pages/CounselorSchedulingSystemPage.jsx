@@ -223,7 +223,7 @@ const CounselorSchedulingSystemPage = () => {
         ? availableSlots.filter((s) => s !== time)
         : [...availableSlots, time].sort();
       const allSlots = activeDates.flatMap((d) => updated.map((t) => ({ date: d, time: t })));
-      await axiosInstance.post('/availability', { slots: allSlots });
+      await axiosInstance.post('/availability', { slots: allSlots, dates: activeDates });
       const slotRes = await axiosInstance.get(`/availability/${authUser._id}`);
       setSlots(slotRes.data);
       toast.success(`${activeDates.length > 1 ? `${activeDates.length} dates updated` : 'Slot'} ${updated.includes(time) ? 'added' : 'removed'}`);

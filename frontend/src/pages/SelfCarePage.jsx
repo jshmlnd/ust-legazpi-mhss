@@ -195,6 +195,10 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
     onClose();
   };
 
+  const removeActivity = (index) => {
+    setActivities((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const updateActivity = (index, field, value) => {
     setActivities((prev) => {
       const next = [...prev];
@@ -212,12 +216,19 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
           <label className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activities</label>
           {activities.map((a, i) => (
             <div key={i} className="space-y-1.5">
-              <input
-                value={a.label}
-                onChange={(e) => updateActivity(i, 'label', e.target.value)}
-                placeholder={`Activity ${i + 1}`}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  value={a.label}
+                  onChange={(e) => updateActivity(i, 'label', e.target.value)}
+                  placeholder={`Activity ${i + 1}`}
+                  className="flex-1 bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                />
+                {activities.length > 1 && (
+                  <button type="button" onClick={() => removeActivity(i)} className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Remove activity">
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
               <input
                 value={a.link}
                 onChange={(e) => updateActivity(i, 'link', e.target.value)}

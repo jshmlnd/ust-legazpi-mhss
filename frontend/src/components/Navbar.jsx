@@ -21,7 +21,7 @@ const useRBAC = (authUser) => {
     [role, authUser],
   );
 
-  const homeTarget = role === 'counselor' ? PATHS.DASHBOARD : PATHS.HOME;
+  const homeTarget = role === 'counselor' ? PATHS.DASHBOARD : role === 'administrator' ? PATHS.ADMIN : PATHS.HOME;
   const isAuthenticated = !!authUser;
 
   return { role, visibleLinks, homeTarget, isAuthenticated };

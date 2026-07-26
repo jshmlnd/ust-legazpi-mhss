@@ -151,8 +151,8 @@ const SessionsPage = () => {
     return () => socket.off("appointment:updated", fetchData);
   }, [fetchData]);
 
-  const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active'].includes(a.status));
-  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined'].includes(a.status));
+  const upcoming = appointments.filter((a) => ['pending', 'active'].includes(a.status));
+  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'confirmed', 'archived'].includes(a.status));
   const hasPast = past.length > 0;
 
   const dateStr = selectedDay?.dateStr || '';
@@ -202,7 +202,8 @@ const SessionsPage = () => {
     setArchiving(true);
     try {
       await axiosInstance.post('/appointments/archive-past');
-      setAppointments((prev) => prev.filter((a) => a.status !== 'archived'));
+      const res = await axiosInstance.get('/appointments');
+      setAppointments(res.data);
       toast.success('Past sessions cleared');
     } catch {
       toast.error('Failed to clear past sessions');
@@ -230,7 +231,7 @@ const SessionsPage = () => {
           <div id="upcoming-sessions">
             <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Chat Sessions</h3>
             {upcoming.length === 0 ? (
-              <EmptyState icon={CalendarDays} title="No upcoming sessions" description="Book a session with your counselor to get started." />
+              <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
             ) : (
               <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
                 {upcoming.map((s) => <SessionCard key={s._id} session={s} type="upcoming" />)}
@@ -288,6 +289,7 @@ const SessionsPage = () => {
       )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedDay ? `Schedule — ${dateStr}` : ''}>
+        <div className="max-h-[60vh] overflow-y-auto pr-1">
         {dayBookings.length > 0 && (
           <div className="mb-4">
             <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Your Appointments</span>
@@ -313,6 +315,7 @@ const SessionsPage = () => {
         ) : dayBookings.length === 0 ? (
           <p className="text-sm text-neutral-400 py-4 text-center">No slots or bookings for this day.</p>
         ) : null}
+        </div>
       </Modal>
     </PageShell>
   );

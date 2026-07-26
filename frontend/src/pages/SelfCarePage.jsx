@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, Trash2, ExternalLink,
   Sparkles, Heart, HeartPulse, HeartHandshake,
-  Brain, Sun, Moon, CloudSun, CloudMoon,
+  Brain, Sun, Moon,
   Leaf, Flower, Star, Smile, SmilePlus,
   Music, Headphones, BookOpen, Coffee, Bed,
   Dumbbell, Timer, Droplets, Waves, Shield,
   Compass, Lightbulb, Palette, Armchair, Footprints, Utensils,
-  Cake, CircleDot,
+  CircleDot,
 } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
@@ -26,8 +26,6 @@ const ICON_OPTIONS = [
   { name: 'Brain', label: 'Brain' },
   { name: 'Sun', label: 'Sun' },
   { name: 'Moon', label: 'Moon' },
-  { name: 'CloudSun', label: 'Daytime' },
-  { name: 'CloudMoon', label: 'Nighttime' },
   { name: 'Leaf', label: 'Leaf' },
   { name: 'Flower', label: 'Flower' },
   { name: 'Star', label: 'Star' },
@@ -49,18 +47,17 @@ const ICON_OPTIONS = [
   { name: 'Armchair', label: 'Relax' },
   { name: 'Footprints', label: 'Walk' },
   { name: 'Utensils', label: 'Nutrition' },
-  { name: 'Cake', label: 'Treat' },
   { name: 'CircleDot', label: 'Focus' },
 ];
 
 const ICON_MAP = {
   Sparkles, Heart, HeartPulse, HeartHandshake,
-  Brain, Sun, Moon, CloudSun, CloudMoon,
+  Brain, Sun, Moon,
   Leaf, Flower, Star, Smile, SmilePlus,
   Music, Headphones, BookOpen, Coffee, Bed,
   Dumbbell, Timer, Droplets, Waves, Shield,
   Compass, Lightbulb, Palette, Armchair, Footprints, Utensils,
-  Cake, CircleDot,
+  CircleDot,
 };
 
 const ICON_BG_COLORS = [
@@ -100,7 +97,7 @@ const ModuleIcon = ({ name, size = 14 }) => {
 const IconPicker = ({ value, onChange }) => (
   <div className="space-y-2">
     <label className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Module Icon</label>
-    <div className="grid grid-cols-6 gap-1.5 max-h-[180px] overflow-y-auto pr-1">
+    <div className="grid grid-cols-6 gap-1.5">
       {ICON_OPTIONS.map((opt) => {
         const Icon = ICON_MAP[opt.name];
         const { bg, fg } = getIconColors(opt.name);

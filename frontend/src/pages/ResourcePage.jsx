@@ -69,7 +69,7 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
   const locations = resources.filter((r) => r.lat && r.lng && r.type !== 'article' && r.type !== 'sheet');
 
   return (
-    <div className="h-full w-full rounded-sm overflow-hidden border border-neutral-200">
+    <div className="h-full w-full rounded-sm overflow-hidden border border-neutral-200 relative z-0">
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
@@ -250,7 +250,7 @@ const ResourcePage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
+  const [viewMode, setViewMode] = useState('split');
 
   const normalizeResource = (r) => ({
     ...r,

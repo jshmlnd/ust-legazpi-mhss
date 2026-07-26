@@ -78,8 +78,8 @@ const MobileNavLink = ({ link, index, isOpen }) => {
     <Link
       key={link.label}
       to={link.resolvedPath}
-      className={`text-lg tracking-[0.2em] font-medium uppercase transition-all duration-500 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-      style={{ transitionDelay: isOpen ? `${index * 120}ms` : '0ms' }}
+      className={`text-lg tracking-[0.2em] font-medium uppercase transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      style={{ transitionDelay: isOpen ? `${index * 60}ms` : '0ms' }}
     >
       {link.label}
     </Link>
@@ -122,10 +122,10 @@ const HamburgerButton = ({ isOpen, onClick }) => (
   >
     <div className="flex flex-col items-center justify-center gap-[5px]">
       <span
-        className={`block h-[1.5px] w-5 bg-white rounded-full transition-all duration-300 ${isOpen ? 'rotate-45 translate-y-[6.5px]' : ''}`}
+        className={`block h-[1.5px] w-5 bg-white rounded-full transition-all duration-300 ${isOpen ? 'rotate-45 translate-y-[3.25px]' : ''}`}
       />
       <span
-        className={`block h-[1.5px] w-5 bg-white rounded-full transition-all duration-300 ${isOpen ? '-rotate-45 -translate-y-[6.5px]' : ''}`}
+        className={`block h-[1.5px] w-5 bg-white rounded-full transition-all duration-300 ${isOpen ? '-rotate-45 -translate-y-[3.25px]' : ''}`}
       />
     </div>
   </button>
@@ -133,7 +133,7 @@ const HamburgerButton = ({ isOpen, onClick }) => (
 
 const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
   <div
-    className={`fixed inset-0 z-40 bg-black/95 flex flex-col items-center justify-center transition-all duration-500 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+    className={`fixed inset-0 z-40 bg-black/95 flex flex-col items-center justify-center transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
   >
     <nav className="flex flex-col items-center gap-10">
       {visibleLinks.map((link, index) => (
@@ -143,8 +143,8 @@ const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
       {isAuthenticated ? (
         <button
           onClick={onLogout}
-          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-white/20 text-white bg-white/10 hover:bg-white hover:text-black transition-all duration-500 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-          style={{ transitionDelay: isOpen ? `${visibleLinks.length * 120}ms` : '0ms' }}
+          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-white/20 text-white bg-white/10 hover:bg-white hover:text-black transition-all duration-300 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+          style={{ transitionDelay: isOpen ? `${visibleLinks.length * 60}ms` : '0ms' }}
         >
           Logout
         </button>

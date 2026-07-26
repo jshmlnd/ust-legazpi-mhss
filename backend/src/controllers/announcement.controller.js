@@ -60,6 +60,18 @@ export const restoreAnnouncement = async (req, res) => {
   }
 };
 
+export const permanentDeleteAnnouncement = async (req, res) => {
+  try {
+    const announcement = await Announcement.findByIdAndDelete(req.params.id);
+    if (!announcement) return res.status(404).json({ error: "Announcement not found" });
+    getIO().emit("announcements:updated");
+    res.json({ message: "Announcement permanently deleted" });
+  } catch (error) {
+    console.error("Error in permanentDeleteAnnouncement:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const incrementViews = async (req, res) => {
   try {
     const announcement = await Announcement.findById(req.params.id);

@@ -76,7 +76,7 @@ const RegisterStudentPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Student ID <span className="text-red-400">*</span></label>
-              <input name="studentId" value={form.studentId} onChange={handleChange} placeholder="7 characters" maxLength={7} className={inputClass} />
+              <input type="text" inputMode="numeric" pattern="\d*" maxLength={7} name="studentId" value={form.studentId} onChange={(e) => { if (/^\d*$/.test(e.target.value)) handleChange(e); }} placeholder="Student ID" className={inputClass} />
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Password <span className="text-red-400">*</span></label>
@@ -92,7 +92,7 @@ const RegisterStudentPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Email <span className="text-red-400">*</span></label>
-              <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="email@example.com" className={inputClass} />
+              <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="email@ust-legazpi.edu.ph" className={inputClass} />
             </div>
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Phone <span className="text-red-400">*</span></label>

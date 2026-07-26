@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, User, Ban, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
@@ -18,7 +18,7 @@ const SLOTS = [
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDay = (year, month) => new Date(year, month, 1).getDay();
 
-const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates }) => {
+const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates, multiMode, selectedDates, onToggleDate }) => {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDay(year, month);
   const today = new Date();
@@ -42,11 +42,16 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates 
       {cells.map((cell, i) => {
         if (!cell) return <div key={`empty-${i}`} className="bg-white min-h-[100px]" />;
         const hasSlots = slotDates && slotDates.has(cell.dateStr);
+        const isSelected = multiMode && selectedDates?.has(cell.dateStr);
         return (
           <button
             key={cell.dateStr}
-            onClick={() => onDateClick(cell)}
-            className={`bg-white min-h-[100px] p-2 text-left transition-colors hover:bg-neutral-50 relative ${
+            onClick={() => multiMode ? onToggleDate?.(cell.dateStr) : onDateClick(cell)}
+            className={`bg-white min-h-[100px] p-2 text-left transition-colors relative ${
+              multiMode ? 'hover:bg-neutral-100 cursor-pointer' : 'hover:bg-neutral-50'
+            } ${
+              isSelected ? 'bg-neutral-100 ring-2 ring-inset ring-neutral-900' : ''
+            } ${
               cell.isHoliday ? 'bg-neutral-100/50' : ''
             }`}
           >
@@ -67,6 +72,11 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates 
             {hasSlots && (
               <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-blue-400" />
             )}
+            {isSelected && (
+              <span className="absolute top-1.5 right-1.5 size-4 rounded-full bg-neutral-900 flex items-center justify-center">
+                <Check size={10} className="text-white" />
+              </span>
+            )}
           </button>
         );
       })}
@@ -74,13 +84,13 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates 
   );
 };
 
-const SlotManager = ({ availableSlots, onToggleSlot, selectedDate }) => (
+const SlotManager = ({ availableSlots, onToggleSlot, selectedDate, multiMode, selectedDates }) => (
   <div className="bg-white border border-neutral-200 rounded-sm p-5">
     <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">
-      Availability Slots{selectedDate ? ` — ${selectedDate}` : ''}
+      {multiMode && selectedDates?.size > 0 ? `Slots for ${selectedDates.size} dates` : `Availability Slots${selectedDate ? ` — ${selectedDate}` : ''}`}
     </span>
     {availableSlots.length === 0 && (
-      <p className="text-xs text-neutral-400 mb-3">No slots set for this date. Toggle times below to add availability.</p>
+      <p className="text-xs text-neutral-400 mb-3">No slots set. Toggle times below to add availability.</p>
     )}
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {SLOTS.map((slot) => {
@@ -112,7 +122,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
       {dayBookings.length === 0 ? (
         <p className="text-sm text-neutral-400 py-6 text-center">No bookings on this day.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
           {dayBookings.map((b) => (
             <div key={b._id} className="flex items-center justify-between py-3 px-4 bg-neutral-50 rounded-sm">
               <div className="flex items-center gap-3">
@@ -150,6 +160,8 @@ const CounselorSchedulingSystemPage = () => {
   const [selectedCell, setSelectedCell] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [multiMode, setMultiMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -171,11 +183,6 @@ const CounselorSchedulingSystemPage = () => {
     fetchData();
   }, [authUser]);
 
-  const availableSlots = slots
-    .filter((s) => s.date === selectedDate && s.isAvailable)
-    .map((s) => s.time)
-    .sort();
-
   const slotDates = new Set(
     slots.filter((s) => s.isAvailable).map((s) => s.date).filter(Boolean)
   );
@@ -186,17 +193,40 @@ const CounselorSchedulingSystemPage = () => {
   const nextMonth = () => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); };
 
   const handleDateClick = (cell) => { setSelectedCell(cell); setModalOpen(true); };
+
+  const handleToggleDate = (dateStr) => {
+    setSelectedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateStr)) {
+        next.delete(dateStr);
+      } else {
+        next.add(dateStr);
+      }
+      if (next.size === 1) setSelectedDate([...next][0]);
+      return next;
+    });
+  };
+
+  const activeDates = multiMode ? [...selectedDates] : [selectedDate];
+
+  const availableSlots = (() => {
+    if (multiMode && selectedDates.size > 0) {
+      const first = [...selectedDates][0];
+      return slots.filter((s) => s.date === first && s.isAvailable).map((s) => s.time).sort();
+    }
+    return slots.filter((s) => s.date === selectedDate && s.isAvailable).map((s) => s.time).sort();
+  })();
+
   const handleToggleSlot = async (time) => {
     try {
       const updated = availableSlots.includes(time)
         ? availableSlots.filter((s) => s !== time)
         : [...availableSlots, time].sort();
-      await axiosInstance.post('/availability', {
-        slots: updated.map((t) => ({ date: selectedDate, time: t })),
-      });
+      const allSlots = activeDates.flatMap((d) => updated.map((t) => ({ date: d, time: t })));
+      await axiosInstance.post('/availability', { slots: allSlots, dates: activeDates });
       const slotRes = await axiosInstance.get(`/availability/${authUser._id}`);
       setSlots(slotRes.data);
-      toast.success(updated.includes(time) ? 'Slot added' : 'Slot removed');
+      toast.success(`${activeDates.length > 1 ? `${activeDates.length} dates updated` : 'Slot'} ${updated.includes(time) ? 'added' : 'removed'}`);
     } catch {
       toast.error('Failed to update slot');
     }
@@ -225,19 +255,36 @@ const CounselorSchedulingSystemPage = () => {
             bookings={bookings} holidays={[]}
             onDateClick={handleDateClick}
             slotDates={slotDates}
+            multiMode={multiMode}
+            selectedDates={selectedDates}
+            onToggleDate={handleToggleDate}
           />
         </div>
         <div className="w-full lg:w-72 shrink-0 space-y-4">
           <div className="bg-white border border-neutral-200 rounded-sm p-5">
-            <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">Set Date</span>
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-            />
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Set Date</span>
+              <button
+                onClick={() => { setMultiMode((m) => !m); setSelectedDates(new Set()); }}
+                className={`text-[10px] font-semibold tracking-[0.1em] uppercase px-2.5 py-1 rounded-sm border transition-colors ${
+                  multiMode ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-400'
+                }`}
+              >
+                {multiMode ? 'Multi' : 'Single'}
+              </button>
+            </div>
+            {multiMode ? (
+              <p className="text-xs text-neutral-400">Click calendar dates to select, then toggle time slots to apply to all.</p>
+            ) : (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+              />
+            )}
           </div>
-          <SlotManager availableSlots={availableSlots} onToggleSlot={handleToggleSlot} selectedDate={selectedDate} />
+          <SlotManager availableSlots={availableSlots} onToggleSlot={handleToggleSlot} selectedDate={selectedDate} multiMode={multiMode} selectedDates={selectedDates} />
           <div className="bg-white border border-neutral-200 rounded-sm p-5">
             <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">Legend</span>
             <div className="space-y-2.5">

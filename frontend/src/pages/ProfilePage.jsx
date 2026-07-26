@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil } from 'lucide-react';
+import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
@@ -43,10 +43,19 @@ const ValidationRule = ({ passes, label }) => (
 );
 
 const SecurityCard = () => {
+  const { authUser } = useAuthStore();
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [show, setShow] = useState({ current: false, new: false, confirm: false });
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const [hasPin, setHasPin] = useState(!!authUser?.pin);
+  // Modes: 'setup' | 'verify' | 'change-verify' | 'change-set'
+  const [pinMode, setPinMode] = useState(hasPin ? 'verify' : 'setup');
+  const [pinValue, setPinValue] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [pinLoading, setPinLoading] = useState(false);
+  const [pinVerified, setPinVerified] = useState(false);
 
   const strength = getPasswordStrength(form.newPassword);
   const passwordsMatch = form.newPassword === form.confirmPassword && form.confirmPassword.length > 0;
@@ -55,9 +64,60 @@ const SecurityCard = () => {
   const hasNumber = /[0-9]/.test(form.newPassword);
   const hasSpecial = /[^A-Za-z0-9]/.test(form.newPassword);
 
-  const canSubmit = form.currentPassword.length > 0 && form.newPassword.length >= 8 && passwordsMatch;
+  const canSubmit = form.currentPassword.length > 0 && form.newPassword.length >= 8 && passwordsMatch && pinVerified;
+  const isChangeSet = pinMode === 'change-set';
+  const canSetPin = pinMode === 'setup' || isChangeSet
+    ? pinValue.length >= 4 && pinValue === pinConfirm
+    : pinValue.length >= 4;
 
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+  const resetPinInputs = () => { setPinValue(''); setPinConfirm(''); };
+
+  const handleSetPin = async () => {
+    setPinLoading(true);
+    setStatus(null);
+    try {
+      await axiosInstance.post('/auth/pin', { pin: pinValue });
+      setHasPin(true);
+      setPinMode('verify');
+      resetPinInputs();
+      setStatus({ type: 'success', message: 'PIN set successfully.' });
+    } catch (err) {
+      setStatus({ type: 'error', message: err.response?.data?.message || 'Failed to set PIN.' });
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handleVerifyPin = async () => {
+    setPinLoading(true);
+    setStatus(null);
+    try {
+      await axiosInstance.post('/auth/pin/verify', { pin: pinValue });
+      setPinVerified(true);
+      setStatus({ type: 'success', message: 'PIN verified. You can now change your password.' });
+    } catch (err) {
+      setStatus({ type: 'error', message: err.response?.data?.message || 'Failed to verify PIN.' });
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handleChangePinVerify = async () => {
+    setPinLoading(true);
+    setStatus(null);
+    try {
+      await axiosInstance.post('/auth/pin/verify', { pin: pinValue });
+      setPinMode('change-set');
+      resetPinInputs();
+      setStatus({ type: 'success', message: 'Current PIN verified. Enter your new PIN below.' });
+    } catch (err) {
+      setStatus({ type: 'error', message: err.response?.data?.message || 'Incorrect PIN.' });
+    } finally {
+      setPinLoading(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -73,6 +133,9 @@ const SecurityCard = () => {
       });
       setStatus({ type: 'success', message: 'Password updated successfully.' });
       setForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPinVerified(false);
+      setPinValue('');
+      setPinMode('verify');
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to update password.';
       setStatus({ type: 'error', message: msg });
@@ -80,6 +143,16 @@ const SecurityCard = () => {
       setLoading(false);
     }
   };
+
+  const inputClass = 'w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 pr-9 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors';
+
+  const pinLabel = pinMode === 'setup'
+    ? 'Set a PIN (required to change password)'
+    : pinMode === 'verify'
+      ? 'Enter your PIN to unlock password change'
+      : pinMode === 'change-verify'
+        ? 'Enter current PIN to authorize change'
+        : 'Set your new PIN';
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm p-6">
@@ -89,7 +162,7 @@ const SecurityCard = () => {
         </div>
         <div>
           <h3 className="text-sm font-medium text-neutral-900">Security Settings</h3>
-          <p className="text-[11px] text-neutral-400">Update your password</p>
+          <p className="text-[11px] text-neutral-400">Verify your PIN, then change your password</p>
         </div>
       </div>
 
@@ -101,82 +174,145 @@ const SecurityCard = () => {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current Password</label>
-          <div className="relative">
-            <input
-              name="currentPassword"
-              type={show.current ? 'text' : 'password'}
-              value={form.currentPassword}
-              onChange={handleChange}
-              placeholder="Enter current password"
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 pr-9 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-            />
-            <button type="button" onClick={() => setShow((p) => ({ ...p, current: !p.current }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-              {show.current ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
+      {/* PIN Section */}
+      {!pinVerified && (
+      <div className="mb-5 pb-5 border-b border-neutral-100">
+        <div className="flex items-center gap-2 mb-3">
+          <KeyRound size={14} className="text-neutral-400" />
+          <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">{pinLabel}</span>
         </div>
 
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New Password</label>
-          <div className="relative">
-            <input
-              name="newPassword"
-              type={show.new ? 'text' : 'password'}
-              value={form.newPassword}
-              onChange={handleChange}
-              placeholder="Enter new password"
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 pr-9 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-            />
-            <button type="button" onClick={() => setShow((p) => ({ ...p, new: !p.new }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-              {show.new ? <EyeOff size={14} /> : <Eye size={14} />}
+        {pinMode === 'setup' ? (
+          <form onSubmit={(e) => { e.preventDefault(); handleSetPin(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New PIN</label>
+              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="At least 4 digits" maxLength={6} className={inputClass} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm PIN</label>
+              <input type="password" value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Confirm PIN" maxLength={6} className={inputClass} />
+            </div>
+            {pinValue.length > 0 && pinValue !== pinConfirm && <p className="text-[11px] text-red-500">PINs do not match</p>}
+            <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+              {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+              Set PIN
             </button>
-          </div>
-          {form.newPassword.length > 0 && <StrengthBar score={strength} />}
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm New Password</label>
-          <div className="relative">
-            <input
-              name="confirmPassword"
-              type={show.confirm ? 'text' : 'password'}
-              value={form.confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm new password"
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 pr-9 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-            />
-            <button type="button" onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
-              {show.confirm ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-          {form.confirmPassword.length > 0 && !passwordsMatch && (
-            <p className="text-[11px] text-red-500 mt-0.5">Passwords do not match</p>
-          )}
-        </div>
-
-        {form.newPassword.length > 0 && (
-          <div className="bg-neutral-50 rounded-sm p-3 space-y-1.5">
-            <ValidationRule passes={hasMinLength} label="At least 8 characters" />
-            <ValidationRule passes={hasUpper} label="One uppercase letter" />
-            <ValidationRule passes={hasNumber} label="One number" />
-            <ValidationRule passes={hasSpecial} label="One special character" />
-          </div>
+          </form>
+        ) : pinMode === 'change-verify' ? (
+          <form onSubmit={(e) => { e.preventDefault(); handleChangePinVerify(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current PIN</label>
+              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter current PIN" maxLength={6} className={inputClass} />
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+                {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                Verify Current PIN
+              </button>
+              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : pinMode === 'change-set' ? (
+          <form onSubmit={(e) => { e.preventDefault(); handleSetPin(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New PIN</label>
+              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="At least 4 digits" maxLength={6} className={inputClass} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm New PIN</label>
+              <input type="password" value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Confirm new PIN" maxLength={6} className={inputClass} />
+            </div>
+            {pinValue.length > 0 && pinValue !== pinConfirm && <p className="text-[11px] text-red-500">PINs do not match</p>}
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+                {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                Update PIN
+              </button>
+              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={(e) => { e.preventDefault(); handleVerifyPin(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Enter PIN</label>
+              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter your PIN" maxLength={6} className={inputClass} />
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+                {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                Verify PIN
+              </button>
+              <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+                Change PIN
+              </button>
+            </div>
+          </form>
         )}
+      </div>
+      )}
 
-        <div className="flex items-center justify-end pt-1">
-          <button
-            type="submit"
-            disabled={!canSubmit || loading}
-            className="inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm"
-          >
-            {loading ? <Loader size={14} className="animate-spin" /> : <Shield size={14} />}
-            {loading ? 'Updating...' : 'Update Password'}
-          </button>
-        </div>
-      </form>
+      {/* Password Section — hidden until PIN verified */}
+      {pinVerified && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current Password</label>
+            <div className="relative">
+              <input name="currentPassword" type={show.current ? 'text' : 'password'} value={form.currentPassword} onChange={handleChange} placeholder="Enter current password" className={inputClass} />
+              <button type="button" onClick={() => setShow((p) => ({ ...p, current: !p.current }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                {show.current ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New Password</label>
+            <div className="relative">
+              <input name="newPassword" type={show.new ? 'text' : 'password'} value={form.newPassword} onChange={handleChange} placeholder="Enter new password" className={inputClass} />
+              <button type="button" onClick={() => setShow((p) => ({ ...p, new: !p.new }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                {show.new ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            {form.newPassword.length > 0 && <StrengthBar score={strength} />}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm New Password</label>
+            <div className="relative">
+              <input name="confirmPassword" type={show.confirm ? 'text' : 'password'} value={form.confirmPassword} onChange={handleChange} placeholder="Confirm new password" className={inputClass} />
+              <button type="button" onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+                {show.confirm ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+            {form.confirmPassword.length > 0 && !passwordsMatch && (
+              <p className="text-[11px] text-red-500 mt-0.5">Passwords do not match</p>
+            )}
+          </div>
+
+          {form.newPassword.length > 0 && (
+            <div className="bg-neutral-50 rounded-sm p-3 space-y-1.5">
+              <ValidationRule passes={hasMinLength} label="At least 8 characters" />
+              <ValidationRule passes={hasUpper} label="One uppercase letter" />
+              <ValidationRule passes={hasNumber} label="One number" />
+              <ValidationRule passes={hasSpecial} label="One special character" />
+            </div>
+          )}
+
+          <div className="flex items-center justify-end pt-1">
+            <button
+              type="submit"
+              disabled={!canSubmit || loading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm"
+            >
+              {loading ? <Loader size={14} className="animate-spin" /> : <Shield size={14} />}
+              {loading ? 'Updating...' : 'Update Password'}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 };

@@ -114,12 +114,16 @@ const CounselorAnnouncementManagerPage = () => {
   const handleBatchDelete = async () => {
     try {
       for (const id of selected) {
-        await axiosInstance.delete(`/announcements/${id}`);
+        if (showDeleted) {
+          await axiosInstance.delete(`/announcements/${id}/permanent`);
+        } else {
+          await axiosInstance.delete(`/announcements/${id}`);
+        }
       }
       setAnnouncements((prev) => prev.filter((a) => !selected.has(a._id)));
       setDeletedAnnouncements((prev) => prev.filter((a) => !selected.has(a._id)));
       setSelected(new Set());
-      toast.success(`Deleted ${selected.size} announcement(s)`);
+      toast.success(`${showDeleted ? 'Permanently deleted' : 'Deleted'} ${selected.size} announcement(s)`);
     } catch {
       toast.error('Failed to delete announcements');
     }
@@ -165,6 +169,16 @@ const CounselorAnnouncementManagerPage = () => {
       fetchAnnouncements();
     } catch {
       toast.error('Failed to restore announcement');
+    }
+  };
+
+  const handlePermanentDelete = async (id, title) => {
+    try {
+      await axiosInstance.delete(`/announcements/${id}/permanent`);
+      setDeletedAnnouncements((prev) => prev.filter((a) => a._id !== id));
+      toast.success(`Permanently deleted "${title}"`);
+    } catch {
+      toast.error('Failed to permanently delete');
     }
   };
 
@@ -219,7 +233,7 @@ const CounselorAnnouncementManagerPage = () => {
       actions={
         selected.size > 0 ? (
           <button onClick={handleBatchDelete} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm">
-            <Trash2 size={14} /> Delete {selected.size}
+            <Trash2 size={14} /> {showDeleted ? 'Permanently Delete' : 'Delete'} {selected.size}
           </button>
         ) : !showDeleted ? (
           <button onClick={() => setCreateModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
@@ -323,9 +337,14 @@ const CounselorAnnouncementManagerPage = () => {
                       <td className="px-6 py-3.5 text-sm text-neutral-500">{engagement}%</td>
                       <td className="px-6 py-3.5 text-right">
                         {showDeleted ? (
-                          <button onClick={() => handleRestoreSingle(a._id)} className="text-neutral-400 hover:text-green-600 transition-colors" title="Restore">
-                            <RotateCcw size={14} />
-                          </button>
+                          <div className="flex items-center gap-3 justify-end">
+                            <button onClick={() => handleRestoreSingle(a._id)} className="text-neutral-400 hover:text-green-600 transition-colors" title="Restore">
+                              <RotateCcw size={14} />
+                            </button>
+                            <button onClick={() => handlePermanentDelete(a._id, a.title)} className="text-neutral-400 hover:text-red-600 transition-colors" title="Permanently delete">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex items-center gap-4 justify-end">
                             <button onClick={() => { setEditingAnnouncement(a); setEditModalOpen(true); }} className="text-neutral-400 hover:text-neutral-900 transition-colors" title="Edit">

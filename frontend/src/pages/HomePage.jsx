@@ -294,7 +294,7 @@ const HomePage = () => {
             <span className="text-sm leading-none"><MoveRight className="size-3" /></span>
           </Link>
           {/* Announcement Card */}
-          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 bg-neutral-50 rounded-r-sm">
+          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 glass rounded-sm">
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">
               {ANNOUNCEMENT.tag}
             </span>
@@ -540,12 +540,12 @@ const HomePage = () => {
                 key={card.number}
                 className="group relative bg-white/20 glass p-8 transition-all duration-300 hover:bg-neutral-50 cursor-default"
               >
-                <span className="text-[13px] font-mono font-semibold text-neutral-300 group-hover:text-neutral-900 transition-colors duration-300">
+                <span className="text-[13px] font-mono font-semibold text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">
                   {card.number}
                 </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-600">{card.title}</h3>
-                <p className="mt-3 text-xs leading-[1.8] text-neutral-500">{card.description}</p>
-                <div className="mt-6 h-px w-8 bg-neutral-300 group-hover:w-full group-hover:bg-neutral-900 transition-all duration-300" />
+                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">{card.title}</h3>
+                <p className="mt-3 text-xs leading-[1.8] text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">{card.description}</p>
+                <div className="mt-6 h-px w-8 bg-neutral-300 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
               </article>
             ))}
           </div>
@@ -568,7 +568,7 @@ const HomePage = () => {
       </div>
 
       <Modal isOpen={requestOpen} onClose={() => { setRequestOpen(false); setConcern(""); setSelectedCounselor(""); }} title="Request Chat Session">
-        <div className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleRequestChat(); }} className="space-y-4">
           <p className="text-xs text-neutral-500 leading-relaxed">
             Select your counselor and briefly describe your concern. All information is kept confidential.
           </p>
@@ -611,19 +611,18 @@ const HomePage = () => {
               Cancel
             </button>
             <button
-              type="button"
-              onClick={handleRequestChat}
+              type="submit"
               disabled={submitting || loadingCounselors}
               className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
             >
               {submitting ? "Requesting..." : "Submit Request"}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       <Modal isOpen={f2fOpen} onClose={() => { setF2fOpen(false); setF2fConcern(""); setF2fAllSlots([]); setF2fAvailableTimes([]); }} title="Book Face-to-Face Session">
-        <div className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleBookF2f(); }} className="space-y-4">
           <p className="text-xs text-neutral-500 leading-relaxed">
             Schedule an on-campus appointment with your counselor. Select a date and time that works for you.
           </p>
@@ -705,15 +704,14 @@ const HomePage = () => {
               Cancel
             </button>
             <button
-              type="button"
-              onClick={handleBookF2f}
+              type="submit"
               disabled={f2fSubmitting || !f2fCounselorId || !f2fDate || !f2fTime}
               className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
             >
               {f2fSubmitting ? "Booking..." : "Book Session"}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
     </main>
   );

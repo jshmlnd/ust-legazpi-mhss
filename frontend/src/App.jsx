@@ -22,6 +22,7 @@ import StudentIdentityPage from './pages/StudentIdentityPage';
 import RegisterStudentPage from './pages/RegisterStudentPage';
 import RegisterCounselorPage from './pages/RegisterCounselorPage';
 import Administrator from './pages/Administrator';
+import ManageUsersPage from './pages/ManageUsersPage';
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from './store/useAuthStore';
@@ -115,6 +116,7 @@ if(isCheckingAuth && !authUser) return (
 
       {/* Admin Routes */}
       <Route path={PATHS.ADMIN} element={authUser?.userType?.toLowerCase() === 'administrator' ? <Administrator /> : <Navigate to={PATHS.LOGIN} />} />
+      <Route path={PATHS.ADMIN_MANAGE_USERS} element={authUser?.userType?.toLowerCase() === 'administrator' ? <ManageUsersPage /> : <Navigate to={PATHS.LOGIN} />} />
       <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterStudentPage /> : <Navigate to={PATHS.LOGIN} />} />
       <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterCounselorPage /> : <Navigate to={PATHS.LOGIN} />} />
     </Routes>

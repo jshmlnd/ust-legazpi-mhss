@@ -23,6 +23,7 @@ export const PATHS = {
   ADMIN: '/admin',
   ADMIN_REGISTER_STUDENT: '/admin/register-student',
   ADMIN_REGISTER_COUNSELOR: '/admin/register-counselor',
+  ADMIN_MANAGE_USERS: '/admin/manage-users',
 };
 
 export const NAV_ITEMS = [
@@ -38,6 +39,7 @@ export const NAV_ITEMS = [
   { label: 'Announcements', path: PATHS.MANAGE_ANNOUNCEMENT, allowedRoles: ['counselor'] },
   { label: 'My Account', path: PATHS.MY_ACCOUNT, allowedRoles: ['student', 'counselor'] },
   { label: 'Admin', path: PATHS.ADMIN, allowedRoles: ['administrator'] },
+  { label: 'Manage Users', path: PATHS.ADMIN_MANAGE_USERS, allowedRoles: ['administrator'] },
   { label: 'Register Student', path: PATHS.ADMIN_REGISTER_STUDENT, allowedRoles: ['administrator'] },
   { label: 'Register Counselor', path: PATHS.ADMIN_REGISTER_COUNSELOR, allowedRoles: ['administrator'] },
 ];

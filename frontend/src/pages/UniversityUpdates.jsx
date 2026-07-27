@@ -35,7 +35,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
           </div>
           <p className="text-xs text-neutral-600 leading-relaxed mb-3">{update.body}</p>
           {update.images && update.images.length > 0 && (
-            <div className={`grid gap-2 mb-3 ${update.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+            <div className={`grid gap-2 mb-3 justify-items-start ${update.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
               {update.images.map((media, i) => {
                 const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(media);
                 if (isVideo) {
@@ -44,7 +44,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
                       key={i}
                       src={media}
                       controls
-                      className="w-full rounded-sm border border-neutral-100 max-h-[500px] object-contain bg-black"
+                      className="w-auto max-w-full rounded-sm border border-neutral-100 max-h-[500px] object-contain bg-black"
                     />
                   );
                 }
@@ -54,7 +54,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
                     src={media}
                     alt=""
                     loading="lazy"
-                    className={`w-full rounded-sm border border-neutral-100 bg-neutral-50 ${
+                    className={`w-auto max-w-full rounded-sm border border-neutral-100 bg-neutral-50 ${
                       update.images.length === 1
                         ? 'object-contain max-h-[500px]'
                         : 'object-contain max-h-80'

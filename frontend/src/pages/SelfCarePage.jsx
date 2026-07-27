@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Plus, Trash2, ExternalLink,
+  Plus, Trash2, ExternalLink, ChevronDown,
   Sparkles, Heart, HeartPulse, HeartHandshake,
   Brain, Sun, Moon,
   Leaf, Flower, Star, Smile, SmilePlus,
@@ -135,12 +135,17 @@ const ActivityItem = ({ activity }) => (
 );
 
 const ModuleCard = ({ module, onDelete, isCounselor }) => {
+  const [open, setOpen] = useState(false);
   const total = module.activities.length;
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm overflow-hidden flex flex-col">
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full p-5 text-left"
+      >
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <ModuleIcon name={module.icon} />
             <div>
@@ -148,19 +153,22 @@ const ModuleCard = ({ module, onDelete, isCounselor }) => {
               <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
             </div>
           </div>
-          {isCounselor && (
-            <button
-              onClick={() => onDelete(module._id)}
-              className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-              title="Delete module"
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {isCounselor && (
+              <span
+                onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
+                className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Delete module"
+              >
+                <Trash2 size={13} />
+              </span>
+            )}
+            <ChevronDown size={16} className={`text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+          </div>
         </div>
-      </div>
+      </button>
 
-      {total > 0 && (
+      {total > 0 && open && (
         <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/50">
           <ul className="space-y-0.5">
             {module.activities.map((a) => (

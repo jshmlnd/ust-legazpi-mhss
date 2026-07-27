@@ -256,37 +256,36 @@ const ActivityHeatmap = ({ entries }) => {
   );
 };
 
+const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
+
 const YourDiary = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [weeklyMoodData, setWeeklyMoodData] = useState([]);
+
+  const weeklyMoodData = useMemo(() => {
+    const today = new Date();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const result = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const dayMoods = entries.filter((e) => e.date === dateStr);
+      const avgScore = dayMoods.length > 0
+        ? Math.round(dayMoods.reduce((sum, e) => sum + (MOOD_SCORE[e.mood] || 5), 0) / dayMoods.length)
+        : 0;
+      result.push({ day: dayNames[date.getDay()], score: avgScore });
+    }
+    return result;
+  }, [entries]);
 
   useEffect(() => {
     const fetchEntries = async () => {
       try {
-        const [entriesRes, moodRes] = await Promise.all([
-          axiosInstance.get('/journal'),
-          axiosInstance.get('/journal/mood'),
-        ]);
-        setEntries(entriesRes.data);
-
-        const moodEntries = moodRes.data.entries || [];
-        const last7Days = [];
-        const today = new Date();
-        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(date.getDate() - i);
-          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-          const dayMoods = moodEntries.filter((e) => e.date === dateStr);
-          const avgScore = dayMoods.length > 0
-            ? Math.round(dayMoods.reduce((sum, e) => sum + e.score, 0) / dayMoods.length)
-            : 0;
-          last7Days.push({ day: dayNames[date.getDay()], score: avgScore });
-        }
-        setWeeklyMoodData(last7Days);
+        const res = await axiosInstance.get('/journal');
+        setEntries(res.data);
       } catch (err) {
         console.error('Failed to fetch journal entries:', err);
       } finally {

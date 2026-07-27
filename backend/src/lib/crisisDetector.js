@@ -9,6 +9,7 @@ const FILIPINO_MAP = {
   'mamamatay na ako': 'i am going to die',
   'gusto kong mamatay': 'i want to die',
   'ayaw ko na ng buhay': 'i dont want to live anymore',
+  'ayoko na mabuhay' : 'i dont want to live anymore',
   'masakit ang buhay': 'life is painful',
   'sakit ng loob': 'emotional pain',
   'nalulungkot': 'feeling sad',
@@ -32,12 +33,15 @@ const FILIPINO_MAP = {
   'mabuti pang mawala': 'better to disappear',
   'sana mamatay na lang ako': 'i wish i would just die',
   'wala na akong pakialam': 'i dont care anymore',
-  'gaguhin ko ang sarili ko': 'i will hurt myself',
+  'sasaktan ko ang sarili ko': 'i will hurt myself',
   'tatapusin ko na': 'i will end it',
   'end na natin to': 'end this now',
   'self harm': 'self harm',
   'cutting': 'cutting myself',
   'pinaparusahan ko ang sarili ko': 'i punish myself',
+  'sana mamatay na ako' : 'i wish i would die',
+  'laslas' : 'cutting myself',
+  'tapusin sarili ko' : 'end my life',
 };
 
 // ── Crisis keyword dictionary with severity weights ──

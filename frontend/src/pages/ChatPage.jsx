@@ -470,7 +470,7 @@ const CounselorChatView = () => {
   } = useChatStore();
   const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
-  const [showMobileList, setShowMobileList] = useState(true);
+  const [showMobileList, setShowMobileList] = useState(() => !searchParams.get('user'));
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [sessionEndedBanner, setSessionEndedBanner] = useState(false);
@@ -492,7 +492,6 @@ const CounselorChatView = () => {
         const match = users.find((u) => String(u._id) === userIdFromUrl);
         if (match && (!selectedUser || String(selectedUser._id) !== userIdFromUrl)) {
           setSelectedUser(match);
-          setShowMobileList(false);
         }
       }
     }
@@ -503,11 +502,11 @@ const CounselorChatView = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (!selectedUser) {
-      setActiveAppointment(null);
-      return;
-    }
     const fetchAppointment = async () => {
+      if (!selectedUser) {
+        setActiveAppointment(null);
+        return;
+      }
       setAppointmentLoading(true);
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);

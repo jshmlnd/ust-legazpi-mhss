@@ -29,18 +29,13 @@ const useRBAC = (authUser) => {
 
 const useMobileMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { pathname } = useLocation();
-
-  useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
 
-  return { isOpen, toggle: () => setIsOpen((prev) => !prev) };
+  return { isOpen, toggle: () => setIsOpen((prev) => !prev), close: () => setIsOpen(false) };
 };
 
 const useActiveState = (pathname, resolvedPath) =>
@@ -70,7 +65,7 @@ const NavLink = ({ link, isMobile }) => {
   );
 };
 
-const MobileNavLink = ({ link, index, isOpen }) => {
+const MobileNavLink = ({ link, index, isOpen, onClose }) => {
   const { pathname } = useLocation();
   const isActive = useActiveState(pathname, link.resolvedPath);
 
@@ -78,6 +73,7 @@ const MobileNavLink = ({ link, index, isOpen }) => {
     <Link
       key={link.label}
       to={link.resolvedPath}
+      onClick={onClose}
       className={`text-lg tracking-[0.2em] font-medium uppercase transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
       style={{ transitionDelay: isOpen ? `${index * 60}ms` : '0ms' }}
     >
@@ -131,13 +127,13 @@ const HamburgerButton = ({ isOpen, onClick }) => (
   </button>
 );
 
-const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
+const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen, onClose }) => (
   <div
     className={`fixed inset-0 z-40 bg-black/95 flex flex-col items-center justify-center transition-all duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
   >
     <nav className="flex flex-col items-center gap-10">
       {visibleLinks.map((link, index) => (
-        <MobileNavLink key={link.label} link={link} index={index} isOpen={isOpen} />
+        <MobileNavLink key={link.label} link={link} index={index} isOpen={isOpen} onClose={onClose} />
       ))}
 
       {isAuthenticated ? (
@@ -156,7 +152,7 @@ const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen }) => (
 const Navbar = () => {
   const { authUser, logout } = useAuthStore();
   const { visibleLinks, homeTarget, isAuthenticated } = useRBAC(authUser);
-  const { isOpen, toggle } = useMobileMenu();
+  const { isOpen, toggle, close } = useMobileMenu();
   const navigate = useNavigate();
 
   const handleLogout = useCallback(async () => {
@@ -205,6 +201,7 @@ const Navbar = () => {
         isAuthenticated={isAuthenticated}
         onLogout={handleLogout}
         isOpen={isOpen}
+        onClose={close}
       />
 
       <div className="h-[68px]" />

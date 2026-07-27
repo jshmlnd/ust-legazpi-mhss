@@ -446,9 +446,17 @@ const CounselorDashboardPage = () => {
       }
     };
 
+    const loadSuggestions = async () => {
+      try { const res = await axiosInstance.get('/suggestions'); setSuggestions(res.data); } catch { /* ignore */ }
+    };
+
+    const loadAnnouncements = async () => {
+      try { const res = await axiosInstance.get('/announcements'); setAnnouncements(res.data); } catch { /* ignore */ }
+    };
+
     fetchData();
-    fetchSuggestions();
-    fetchAnnouncements();
+    loadSuggestions();
+    loadAnnouncements();
 
     const socket = getSocket();
     if (socket) {

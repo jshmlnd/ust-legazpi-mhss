@@ -15,22 +15,10 @@ const getTotalReactions = (reactions) => {
 const MAX_IMAGES = 4;
 
 const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [images, setImages] = useState([]);
+  const [title, setTitle] = useState(announcement?.title || '');
+  const [body, setBody] = useState(announcement?.body || '');
+  const [images, setImages] = useState(announcement?.images || []);
   const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    if (announcement) {
-      setTitle(announcement.title || '');
-      setBody(announcement.body || '');
-      setImages(announcement.images || []);
-    } else {
-      setTitle('');
-      setBody('');
-      setImages([]);
-    }
-  }, [announcement]);
 
   const handleImageSelect = (e) => {
     const files = Array.from(e.target.files || []);
@@ -138,6 +126,27 @@ const CounselorAnnouncementManagerPage = () => {
   const [selected, setSelected] = useState(new Set());
   const [showDeleted, setShowDeleted] = useState(false);
 
+  useEffect(() => {
+    const loadAnnouncements = async () => {
+      try {
+        const [activeRes, deletedRes] = await Promise.all([
+          axiosInstance.get('/announcements'),
+          axiosInstance.get('/announcements?deleted=true'),
+        ]);
+        setAnnouncements(activeRes.data);
+        setDeletedAnnouncements(deletedRes.data);
+      } catch (err) {
+        console.error('Failed to fetch announcements:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadAnnouncements();
+    const socket = getSocket();
+    socket?.on('announcements:updated', loadAnnouncements);
+    return () => socket?.off('announcements:updated', loadAnnouncements);
+  }, []);
+
   const fetchAnnouncements = async () => {
     try {
       const [activeRes, deletedRes] = await Promise.all([
@@ -148,17 +157,8 @@ const CounselorAnnouncementManagerPage = () => {
       setDeletedAnnouncements(deletedRes.data);
     } catch (err) {
       console.error('Failed to fetch announcements:', err);
-    } finally {
-      setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchAnnouncements();
-    const socket = getSocket();
-    socket?.on('announcements:updated', fetchAnnouncements);
-    return () => socket?.off('announcements:updated', fetchAnnouncements);
-  }, []);
 
   const data = showDeleted ? deletedAnnouncements : announcements;
   const filtered = data.filter((a) =>
@@ -428,6 +428,7 @@ const CounselorAnnouncementManagerPage = () => {
       )}
 
       <EditAnnouncementModal
+        key={editingAnnouncement?._id || 'create-edit'}
         isOpen={editModalOpen}
         onClose={() => { setEditModalOpen(false); setEditingAnnouncement(null); }}
         announcement={editingAnnouncement}
@@ -435,6 +436,7 @@ const CounselorAnnouncementManagerPage = () => {
       />
 
       <EditAnnouncementModal
+        key={createModalOpen ? 'create-new' : 'create-closed'}
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         announcement={null}

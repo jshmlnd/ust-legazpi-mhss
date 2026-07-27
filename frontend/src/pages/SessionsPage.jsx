@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
@@ -125,31 +125,27 @@ const SessionsPage = () => {
   const [slots, setSlots] = useState([]);
   const [archiving, setArchiving] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [bookRes, slotRes] = await Promise.all([
-        axiosInstance.get('/appointments'),
-        axiosInstance.get('/availability/0'),
-      ]);
-      setAppointments(bookRes.data);
-      setSlots(slotRes.data);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [bookRes, slotRes] = await Promise.all([
+          axiosInstance.get('/appointments'),
+          axiosInstance.get('/availability/0'),
+        ]);
+        setAppointments(bookRes.data);
+        setSlots(slotRes.data);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     socket.on("appointment:updated", fetchData);
     return () => socket.off("appointment:updated", fetchData);
-  }, [fetchData]);
+  }, []);
 
   const upcoming = appointments.filter((a) => ['pending', 'active'].includes(a.status));
   const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'confirmed', 'archived'].includes(a.status));

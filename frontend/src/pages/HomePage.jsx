@@ -97,7 +97,7 @@ const HomePage = () => {
   const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
   const [f2fSubmitting, setF2fSubmitting] = useState(false);
 
-  const fetchActiveChat = async () => {
+  const refreshActiveChat = async () => {
     try {
       const [appRes, usersRes] = await Promise.all([
         axiosInstance.get("/appointments"),
@@ -127,14 +127,41 @@ const HomePage = () => {
     }
   };
 
-  useEffect(() => { fetchActiveChat(); }, []);
-
   useEffect(() => {
+    const fetchActiveChat = async () => {
+      try {
+        const [appRes, usersRes] = await Promise.all([
+          axiosInstance.get("/appointments"),
+          axiosInstance.get("/message/users"),
+        ]);
+        const active = appRes.data.find(
+          (a) => a.type === "Chat" && a.status === "active"
+        );
+        setHasActiveChat(!!active);
+        const pending = appRes.data.find(
+          (a) => a.type === "Chat" && a.status === "pending"
+        );
+        if (pending) setPendingRequest(pending);
+        const f2f = appRes.data.find(
+          (a) => a.type === "f2f" && ["pending", "confirmed", "active"].includes(a.status)
+        );
+        setUpcomingF2f(f2f || null);
+        const declined = appRes.data.find(
+          (a) => a.type === "f2f" && a.status === "declined"
+        );
+        setDeclinedF2f(declined || null);
+        const map = {};
+        usersRes.data.forEach((c) => { map[c._id] = c.fullName; });
+        setCounselorMap(map);
+      } catch (err) {
+        console.error("Failed to check active Chat:", err);
+      }
+    };
+    fetchActiveChat();
     const socket = getSocket();
     if (!socket) return;
-    const handler = () => fetchActiveChat();
-    socket.on("appointment:updated", handler);
-    return () => socket.off("appointment:updated", handler);
+    socket.on("appointment:updated", fetchActiveChat);
+    return () => socket.off("appointment:updated", fetchActiveChat);
   }, []);
 
   useEffect(() => {
@@ -259,7 +286,7 @@ const HomePage = () => {
       });
       toast.success("Face-to-face session booked! Awaiting counselor confirmation.");
       setF2fOpen(false);
-      fetchActiveChat();
+      refreshActiveChat();
     } catch (err) {
       const msg = err.response?.data?.error || err.message || "Failed to book session.";
       toast.error(msg);

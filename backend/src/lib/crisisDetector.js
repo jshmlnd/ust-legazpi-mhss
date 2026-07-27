@@ -28,6 +28,7 @@ const FILIPINO_MAP = {
   'tali sa leeg': 'rope on neck',
   'tumalon': 'jumped off',
   'bigti' : 'hang myself',
+  'gusto ko mag bigti' : 'i want to hang myself',
   'hindi na kaya': 'cant take it anymore',
   'pagod na ako sa buhay': 'tired of living',
   'ayoko na': 'i dont want this anymore',
@@ -67,7 +68,7 @@ const CRISIS_DICT = [
   { phrase: 'disappear forever', weight: 8, category: 'suicidal_ideation' },
   { phrase: 'suicide', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'commit suicide', weight: 10, category: 'suicidal_ideation' },
-  { phrase: 'hang myself', weight: 10, category: 'suicidal_ideation' },
+  { phrase: 'i want to hang myself', weight: 10, category: 'suicidal_ideation' },
 
   // Self-harm (weight: 7-9)
   { phrase: 'hurt myself', weight: 9, category: 'self_harm' },
@@ -78,6 +79,7 @@ const CRISIS_DICT = [
   { phrase: 'scratch myself', weight: 7, category: 'self_harm' },
   { phrase: 'punish myself', weight: 7, category: 'self_harm' },
   { phrase: 'bleeding myself', weight: 8, category: 'self_harm' },
+  { phrase: 'hang myself', weight: 8, category: 'self_harm' },
 
   // Means/method (weight: 8-10)
   { phrase: 'jump off', weight: 9, category: 'means' },

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, Trash2, ExternalLink, ChevronDown,
   Sparkles, Heart, HeartPulse, HeartHandshake,
@@ -17,6 +17,35 @@ import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
+
+function useColumnCount() {
+  const [cols, setCols] = useState(() => {
+    if (typeof window === 'undefined') return 1;
+    if (window.innerWidth >= 1024) return 3;
+    if (window.innerWidth >= 640) return 2;
+    return 1;
+  });
+  useEffect(() => {
+    const mql3 = window.matchMedia('(min-width: 1024px)');
+    const mql2 = window.matchMedia('(min-width: 640px)');
+    const sync = () => {
+      if (mql3.matches) setCols(3);
+      else if (mql2.matches) setCols(2);
+      else setCols(1);
+    };
+    sync();
+    mql3.addEventListener('change', sync);
+    mql2.addEventListener('change', sync);
+    return () => { mql3.removeEventListener('change', sync); mql2.removeEventListener('change', sync); };
+  }, []);
+  return cols;
+}
+
+function transposeToColumns(arr, numCols) {
+  const result = Array.from({ length: numCols }, () => []);
+  arr.forEach((item, i) => { result[i % numCols].push(item); });
+  return result;
+}
 
 const ICON_OPTIONS = [
   { name: 'Sparkles', label: 'Sparkles' },
@@ -139,7 +168,7 @@ const ModuleCard = ({ module, onDelete, isCounselor }) => {
   const total = module.activities.length;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm break-inside-avoid hover:border-neutral-300 transition-colors">
+    <div className="bg-white border border-neutral-200 rounded-sm hover:border-neutral-300 transition-colors">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -298,6 +327,9 @@ const SelfCarePage = () => {
     }
   }, []);
 
+  const colCount = useColumnCount();
+  const columns = useMemo(() => transposeToColumns(modules, colCount), [modules, colCount]);
+
   if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
 
   return (
@@ -315,14 +347,18 @@ const SelfCarePage = () => {
       {modules.length === 0 ? (
         <EmptyState icon={Sparkles} title="No self-care modules yet" description={isCounselor ? 'Create wellness modules with guided activities for students.' : 'Check back for self-care routines.'} />
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [&>*]:mb-5">
-          {modules.map((m) => (
-            <ModuleCard
-              key={m._id}
-              module={m}
-              onDelete={handleDeleteModule}
-              isCounselor={isCounselor}
-            />
+        <div className="flex gap-5 items-start">
+          {columns.map((col, ci) => (
+            <div key={ci} className="flex-1 flex flex-col gap-5">
+              {col.map((m) => (
+                <ModuleCard
+                  key={m._id}
+                  module={m}
+                  onDelete={handleDeleteModule}
+                  isCounselor={isCounselor}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}

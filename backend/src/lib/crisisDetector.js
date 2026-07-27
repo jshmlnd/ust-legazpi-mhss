@@ -27,6 +27,7 @@ const FILIPINO_MAP = {
   'lason': 'poison',
   'tali sa leeg': 'rope on neck',
   'tumalon': 'jumped off',
+  'bigti' : 'hang myself',
   'hindi na kaya': 'cant take it anymore',
   'pagod na ako sa buhay': 'tired of living',
   'ayoko na': 'i dont want this anymore',
@@ -62,6 +63,7 @@ const CRISIS_DICT = [
   { phrase: 'disappear forever', weight: 8, category: 'suicidal_ideation' },
   { phrase: 'suicide', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'commit suicide', weight: 10, category: 'suicidal_ideation' },
+  { phrase: 'hang myself', weight: 10, category: 'suicidal_ideation' },
 
   // Self-harm (weight: 7-9)
   { phrase: 'hurt myself', weight: 9, category: 'self_harm' },

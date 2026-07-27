@@ -7,6 +7,7 @@ import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
+import TextWithLinks from '../components/TextWithLinks';
 import toast from 'react-hot-toast';
 
 const REACTIONS = [
@@ -92,7 +93,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
             <h3 className="text-sm font-medium text-neutral-900">{update.title}</h3>
             <span className="text-[10px] font-medium text-neutral-400 shrink-0">{date}</span>
           </div>
-          <p className="text-xs text-neutral-600 leading-relaxed mb-3">{update.body}</p>
+          <TextWithLinks text={update.body} className="mb-3" />
           {update.images && update.images.length > 0 && (
             <div className={`grid gap-1.5 mb-3 ${
               update.images.length === 1 ? 'grid-cols-1'

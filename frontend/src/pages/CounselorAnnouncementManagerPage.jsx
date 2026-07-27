@@ -6,6 +6,7 @@ import { compressImage } from '../lib/compressImage';
 import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
+import TextWithLinks from '../components/TextWithLinks';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
 
@@ -389,7 +390,7 @@ const CounselorAnnouncementManagerPage = () => {
                       </td>
                       <td className="px-6 py-3.5">
                         <span className="text-sm font-medium text-neutral-900">{a.title}</span>
-                        <p className="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">{a.body}</p>
+                        <TextWithLinks text={a.body} maxLines={1} className="mt-0.5" />
                       </td>
                       <td className="px-6 py-3.5 text-sm text-neutral-600">{a.author}</td>
                       <td className="px-6 py-3.5 text-sm text-neutral-500">{a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}</td>

@@ -43,6 +43,10 @@ const FILIPINO_MAP = {
   'sana mamatay na ako' : 'i wish i would die',
   'laslas' : 'cutting myself',
   'tapusin sarili ko' : 'end my life',
+  'ayaw ko pa mamatay' : 'i dont want to die',
+  'ayaw ko nang mamatay' : 'i dont want to die',
+  'hindi ako magpapakamatay' : 'i will not kill myself',
+  'hindi ako sasaktan' : 'i will not hurt myself',
 };
 
 // ── Crisis keyword dictionary with severity weights ──
@@ -179,6 +183,15 @@ function calculateSeverity(score) {
   return { level: 'none', label: 'None', color: 'green' };
 }
 
+// ── Proximity negation check ──
+// Returns true if a negation word appears within the last 5 words before `position` in `text`
+function isNegated(text, position) {
+  const before = text.slice(Math.max(0, position - 60), position);
+  const words = before.split(/\s+/).filter(Boolean);
+  const lastWords = words.slice(-5);
+  return lastWords.some(w => /^(?:not|no|never|don'?t|doesn'?t|didn'?t|won'?t|can'?t|cannot|dont|dont|never|ayaw|hindi|wag)$/i.test(w));
+}
+
 // ── Main detection pipeline ──
 export function analyzeCrisis(text) {
   if (!text || typeof text !== 'string') {
@@ -200,27 +213,29 @@ export function analyzeCrisis(text) {
   // Step 4: Keyword/phrase screening (fast pass)
   for (const entry of CRISIS_DICT) {
     if (normalized.includes(entry.phrase)) {
-      matches.push({ type: 'keyword', phrase: entry.phrase, weight: entry.weight, category: entry.category });
-      totalScore += entry.weight;
+      const idx = normalized.indexOf(entry.phrase);
+      if (!isNegated(normalized, idx)) {
+        matches.push({ type: 'keyword', phrase: entry.phrase, weight: entry.weight, category: entry.category });
+        totalScore += entry.weight;
+      }
     }
   }
 
   // Step 5: Intent pattern matching
   for (const pattern of INTENT_PATTERNS) {
-    if (pattern.regex.test(englishText) || pattern.regex.test(normalized)) {
+    const match = pattern.regex.exec(englishText) || pattern.regex.exec(normalized);
+    if (match && !isNegated(match.input, match.index)) {
       matches.push({ type: 'pattern', phrase: pattern.regex.source.slice(0, 40), weight: pattern.weight, category: pattern.category });
       totalScore += pattern.weight;
     }
   }
 
-  // Step 6: Context modifiers
-  const hasNegation = /\b(?:never|no|not|don'?t|doesn'?t|didn'?t|won'?t|can'?t|cannot|never)\b/.test(normalized);
+  // Step 6: Context modifiers (intensifiers / temporal urgency only)
   const hasIntensifier = /\b(?:really|very|extremely|absolutely|totally|completely|always|never)\b/.test(normalized);
   const hasTemporal = /\b(?:now|tonight|today|right now|immediately|soon|this week)\b/.test(normalized);
 
   if (hasIntensifier) totalScore = Math.min(100, totalScore * 1.15);
   if (hasTemporal) totalScore = Math.min(100, totalScore * 1.2);
-  if (hasNegation && totalScore > 0) totalScore = Math.min(100, totalScore * 0.85);
 
   // Cap at 100
   totalScore = Math.min(100, Math.round(totalScore));

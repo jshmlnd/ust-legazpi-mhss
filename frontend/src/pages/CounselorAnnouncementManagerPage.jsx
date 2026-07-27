@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Trash2, Search, Eye, Heart, Megaphone, PenSquare, RotateCcw, ArchiveRestore, Plus, Image, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
+import { compressImage } from '../lib/compressImage';
 import PageShell from '../components/PageShell';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
@@ -20,17 +21,18 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
   const [images, setImages] = useState(announcement?.images || []);
   const fileInputRef = useRef(null);
 
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     const remaining = MAX_IMAGES - images.length;
     const toAdd = files.slice(0, remaining);
-    toAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImages((prev) => [...prev, ev.target.result]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const compressed = await Promise.all(
+      toAdd.map((file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.readAsDataURL(file);
+      })).map((p) => p.then(compressImage))
+    );
+    setImages((prev) => [...prev, ...compressed]);
     e.target.value = '';
   };
 

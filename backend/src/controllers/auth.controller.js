@@ -236,7 +236,7 @@ export const updateProfile = async (req, res) => {
             return res.status(200).json(updatedUser);
         }
 
-        const uploadResponse = await cloudinary.uploader.upload(profilePic)
+        const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
 
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
 

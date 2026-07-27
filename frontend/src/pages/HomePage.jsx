@@ -193,7 +193,7 @@ const HomePage = () => {
     setLoadingCounselors(true);
     try {
       const res = await axiosInstance.get("/message/users");
-      setCounselors(res.data);
+      setCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
     } catch {
       toast.error("Failed to load counselors.");
     } finally {
@@ -241,7 +241,7 @@ const HomePage = () => {
     setF2fAvailableTimes([]);
     try {
       const res = await axiosInstance.get("/message/users");
-      setF2fCounselors(res.data);
+      setF2fCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
     } catch { toast.error("Failed to load counselors."); }
   };
 

@@ -60,14 +60,8 @@ const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) =
 };
 
 const SessionNotes = ({ session }) => {
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(session?.notes || '');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (session) {
-      setNotes(session.notes || '');
-    }
-  }, [session]);
 
   const handleSave = async () => {
     if (!session) return;
@@ -242,7 +236,17 @@ const CounselorSessionManagementPage = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedSession) fetchStudentInfo(selectedSession.studentId);
+    if (!selectedSession) return;
+    const fetchStudentInfo = async (studentId) => {
+      if (!studentId) return;
+      setLoadingInfo(true);
+      try {
+        const res = await axiosInstance.get(`/analytics/student/${studentId}`);
+        setStudentInfo(res.data);
+      } catch { setStudentInfo(null); }
+      finally { setLoadingInfo(false); }
+    };
+    fetchStudentInfo(selectedSession.studentId);
   }, [selectedSession]);
 
   const queueByType = [
@@ -306,7 +310,7 @@ const CounselorSessionManagementPage = () => {
               </button>
             </div>
           )}
-          <SessionNotes session={selectedSession} />
+          <SessionNotes key={selectedSession?._id} session={selectedSession} />
           <TaskAssignment />
           <ClientFile session={selectedSession} studentInfo={studentInfo} loadingInfo={loadingInfo} />
         </div>

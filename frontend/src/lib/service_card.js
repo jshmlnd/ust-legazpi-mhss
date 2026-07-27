@@ -1,4 +1,4 @@
-const SERVICE_CARDS = [
+export const SERVICE_CARDS = [
   {
     number: "01",
     title: "Mental Health Support",

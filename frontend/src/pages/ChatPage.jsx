@@ -9,16 +9,15 @@ import { getSocket } from '../lib/socket';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 
-const CRISIS_KEYWORDS = [
-  'self-harm', 'suicide', 'kill myself', 'want to die',
-  'end my life', 'life-threatening', 'crisis', 'emergency',
-  'hurt myself', 'not safe',
+const CRISIS_DISPLAY_TERMS = [
+  'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'suicide',
+  'no hope', 'not safe', 'help me', 'crisis', 'emergency', 'can\'t go on',
 ];
 
-const containsCrisisContent = (text) =>
-  CRISIS_KEYWORDS.some((kw) => text?.toLowerCase().includes(kw));
+const hasCrisisKeywords = (text) =>
+  CRISIS_DISPLAY_TERMS.some((kw) => text?.toLowerCase().includes(kw));
 
-const MessageBubble = ({ message, isOwn, isCrisis }) => {
+const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity }) => {
   if (message.callerId !== undefined) {
     const mins = Math.floor((message.duration || 0) / 60);
     const secs = (message.duration || 0) % 60;
@@ -45,6 +44,14 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   };
 
+  const crisisStyles = {
+    critical: 'bg-red-50 text-red-800 border border-red-300',
+    high: 'bg-red-50 text-red-800 border border-red-200',
+    medium: 'bg-amber-50 text-amber-800 border border-amber-200',
+    low: 'bg-yellow-50 text-yellow-800 border border-yellow-200',
+    none: 'bg-neutral-100 text-neutral-900',
+  };
+
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
@@ -52,7 +59,7 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
           isOwn
             ? 'bg-neutral-900 text-white rounded-sm'
             : isCrisis
-              ? 'bg-red-50 text-red-800 border border-red-200'
+              ? crisisStyles[crisisSeverity] || crisisStyles.none
               : 'bg-neutral-100 text-neutral-900'
         }`}
       >
@@ -91,30 +98,40 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
   );
 };
 
-const EmergencyBanner = ({ onReveal, onDismiss }) => (
-  <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-    <div className="flex items-center gap-3 min-w-0">
-      <div className="size-8 rounded-sm bg-red-100 flex items-center justify-center shrink-0">
-        <AlertTriangle size={16} className="text-red-600" />
+const EmergencyBanner = ({ onReveal, onDismiss, severity }) => {
+  const severityConfig = {
+    critical: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', iconColor: 'text-red-600', title: 'text-red-800', subtitle: 'text-red-600', btn: 'bg-red-600 hover:bg-red-700' },
+    high: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', iconColor: 'text-red-600', title: 'text-red-800', subtitle: 'text-red-600', btn: 'bg-red-600 hover:bg-red-700' },
+    medium: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', title: 'text-amber-800', subtitle: 'text-amber-600', btn: 'bg-amber-600 hover:bg-amber-700' },
+    low: { bg: 'bg-yellow-50', border: 'border-yellow-200', iconBg: 'bg-yellow-100', iconColor: 'text-yellow-600', title: 'text-yellow-800', subtitle: 'text-yellow-600', btn: 'bg-yellow-600 hover:bg-yellow-700' },
+  };
+  const s = severityConfig[severity] || severityConfig.high;
+
+  return (
+    <div className={`${s.bg} border-b ${s.border} px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`size-8 rounded-sm ${s.iconBg} flex items-center justify-center shrink-0`}>
+          <AlertTriangle size={16} className={s.iconColor} />
+        </div>
+        <div className="min-w-0">
+          <p className={`text-sm font-medium ${s.title} truncate`}>Crisis Alert Detected</p>
+          <p className={`text-[11px] ${s.subtitle} truncate`}>This student may be in immediate danger</p>
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-red-800 truncate">Crisis Alert Detected</p>
-        <p className="text-[11px] text-red-600 truncate">This student may be in immediate danger</p>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onReveal}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white ${s.btn} transition-colors rounded-sm`}
+        >
+          <Eye size={14} /> <span className="hidden sm:inline">Reveal Identity</span><span className="sm:hidden">Reveal</span>
+        </button>
+        <button onClick={onDismiss} className={`text-[11px] ${s.subtitle} hover:opacity-70 transition-opacity uppercase tracking-[0.05em] font-medium`}>
+          Dismiss
+        </button>
       </div>
     </div>
-    <div className="flex items-center gap-2 shrink-0">
-      <button
-        onClick={onReveal}
-        className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
-      >
-        <Eye size={14} /> <span className="hidden sm:inline">Reveal Identity</span><span className="sm:hidden">Reveal</span>
-      </button>
-      <button onClick={onDismiss} className="text-[11px] text-red-500 hover:text-red-700 transition-colors uppercase tracking-[0.05em] font-medium">
-        Dismiss
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 const MessageInput = ({ onSend, disabled, receiverId }) => {
   const [text, setText] = useState('');
@@ -389,7 +406,7 @@ const StudentChatView = () => {
               key={msg._id}
               message={msg}
               isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && containsCrisisContent(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && hasCrisisKeywords(msg.text)}
             />
           ))
         )}
@@ -447,13 +464,13 @@ const CounselorChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    flaggedMessage, getUsers, setSelectedUser, sendMessage, getMessages,
+    flaggedMessage, crisisAnalysis, getUsers, setSelectedUser, sendMessage, getMessages,
     subscribeToMessages, unsubscribeFromMessages, clearFlaggedMessage, removeUser,
     unreadCounts, isSocketConnected, typingUsers,
   } = useChatStore();
   const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
-  const [showMobileList, setShowMobileList] = useState(true);
+  const [showMobileList, setShowMobileList] = useState(() => !searchParams.get('user'));
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [sessionEndedBanner, setSessionEndedBanner] = useState(false);
@@ -475,7 +492,6 @@ const CounselorChatView = () => {
         const match = users.find((u) => String(u._id) === userIdFromUrl);
         if (match && (!selectedUser || String(selectedUser._id) !== userIdFromUrl)) {
           setSelectedUser(match);
-          setShowMobileList(false);
         }
       }
     }
@@ -486,11 +502,11 @@ const CounselorChatView = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (!selectedUser) {
-      setActiveAppointment(null);
-      return;
-    }
     const fetchAppointment = async () => {
+      if (!selectedUser) {
+        setActiveAppointment(null);
+        return;
+      }
       setAppointmentLoading(true);
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
@@ -714,6 +730,7 @@ const CounselorChatView = () => {
                 studentName={`STU-${selectedUser._id}`}
                 onReveal={handleReveal}
                 onDismiss={clearFlaggedMessage}
+                severity={crisisAnalysis?.severity?.level}
               />
             )}
 
@@ -733,7 +750,7 @@ const CounselorChatView = () => {
                     key={msg._id}
                     message={msg}
                     isOwn={msg.senderId === authUser._id}
-                    isCrisis={msg.senderId !== authUser._id && containsCrisisContent(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && hasCrisisKeywords(msg.text)}
                   />
                 ))
               )}

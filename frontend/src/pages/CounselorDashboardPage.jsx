@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw } from 'lucide-react';
+import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw, Image, XIcon } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -310,7 +310,9 @@ const CounselorDashboardPage = () => {
   const [suggestions, setSuggestions] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
+  const [announcementImages, setAnnouncementImages] = useState([]);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+  const announcementFileRef = useRef(null);
 
   const fetchSuggestions = async () => {
     try {
@@ -350,9 +352,10 @@ const CounselorDashboardPage = () => {
     if (!announcementForm.title.trim() || !announcementForm.body.trim()) return;
     setCreatingAnnouncement(true);
     try {
-      const res = await axiosInstance.post('/announcements', announcementForm);
+      const res = await axiosInstance.post('/announcements', { ...announcementForm, images: announcementImages });
       setAnnouncements((prev) => [res.data, ...prev]);
       setAnnouncementForm({ title: '', body: '' });
+      setAnnouncementImages([]);
       toast.success('Announcement created');
     } catch {
       toast.error('Failed to create announcement');
@@ -443,9 +446,17 @@ const CounselorDashboardPage = () => {
       }
     };
 
+    const loadSuggestions = async () => {
+      try { const res = await axiosInstance.get('/suggestions'); setSuggestions(res.data); } catch { /* ignore */ }
+    };
+
+    const loadAnnouncements = async () => {
+      try { const res = await axiosInstance.get('/announcements'); setAnnouncements(res.data); } catch { /* ignore */ }
+    };
+
     fetchData();
-    fetchSuggestions();
-    fetchAnnouncements();
+    loadSuggestions();
+    loadAnnouncements();
 
     const socket = getSocket();
     if (socket) {
@@ -593,6 +604,46 @@ const CounselorDashboardPage = () => {
                   placeholder="Write your announcement..."
                   rows={3}
                   className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+                />
+                {announcementImages.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {announcementImages.map((img, i) => (
+                      <div key={i} className="relative group rounded-sm overflow-hidden border border-neutral-200">
+                        <img src={img} alt="" className="w-full h-16 object-cover" />
+                        <button
+                          onClick={() => setAnnouncementImages((prev) => prev.filter((_, j) => j !== i))}
+                          className="absolute top-1 right-1 size-4 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XIcon size={8} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {announcementImages.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={() => announcementFileRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-dashed border-neutral-300 rounded-sm text-[10px] text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 transition-colors"
+                  >
+                    <Image size={12} /> Add image
+                  </button>
+                )}
+                <input
+                  ref={announcementFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    files.slice(0, 4 - announcementImages.length).forEach((file) => {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => setAnnouncementImages((prev) => [...prev, ev.target.result]);
+                      reader.readAsDataURL(file);
+                    });
+                    e.target.value = '';
+                  }}
+                  className="hidden"
                 />
                 <button
                   onClick={createAnnouncement}

@@ -34,6 +34,12 @@ const StudentIdentityPage = () => {
         const found = res.data.find((u) => String(u._id) === String(id));
         if (found) {
           setStudent(found);
+          try {
+            await axiosInstance.post('/audit-trails/identity-reveal', {
+              studentId: id,
+              counselorId: authUser._id,
+            });
+          } catch { /* audit logging should not block UI */ }
         } else {
           setError('Student not found');
         }

@@ -14,6 +14,21 @@ export const analyzeCrisis = async (text) => {
   }
 };
 
+const logCrisisAudit = async ({ studentId, counselorId, messageId, analysis }) => {
+  try {
+    await axiosInstance.post("/audit-trails/crisis", {
+      studentId,
+      counselorId,
+      messageId,
+      severity: analysis.severity?.level,
+      crisisScore: analysis.score,
+      messageText: '',
+      matches: analysis.matches,
+      language: analysis.language,
+    });
+  } catch { /* audit logging should not block UI */ }
+};
+
 export const useChatStore = create((set, get) => ({
   users: [],
   messages: [],
@@ -68,9 +83,16 @@ export const useChatStore = create((set, get) => ({
 
       const analysis = await analyzeCrisis(text);
       if (analysis.isCrisis) {
+        const authUser = useAuthStore.getState().authUser;
         set({
           flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
           crisisAnalysis: analysis,
+        });
+        logCrisisAudit({
+          studentId: selectedUser._id,
+          counselorId: authUser?._id,
+          messageId: res.data._id,
+          analysis,
         });
       }
     } catch (error) {
@@ -148,9 +170,16 @@ export const useChatStore = create((set, get) => ({
 
         const analysis = await analyzeCrisis(message.text);
         if (analysis.isCrisis) {
+          const authUser = useAuthStore.getState().authUser;
           set({
             flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
             crisisAnalysis: analysis,
+          });
+          logCrisisAudit({
+            studentId: message.senderId,
+            counselorId: authUser?._id,
+            messageId: message._id,
+            analysis,
           });
         }
 

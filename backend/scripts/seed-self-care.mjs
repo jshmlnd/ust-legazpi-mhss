@@ -2,12 +2,13 @@
  * Seed script for self-care modules.
  * Run with: node scripts/seed-self-care.mjs
  *
- * Requires MONGODB_URI env var (defaults to mongodb://localhost:27017/thesis-system).
+ * Reads MONGODB_URI from backend/.env.
  */
 
+import 'dotenv/config';
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/thesis-system';
+const MONGODB_URI = process.env.MONGODB_URI;
 
 const activitySchema = new mongoose.Schema({
   label: { type: String, required: true },
@@ -134,9 +135,8 @@ async function seed() {
 
     const existingCount = await SelfCareModule.countDocuments();
     if (existingCount > 0) {
-      console.log(`Database already has ${existingCount} module(s). Skipping seed.`);
-      await mongoose.disconnect();
-      return;
+      await SelfCareModule.deleteMany({});
+      console.log(`Cleared ${existingCount} existing module(s).`);
     }
 
     const docs = modules.map((m, i) => ({ ...m, order: i }));

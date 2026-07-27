@@ -96,7 +96,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
           <TextWithLinks text={update.body} className="mb-3" />
           {update.images && update.images.length > 0 && (
             <div className={`grid gap-1.5 mb-3 ${
-              update.images.length === 1 ? 'grid-cols-1'
+              update.images.length === 1 ? 'grid-cols-1 max-w-md'
                 : update.images.length === 2 ? 'grid-cols-2'
                   : update.images.length === 3 ? 'grid-cols-3'
                     : 'grid-cols-2'
@@ -104,6 +104,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
               {update.images.map((media, i) => {
                 const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(media);
                 const isThree = update.images.length === 3 && i === 0;
+                const isSingle = update.images.length === 1;
                 const thumbnail = (
                   isVideo ? (
                     <video src={media} className="w-full h-full object-cover" />
@@ -118,7 +119,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
                     onClick={() => setLightboxIndex(i)}
                     className={`block rounded-sm border border-neutral-200 overflow-hidden hover:border-neutral-400 transition-colors cursor-pointer bg-neutral-50 ${
                       isThree ? 'row-span-2' : ''
-                    }`}
+                    } ${isSingle ? 'max-h-[300px]' : ''}`}
                   >
                     {isThree ? (
                       <div className="h-full min-h-[268px]">{thumbnail}</div>

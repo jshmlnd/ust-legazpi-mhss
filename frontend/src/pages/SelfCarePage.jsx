@@ -317,15 +317,14 @@ const SelfCarePage = () => {
       {modules.length === 0 ? (
         <EmptyState icon={Sparkles} title="No self-care modules yet" description={isCounselor ? 'Create wellness modules with guided activities for students.' : 'Check back for self-care routines.'} />
       ) : (
-        <div className="flex flex-wrap gap-4">
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
           {modules.map((m) => (
-            <div key={m._id} className="w-full sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.667rem)]">
-              <ModuleCard
-                module={m}
-                onDelete={handleDeleteModule}
-                isCounselor={isCounselor}
-              />
-            </div>
+            <ModuleCard
+              key={m._id}
+              module={m}
+              onDelete={handleDeleteModule}
+              isCounselor={isCounselor}
+            />
           ))}
         </div>
       )}

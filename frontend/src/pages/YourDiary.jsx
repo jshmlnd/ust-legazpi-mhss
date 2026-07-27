@@ -220,20 +220,20 @@ const ActivityHeatmap = ({ entries }) => {
         <CalendarDays size={14} className="text-neutral-500" />
         <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activity</span>
       </div>
-      <div className="flex gap-[3px]">
-        <div className="flex flex-col gap-[3px] mr-1.5">
-          {['', 'M', '', 'W', '', 'F', ''].map((label, i) => (
-            <div key={i} className="size-2 flex items-center justify-center">
-              {label && <span className="text-[7px] leading-none text-neutral-400">{label}</span>}
+      <div className="flex gap-1">
+        <div className="flex flex-col gap-1 mr-2 pt-px">
+          {['S', 'M', 'T', 'W', 'Th', 'F', 'S'].map((label, i) => (
+            <div key={i} className="h-3 min-w-[14px] flex items-center">
+              <span className="text-[8px] leading-none text-neutral-400">{label}</span>
             </div>
           ))}
         </div>
         {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-[3px]">
+          <div key={wi} className="flex flex-col gap-1">
             {week.map((day, di) => (
               <div
                 key={di}
-                className={`size-2 rounded-[2px] transition-colors ${
+                className={`size-3 rounded-[3px] transition-colors ${
                   day.isFuture
                     ? 'bg-transparent'
                     : day.hasEntry
@@ -246,11 +246,11 @@ const ActivityHeatmap = ({ entries }) => {
           </div>
         ))}
       </div>
-      <div className="flex items-center gap-1 mt-3 justify-end">
-        <span className="text-[8px] text-neutral-400">Less</span>
-        <div className="size-[8px] rounded-[1px] bg-neutral-100" />
-        <div className="size-[8px] rounded-[1px] bg-emerald-500" />
-        <span className="text-[8px] text-neutral-400">More</span>
+      <div className="flex items-center gap-1.5 mt-3 justify-end">
+        <span className="text-[9px] text-neutral-400">Less</span>
+        <div className="size-3 rounded-[3px] bg-neutral-100" />
+        <div className="size-3 rounded-[3px] bg-emerald-500" />
+        <span className="text-[9px] text-neutral-400">More</span>
       </div>
     </div>
   );

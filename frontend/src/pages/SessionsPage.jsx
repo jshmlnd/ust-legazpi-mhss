@@ -212,24 +212,30 @@ const SessionsPage = () => {
 
   return (
     <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-        <div className="lg:col-span-1">
-          <MiniCalendar
-            year={year} month={month}
-            onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
-            onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
-            bookings={appointments} openSlots={slots}
-            onDateClick={handleDateClick}
-          />
+      <div className="space-y-8">
+
+        <div>
+          <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Calendar</h3>
+          <div className="bg-white border border-neutral-200 rounded-sm p-5 max-w-lg">
+            <MiniCalendar
+              year={year} month={month}
+              onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
+              onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
+              bookings={appointments} openSlots={slots}
+              onDateClick={handleDateClick}
+            />
+          </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-5">
-          <div id="upcoming-sessions">
-            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Chat Sessions</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Sessions</h3>
             {upcoming.length === 0 ? (
-              <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
+              <div className="bg-white border border-neutral-200 rounded-sm">
+                <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
+              </div>
             ) : (
-              <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
+              <div className="space-y-2">
                 {upcoming.map((s) => <SessionCard key={s._id} session={s} type="upcoming" />)}
               </div>
             )}
@@ -238,14 +244,16 @@ const SessionsPage = () => {
           <div>
             <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Available Slots</h3>
             {slots.length === 0 ? (
-              <p className="text-xs text-neutral-400">No available slots at this time. Check back later.</p>
+              <div className="bg-white border border-neutral-200 rounded-sm p-6 text-center">
+                <p className="text-xs text-neutral-400">No available slots at this time.</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-neutral-200 rounded-sm overflow-hidden">
+              <div className="space-y-2">
                 {slots.map((slot) => (
-                  <div key={slot._id} className="bg-white p-4 flex items-center justify-between">
+                  <div key={slot._id} className="bg-white border border-neutral-200 rounded-sm p-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-neutral-900">{slot.fullName || `Counselor #${slot.counselorId}`}</p>
-                      <p className="text-xs text-neutral-400">{slot.date} · {slot.time}</p>
+                      <p className="text-xs text-neutral-400 mt-0.5">{slot.date} · {slot.time}</p>
                     </div>
                     <button
                       onClick={() => handleBook(slot)}
@@ -259,30 +267,35 @@ const SessionsPage = () => {
             )}
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-4 mb-6">
-        <span className="h-px flex-1 bg-neutral-200" />
-        <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
-        {hasPast && (
-          <button
-            onClick={handleClearPast}
-            disabled={archiving}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
-          >
-            {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
-            Clear All
-          </button>
-        )}
-        <span className="h-px flex-1 bg-neutral-200" />
-      </div>
-      {past.length === 0 ? (
-        <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
-      ) : (
-        <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
-          {past.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
+        <div>
+          <div className="flex items-center gap-4 mb-4">
+            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
+            {hasPast && (
+              <button
+                onClick={handleClearPast}
+                disabled={archiving}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
+              >
+                {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                Clear All
+              </button>
+            )}
+            <span className="h-px flex-1 bg-neutral-200" />
+          </div>
+          {past.length === 0 ? (
+            <div className="bg-white border border-neutral-200 rounded-sm">
+              <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {past.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
+            </div>
+          )}
         </div>
-      )}
+
+      </div>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedDay ? `Schedule — ${dateStr}` : ''}>
         <div className="max-h-[60vh] overflow-y-auto pr-1">

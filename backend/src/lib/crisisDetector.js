@@ -56,6 +56,8 @@ const CRISIS_DICT = [
   { phrase: 'i will end it', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'end this life', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'disappear forever', weight: 8, category: 'suicidal_ideation' },
+  { phrase: 'suicide', weight: 10, category: 'suicidal_ideation' },
+  { phrase: 'commit suicide', weight: 10, category: 'suicidal_ideation' },
 
   // Self-harm (weight: 7-9)
   { phrase: 'hurt myself', weight: 9, category: 'self_harm' },
@@ -82,6 +84,7 @@ const CRISIS_DICT = [
   { phrase: 'hopeless', weight: 5, category: 'distress' },
   { phrase: 'nothing matters', weight: 5, category: 'distress' },
   { phrase: 'cant take it', weight: 5, category: 'distress' },
+  { phrase: 'cannot go on', weight: 6, category: 'distress' },
   { phrase: 'cant go on', weight: 6, category: 'distress' },
   { phrase: 'tired of living', weight: 6, category: 'distress' },
   { phrase: 'pain is too much', weight: 6, category: 'distress' },
@@ -226,7 +229,7 @@ export function analyzeCrisis(text) {
   });
 
   return {
-    isCrisis: totalScore >= 20,
+    isCrisis: totalScore >= 10,
     severity: calculateSeverity(totalScore),
     score: totalScore,
     matches: uniqueMatches,

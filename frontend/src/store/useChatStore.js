@@ -5,14 +5,14 @@ import { getSocket } from "../lib/socket";
 import { showNotification } from "../lib/notifications";
 import { useAuthStore } from "./useAuthStore";
 
-const CRISIS_KEYWORDS = [
-  'self-harm', 'suicide', 'kill myself', 'want to die',
-  'end my life', 'life-threatening', 'crisis', 'emergency',
-  'hurt myself', 'not safe', 'help me please',
-];
-
-const containsCrisisContent = (text) =>
-  CRISIS_KEYWORDS.some((kw) => text?.toLowerCase().includes(kw));
+export const analyzeCrisis = async (text) => {
+  try {
+    const res = await axiosInstance.post("/crisis/analyze", { text });
+    return res.data;
+  } catch {
+    return { isCrisis: false, severity: { level: 'none', label: 'None', color: 'green' }, score: 0, matches: [], language: 'english' };
+  }
+};
 
 export const useChatStore = create((set, get) => ({
   users: [],
@@ -21,6 +21,7 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   flaggedMessage: null,
+  crisisAnalysis: null,
   onlineUsers: [],
   isSocketConnected: false,
   unreadCounts: {},
@@ -65,8 +66,12 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, messageData);
       set({ messages: [...messages, res.data] });
 
-      if (containsCrisisContent(text)) {
-        set({ flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id } });
+      const analysis = await analyzeCrisis(text);
+      if (analysis.isCrisis) {
+        set({
+          flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
+          crisisAnalysis: analysis,
+        });
       }
     } catch (error) {
       const msg = error.response?.data?.error || "Failed to send message";
@@ -131,7 +136,7 @@ export const useChatStore = create((set, get) => ({
       set({ isSocketConnected: false });
     });
 
-    socket.off("newMessage").on("newMessage", (message) => {
+    socket.off("newMessage").on("newMessage", async (message) => {
       const { selectedUser, messages, unreadCounts } = get();
       const isRelevant =
         selectedUser &&
@@ -141,8 +146,12 @@ export const useChatStore = create((set, get) => ({
       if (isRelevant) {
         set({ messages: [...messages, message] });
 
-        if (containsCrisisContent(message.text)) {
-          set({ flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id } });
+        const analysis = await analyzeCrisis(message.text);
+        if (analysis.isCrisis) {
+          set({
+            flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
+            crisisAnalysis: analysis,
+          });
         }
 
         get().markMessagesAsRead(message.senderId);
@@ -218,7 +227,7 @@ export const useChatStore = create((set, get) => ({
     socket.off("messagesRead");
   },
 
-  clearFlaggedMessage: () => set({ flaggedMessage: null }),
+  clearFlaggedMessage: () => set({ flaggedMessage: null, crisisAnalysis: null }),
 
   removeUser: (userId) => {
     const { users } = get();

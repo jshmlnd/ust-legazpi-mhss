@@ -554,7 +554,7 @@ const HomePage = () => {
         {/* ──────── FOOTER ──────── */}
         <footer className="mt-28 pt-8 border-t border-neutral-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-[11px] text-neutral-400 tracking-[0.05em]">
-            &copy; {new Date().getFullYear()} University of Santo Tomas&ndash;Legazpi. All rights reserved.
+            &copy; {new Date().getFullYear()} <a href="https://github.com/jshmlnd" target="_blank" rel="noopener noreferrer">@jshmlnd</a> & <a href="https://github.com/grxg0r" target="_blank" rel="noopener noreferrer">@grxg0r</a>. All rights reserved.
           </p>
           <div className="flex items-center gap-5">
             <Link to={PATHS.RESOURCES} className="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors tracking-[0.05em]">Resources</Link>

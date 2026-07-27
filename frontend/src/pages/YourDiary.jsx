@@ -221,10 +221,10 @@ const ActivityHeatmap = ({ entries }) => {
         <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activity</span>
       </div>
       <div className="flex gap-[3px]">
-        <div className="flex flex-col gap-[3px] mr-1.5 pt-[2px]">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, i) => (
+        <div className="flex flex-col gap-[3px] mr-1.5">
+          {['', 'M', '', 'W', '', 'F', ''].map((label, i) => (
             <div key={i} className="size-2 flex items-center justify-center">
-              {i % 2 === 1 && <span className="text-[7px] leading-none text-neutral-400">{label}</span>}
+              {label && <span className="text-[7px] leading-none text-neutral-400">{label}</span>}
             </div>
           ))}
         </div>

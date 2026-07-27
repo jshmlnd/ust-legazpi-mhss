@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Trash2, Search, Eye, Heart, Megaphone, PenSquare, RotateCcw, ArchiveRestore, Plus } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Trash2, Search, Eye, Heart, Megaphone, PenSquare, RotateCcw, ArchiveRestore, Plus, Image, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import PageShell from '../components/PageShell';
@@ -12,24 +12,48 @@ const getTotalReactions = (reactions) => {
   return Object.values(reactions).reduce((sum, users) => sum + (Array.isArray(users) ? users.length : 0), 0);
 };
 
+const MAX_IMAGES = 4;
+
 const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [images, setImages] = useState([]);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (announcement) {
       setTitle(announcement.title || '');
       setBody(announcement.body || '');
+      setImages(announcement.images || []);
     } else {
       setTitle('');
       setBody('');
+      setImages([]);
     }
   }, [announcement]);
+
+  const handleImageSelect = (e) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = MAX_IMAGES - images.length;
+    const toAdd = files.slice(0, remaining);
+    toAdd.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImages((prev) => [...prev, ev.target.result]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeImage = (index) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    await onSave({ title: title.trim(), body: body.trim() });
+    await onSave({ title: title.trim(), body: body.trim(), images });
   };
 
   const isCreate = !announcement;
@@ -54,6 +78,44 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
             placeholder="Write your announcement..."
             rows={5}
             className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-y min-h-[100px]"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">
+            Images ({images.length}/{MAX_IMAGES})
+          </label>
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              {images.map((img, i) => (
+                <div key={i} className="relative group rounded-sm overflow-hidden border border-neutral-200">
+                  <img src={img} alt="" className="w-full h-28 object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1.5 right-1.5 size-5 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {images.length < MAX_IMAGES && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-neutral-300 rounded-sm text-xs text-neutral-500 hover:border-neutral-500 hover:text-neutral-700 transition-colors"
+            >
+              <Image size={14} /> Add image or GIF
+            </button>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            multiple
+            onChange={handleImageSelect}
+            className="hidden"
           />
         </div>
         <div className="flex items-center justify-end gap-3 pt-2">

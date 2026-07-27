@@ -1,5 +1,14 @@
 import Announcement from "../models/announcement.model.js";
 import { getIO } from "../socket/socket.js";
+import cloudinary from "../lib/cloudinary.js";
+
+const uploadImages = async (images) => {
+  if (!images || images.length === 0) return [];
+  const uploads = await Promise.all(
+    images.filter(Boolean).map((img) => cloudinary.uploader.upload(img, { resource_type: 'auto' }))
+  );
+  return uploads.map((u) => u.secure_url);
+};
 
 export const getAnnouncements = async (req, res) => {
   try {
@@ -14,7 +23,9 @@ export const getAnnouncements = async (req, res) => {
 
 export const createAnnouncement = async (req, res) => {
   try {
-    const announcement = new Announcement(req.body);
+    const { images, ...rest } = req.body;
+    const uploadedImages = await uploadImages(images);
+    const announcement = new Announcement({ ...rest, images: uploadedImages });
     await announcement.save();
     getIO().emit("announcements:updated");
     res.status(201).json(announcement);
@@ -26,7 +37,12 @@ export const createAnnouncement = async (req, res) => {
 
 export const updateAnnouncement = async (req, res) => {
   try {
-    const announcement = await Announcement.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const { images, ...rest } = req.body;
+    const updateData = { ...rest };
+    if (images !== undefined) {
+      updateData.images = await uploadImages(images);
+    }
+    const announcement = await Announcement.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!announcement) return res.status(404).json({ error: "Announcement not found" });
     getIO().emit("announcements:updated");
     res.json(announcement);

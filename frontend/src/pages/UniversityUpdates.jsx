@@ -34,6 +34,13 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
             <span className="text-[10px] font-medium text-neutral-400 shrink-0">{date}</span>
           </div>
           <p className="text-xs text-neutral-600 leading-relaxed mb-3">{update.body}</p>
+          {update.images && update.images.length > 0 && (
+            <div className={`grid gap-2 mb-3 ${update.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {update.images.map((img, i) => (
+                <img key={i} src={img} alt="" className="w-full rounded-sm object-cover max-h-64 border border-neutral-100" />
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-4 text-[10px] text-neutral-400">
             <span className="font-medium">{update.author}</span>
             {time && <span className="flex items-center gap-1"><Clock size={10} /> {time}</span>}

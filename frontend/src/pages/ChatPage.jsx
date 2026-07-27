@@ -335,7 +335,13 @@ const StudentChatView = () => {
     return () => socket.off("appointment:updated", handler);
   }, [authUser._id, navigate, callState, endCall]);
 
-  const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
+  const handleSend = useCallback(async (data) => {
+    try {
+      await sendMessage(data);
+    } catch {
+      navigate(PATHS.HOME);
+    }
+  }, [sendMessage, navigate]);
 
   const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
 
@@ -553,8 +559,12 @@ const CounselorChatView = () => {
     return () => socket.off("appointment:updated", handler);
   }, [selectedUser, callState, endCall]);
 
-  const handleSend = useCallback((data) => {
-    sendMessage(data);
+  const handleSend = useCallback(async (data) => {
+    try {
+      await sendMessage(data);
+    } catch {
+      /* session-ended errors are expected; toast shown by store */
+    }
   }, [sendMessage]);
 
   const handleSelectUser = (user) => {

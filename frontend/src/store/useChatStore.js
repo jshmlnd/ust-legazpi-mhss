@@ -103,6 +103,9 @@ export const useChatStore = create((set, get) => ({
     } catch (error) {
       const msg = error.response?.data?.error || "Failed to send message";
       toast.error(msg);
+      if (error.response?.status === 403 && msg === "No active Chat session") {
+        throw error;
+      }
     }
   },
 

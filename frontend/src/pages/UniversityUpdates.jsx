@@ -4,6 +4,7 @@ import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
@@ -266,7 +267,7 @@ const UniversityUpdates = () => {
     }
   };
 
-  if (loading) return <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings"><PageShellSkeleton count={4} /></PageShell>;
 
   return (
     <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings">

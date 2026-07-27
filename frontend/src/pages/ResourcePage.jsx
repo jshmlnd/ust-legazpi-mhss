@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
@@ -332,7 +333,7 @@ const ResourcePage = () => {
     setSelectedId((prev) => (prev === r._id ? null : r._id));
   }, []);
 
-  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><PageShellSkeleton columns={3} count={6} /></PageShell>;
 
   return (
     <PageShell

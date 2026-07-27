@@ -4,6 +4,7 @@ import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { compressImage } from '../lib/compressImage';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
@@ -288,7 +289,7 @@ const CounselorAnnouncementManagerPage = () => {
     { label: 'Most Reactions', value: mostReacted },
   ];
 
-  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><PageShellSkeleton columns={4} count={4} /></PageShell>;
 
   return (
     <PageShell

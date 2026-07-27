@@ -12,6 +12,7 @@ import {
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
@@ -330,7 +331,7 @@ const SelfCarePage = () => {
   const colCount = useColumnCount();
   const columns = useMemo(() => transposeToColumns(modules, colCount), [modules, colCount]);
 
-  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><PageShellSkeleton columns={3} count={6} /></PageShell>;
 
   return (
     <PageShell

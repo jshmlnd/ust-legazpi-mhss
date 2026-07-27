@@ -5,6 +5,7 @@ import { axiosInstance } from '../lib/axios';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 
 const TYPE_ICONS = { Chat: MessageCircle, 'Face-To-Face': User, Review: ClipboardList };
 const TYPE_LABELS = { Chat: 'Chat', 'Face-To-Face': 'Face-To-Face', Review: 'Review' };
@@ -255,7 +256,7 @@ const CounselorSessionManagementPage = () => {
     { type: 'Review', label: 'Review', items: queueItems.filter((q) => q.type === 'Review') },
   ];
 
-  if (loading) return <PageShell title="Session Manager" subtitle="Monitor active sessions"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Session Manager" subtitle="Monitor active sessions, record notes, and assign self-care tasks"><PageShellSkeleton showSidebar count={4} /></PageShell>;
 
   return (
     <PageShell title="Session Manager" subtitle="Monitor active sessions, record notes, and assign self-care tasks">

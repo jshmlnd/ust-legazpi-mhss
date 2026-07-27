@@ -4,6 +4,7 @@ import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLef
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
@@ -208,7 +209,7 @@ const SessionsPage = () => {
     }
   };
 
-  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
 
   return (
     <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">

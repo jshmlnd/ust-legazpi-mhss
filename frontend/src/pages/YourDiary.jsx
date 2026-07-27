@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart, CalendarDays } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
@@ -318,7 +319,7 @@ const YourDiary = () => {
     }
   };
 
-  if (loading) return <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections"><PageShellSkeleton showSidebar count={3} /></PageShell>;
 
   return (
     <PageShell

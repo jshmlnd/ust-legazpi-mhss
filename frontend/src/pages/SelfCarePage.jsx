@@ -7,7 +7,7 @@ import {
   Music, Headphones, BookOpen, Coffee, Bed,
   Dumbbell, Timer, Droplets, Waves, Shield,
   Compass, Lightbulb, Palette, Armchair, Footprints, Utensils,
-  CircleDot,
+  CircleDot, Wind,
 } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
@@ -48,6 +48,7 @@ const ICON_OPTIONS = [
   { name: 'Footprints', label: 'Walk' },
   { name: 'Utensils', label: 'Nutrition' },
   { name: 'CircleDot', label: 'Focus' },
+  { name: 'Wind', label: 'Breathing' },
 ];
 
 const ICON_MAP = {
@@ -57,7 +58,7 @@ const ICON_MAP = {
   Music, Headphones, BookOpen, Coffee, Bed,
   Dumbbell, Timer, Droplets, Waves, Shield,
   Compass, Lightbulb, Palette, Armchair, Footprints, Utensils,
-  CircleDot,
+  CircleDot, Wind,
 };
 
 const ICON_BG_COLORS = [

@@ -148,7 +148,7 @@ const SessionsPage = () => {
   }, []);
 
   const upcoming = appointments.filter((a) => ['pending', 'active'].includes(a.status));
-  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'confirmed', 'archived'].includes(a.status));
+  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'confirmed'].includes(a.status));
   const hasPast = past.length > 0;
 
   const dateStr = selectedDay?.dateStr || '';

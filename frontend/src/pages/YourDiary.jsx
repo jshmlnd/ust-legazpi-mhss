@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart, CalendarDays } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 const MOODS = [
   { key: 'great', icon: Heart, label: 'Great', color: 'text-emerald-600 bg-emerald-50' },
@@ -19,7 +22,7 @@ const EntryCard = ({ entry, onDelete }) => {
   const MoodIcon = mood?.icon || Meh;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-5 hover:border-neutral-300 transition-colors">
+    <div className="bg-white p-5 hover:bg-neutral-50 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-8 rounded-sm flex items-center justify-center shrink-0 ${mood?.color || 'bg-neutral-100 text-neutral-500'}`}>
@@ -141,16 +144,149 @@ const MoodOverview = ({ entries }) => {
   );
 };
 
+const MoodTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-neutral-200 px-4 py-3 rounded-sm">
+        <p className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-400 mb-1">{label}</p>
+        <p className="text-sm font-medium text-neutral-900">Mood Score: {payload[0].value}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
+const WeeklyMoodChart = ({ data }) => (
+  <div className="bg-white border border-neutral-200 rounded-sm">
+    <div className="px-6 pt-6 pb-2">
+      <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Mood Trends</span>
+      <h3 className="mt-1 text-sm font-medium text-neutral-900">Weekly Mood Overview</h3>
+    </div>
+    <div className="px-2 pb-4 h-52">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="moodFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a3a3a3', fontWeight: 500 }} dy={8} />
+          <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a3a3a3', fontWeight: 500 }} dx={-4} />
+          <Tooltip content={<MoodTooltip />} cursor={{ stroke: '#d4d4d4', strokeWidth: 1 }} />
+          <Area type="monotone" dataKey="score" stroke="#14b8a6" strokeWidth={2} fill="url(#moodFill)" dot={{ r: 3, fill: '#14b8a6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#14b8a6', stroke: '#fff', strokeWidth: 2 }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+);
+
+const ActivityHeatmap = ({ entries }) => {
+  const entryDates = useMemo(() => {
+    const dates = new Set();
+    entries.forEach((e) => { dates.add(e.date); });
+    return dates;
+  }, [entries]);
+
+  const weeks = useMemo(() => {
+    const result = [];
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 111);
+
+    const dayOfWeek = startDate.getDay();
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+
+    for (let w = 0; w < 16; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + w * 7 + d);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        week.push({
+          date: dateStr,
+          hasEntry: entryDates.has(dateStr),
+          isFuture: date > today,
+        });
+      }
+      result.push(week);
+    }
+    return result;
+  }, [entryDates]);
+
+  return (
+    <div className="bg-white border border-neutral-200 rounded-sm p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <CalendarDays size={14} className="text-neutral-500" />
+        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activity</span>
+      </div>
+      <div className="flex gap-[3px]">
+        <div className="flex flex-col gap-[3px] mr-1.5 pt-[2px]">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((label, i) => (
+            <div key={i} className="size-2 flex items-center justify-center">
+              {i % 2 === 1 && <span className="text-[7px] leading-none text-neutral-400">{label}</span>}
+            </div>
+          ))}
+        </div>
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col gap-[3px]">
+            {week.map((day, di) => (
+              <div
+                key={di}
+                className={`size-2 rounded-[2px] transition-colors ${
+                  day.isFuture
+                    ? 'bg-transparent'
+                    : day.hasEntry
+                    ? 'bg-emerald-500'
+                    : 'bg-neutral-100'
+                }`}
+                title={`${day.date}${day.hasEntry ? ' - Journal entry' : ''}`}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-1 mt-3 justify-end">
+        <span className="text-[8px] text-neutral-400">Less</span>
+        <div className="size-[8px] rounded-[1px] bg-neutral-100" />
+        <div className="size-[8px] rounded-[1px] bg-emerald-500" />
+        <span className="text-[8px] text-neutral-400">More</span>
+      </div>
+    </div>
+  );
+};
+
 const YourDiary = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [weeklyMoodData, setWeeklyMoodData] = useState([]);
 
   useEffect(() => {
     const fetchEntries = async () => {
       try {
-        const res = await axiosInstance.get('/journal');
-        setEntries(res.data);
+        const [entriesRes, moodRes] = await Promise.all([
+          axiosInstance.get('/journal'),
+          axiosInstance.get('/journal/mood'),
+        ]);
+        setEntries(entriesRes.data);
+
+        const moodEntries = moodRes.data.entries || [];
+        const last7Days = [];
+        const today = new Date();
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(today);
+          date.setDate(date.getDate() - i);
+          const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+          const dayMoods = moodEntries.filter((e) => e.date === dateStr);
+          const avgScore = dayMoods.length > 0
+            ? Math.round(dayMoods.reduce((sum, e) => sum + e.score, 0) / dayMoods.length)
+            : 0;
+          last7Days.push({ day: dayNames[date.getDay()], score: avgScore });
+        }
+        setWeeklyMoodData(last7Days);
       } catch (err) {
         console.error('Failed to fetch journal entries:', err);
       } finally {
@@ -200,6 +336,9 @@ const YourDiary = () => {
     >
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
+          <div className="mb-6">
+            <WeeklyMoodChart data={weeklyMoodData} />
+          </div>
           {entries.length === 0 ? (
             <EmptyState icon={Book} title="No journal entries yet" description="Start writing to track your emotions and thoughts over time." action={
               <button onClick={() => setModalOpen(true)} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
@@ -212,8 +351,9 @@ const YourDiary = () => {
             </div>
           )}
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
           <MoodOverview entries={entries} />
+          <ActivityHeatmap entries={entries} />
         </div>
       </div>
 

@@ -123,9 +123,9 @@ const IconPicker = ({ value, onChange }) => (
 );
 
 const ActivityItem = ({ activity }) => (
-  <li className="flex items-start gap-2 py-1.5">
+  <li className="flex items-start gap-2.5 py-2 border-b border-neutral-100 last:border-0">
     <span className="size-1.5 rounded-full bg-neutral-300 mt-1.5 shrink-0" />
-    <span className="text-sm text-neutral-600 leading-relaxed flex-1">{activity.label}</span>
+    <span className="text-[13px] text-neutral-600 leading-relaxed flex-1">{activity.label}</span>
     {activity.link && (
       <a href={activity.link} target="_blank" rel="noopener noreferrer" className="shrink-0 text-neutral-400 hover:text-neutral-900 transition-colors mt-0.5" title="Open link">
         <ExternalLink size={12} />
@@ -139,38 +139,36 @@ const ModuleCard = ({ module, onDelete, isCounselor }) => {
   const total = module.activities.length;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm overflow-hidden flex flex-col">
+    <div className="bg-white border border-neutral-200 rounded-sm break-inside-avoid hover:border-neutral-300 transition-colors">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full p-5 text-left"
+        className="w-full p-5 text-left flex items-start justify-between gap-3"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <ModuleIcon name={module.icon} />
-            <div>
-              <h3 className="text-sm font-medium text-neutral-900">{module.title}</h3>
-              <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
-            </div>
+        <div className="flex items-center gap-3 min-w-0">
+          <ModuleIcon name={module.icon} />
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-neutral-900 truncate">{module.title}</h3>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {isCounselor && (
-              <span
-                onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
-                className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                title="Delete module"
-              >
-                <Trash2 size={13} />
-              </span>
-            )}
-            <ChevronDown size={16} className={`text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+          {isCounselor && (
+            <span
+              onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
+              className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+              title="Delete module"
+            >
+              <Trash2 size={13} />
+            </span>
+          )}
+          <ChevronDown size={15} className={`text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {total > 0 && open && (
-        <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/50">
-          <ul className="space-y-0.5">
+        <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/60">
+          <ul className="space-y-0">
             {module.activities.map((a) => (
               <ActivityItem key={a._id || a.id} activity={a} />
             ))}
@@ -317,7 +315,7 @@ const SelfCarePage = () => {
       {modules.length === 0 ? (
         <EmptyState icon={Sparkles} title="No self-care modules yet" description={isCounselor ? 'Create wellness modules with guided activities for students.' : 'Check back for self-care routines.'} />
       ) : (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 [&>*]:mb-4 [&>*]:break-inside-avoid">
+        <div className="columns-1 sm:columns-2 lg:columns-3 gap-5 [&>*]:mb-5">
           {modules.map((m) => (
             <ModuleCard
               key={m._id}

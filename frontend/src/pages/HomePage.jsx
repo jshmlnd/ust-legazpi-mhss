@@ -565,14 +565,14 @@ const HomePage = () => {
             {SERVICE_CARDS.map((card) => (
               <article
                 key={card.number}
-                className="group relative bg-white/20 glass p-8 transition-all duration-300 hover:bg-neutral-50 cursor-default"
+                className="group relative bg-neutral-50 glass p-8 cursor-default"
               >
-                <span className="text-[13px] font-mono font-semibold text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">
+                <span className="text-[13px] font-mono font-semibold text-neutral-500">
                   {card.number}
                 </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">{card.title}</h3>
-                <p className="mt-3 text-xs leading-[1.8] text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">{card.description}</p>
-                <div className="mt-6 h-px w-8 bg-neutral-300 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
+                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-500">{card.title}</h3>
+                <p className="mt-3 text-xs leading-[1.8] text-neutral-500">{card.description}</p>
+                <div className="mt-6 h-px w-8 bg-neutral-500" />
               </article>
             ))}
           </div>

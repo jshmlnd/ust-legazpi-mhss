@@ -570,9 +570,9 @@ const HomePage = () => {
                 <span className="text-[13px] font-mono font-semibold text-neutral-500">
                   {card.number}
                 </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-500">{card.title}</h3>
-                <p className="mt-3 text-xs leading-[1.8] text-neutral-500">{card.description}</p>
-                <div className="mt-6 h-px w-8 bg-neutral-500" />
+                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-500 ">{card.title}</h3>
+                <p className="mt-3 text-xs leading-[1.8] text-neutral-500 ">{card.description}</p>
+                <div className="mt-6 h-px w-8 bg-neutral-500 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
               </article>
             ))}
           </div>

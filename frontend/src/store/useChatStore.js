@@ -37,6 +37,7 @@ export const useChatStore = create((set, get) => ({
   isMessagesLoading: false,
   flaggedMessage: null,
   crisisAnalysis: null,
+  crisisMessageMap: {},
   onlineUsers: [],
   isSocketConnected: false,
   unreadCounts: {},
@@ -76,24 +77,28 @@ export const useChatStore = create((set, get) => ({
     const { selectedUser, messages } = get();
     if (!selectedUser) return;
 
+    const authUser = useAuthStore.getState().authUser;
+    const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
     const text = messageData.text || '';
     try {
       const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, messageData);
       set({ messages: [...messages, res.data] });
 
-      const analysis = await analyzeCrisis(text);
-      if (analysis.isCrisis) {
-        const authUser = useAuthStore.getState().authUser;
-        set({
-          flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
-          crisisAnalysis: analysis,
-        });
-        logCrisisAudit({
-          studentId: selectedUser._id,
-          counselorId: authUser?._id,
-          messageId: res.data._id,
-          analysis,
-        });
+      if (!isCounselor && text) {
+        const analysis = await analyzeCrisis(text);
+        if (analysis.isCrisis) {
+          set((state) => ({
+            flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
+            crisisAnalysis: analysis,
+            crisisMessageMap: { ...state.crisisMessageMap, [res.data._id]: analysis.severity.level },
+          }));
+          logCrisisAudit({
+            studentId: selectedUser._id,
+            counselorId: authUser?._id,
+            messageId: res.data._id,
+            analysis,
+          });
+        }
       }
     } catch (error) {
       const msg = error.response?.data?.error || "Failed to send message";
@@ -102,7 +107,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   setSelectedUser: (user, appointmentId) => {
-    set({ selectedUser: user, messages: [] });
+    set({ selectedUser: user, messages: [], crisisMessageMap: {} });
     if (user) {
       get().markAsRead(user._id);
       get().markMessagesAsRead(user._id);
@@ -168,19 +173,22 @@ export const useChatStore = create((set, get) => ({
       if (isRelevant) {
         set({ messages: [...messages, message] });
 
-        const analysis = await analyzeCrisis(message.text);
-        if (analysis.isCrisis) {
-          const authUser = useAuthStore.getState().authUser;
-          set({
-            flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
-            crisisAnalysis: analysis,
-          });
-          logCrisisAudit({
-            studentId: message.senderId,
-            counselorId: authUser?._id,
-            messageId: message._id,
-            analysis,
-          });
+        if (message.senderModel !== 'Counselor' && message.text) {
+          const analysis = await analyzeCrisis(message.text);
+          if (analysis.isCrisis) {
+            const authUser = useAuthStore.getState().authUser;
+            set((state) => ({
+              flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
+              crisisAnalysis: analysis,
+              crisisMessageMap: { ...state.crisisMessageMap, [message._id]: analysis.severity.level },
+            }));
+            logCrisisAudit({
+              studentId: message.senderId,
+              counselorId: authUser?._id,
+              messageId: message._id,
+              analysis,
+            });
+          }
         }
 
         get().markMessagesAsRead(message.senderId);

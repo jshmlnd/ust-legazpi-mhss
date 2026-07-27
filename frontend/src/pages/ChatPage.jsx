@@ -276,7 +276,7 @@ const StudentChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
-    isSocketConnected, typingUsers,
+    isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
   const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
@@ -406,7 +406,8 @@ const StudentChatView = () => {
               key={msg._id}
               message={msg}
               isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && hasCrisisKeywords(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
             />
           ))
         )}
@@ -466,7 +467,7 @@ const CounselorChatView = () => {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     flaggedMessage, crisisAnalysis, getUsers, setSelectedUser, sendMessage, getMessages,
     subscribeToMessages, unsubscribeFromMessages, clearFlaggedMessage, removeUser,
-    unreadCounts, isSocketConnected, typingUsers,
+    unreadCounts, isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
   const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
@@ -750,7 +751,8 @@ const CounselorChatView = () => {
                     key={msg._id}
                     message={msg}
                     isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && hasCrisisKeywords(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
                   />
                 ))
               )}

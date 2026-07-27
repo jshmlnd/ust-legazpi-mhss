@@ -296,7 +296,7 @@ const HomePage = () => {
   return (
     <main className="relative min-h-screen overflow-hidden">
       <div
-        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[8px]"
+        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[15px]"
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-white/70" />

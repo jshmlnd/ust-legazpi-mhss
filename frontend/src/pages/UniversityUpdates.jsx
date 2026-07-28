@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { Megaphone, Send, Clock } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Megaphone, Send, Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
+import TextWithLinks from '../components/TextWithLinks';
 import toast from 'react-hot-toast';
 
 const REACTIONS = [
@@ -16,7 +18,65 @@ const REACTIONS = [
   { emoji: '😢', key: 'sad', label: 'Sad' },
 ];
 
+const ImageLightbox = ({ images, index, onClose }) => {
+  const [current, setCurrent] = useState(index);
+
+  const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
+  const next = useCallback(() => setCurrent((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') prev();
+      if (e.key === 'ArrowRight') next();
+    };
+    document.addEventListener('keydown', handleKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose, prev, next]);
+
+  const media = images[current];
+  const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(media);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-10">
+        <X size={24} />
+      </button>
+
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-4 text-white/70 hover:text-white transition-colors z-10">
+            <ChevronLeft size={32} />
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-4 text-white/70 hover:text-white transition-colors z-10">
+            <ChevronRight size={32} />
+          </button>
+        </>
+      )}
+
+      <div className="max-w-[90vw] max-h-[85vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+        {isVideo ? (
+          <video src={media} controls autoPlay className="max-w-full max-h-[85vh] rounded-sm" />
+        ) : (
+          <img src={media} alt="" className="max-w-full max-h-[85vh] object-contain rounded-sm" />
+        )}
+      </div>
+
+      {images.length > 1 && (
+        <div className="absolute bottom-4 text-white/60 text-xs font-medium">
+          {current + 1} / {images.length}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const UpdateCard = ({ update, currentUserId, onReact }) => {
+  const [lightboxIndex, setLightboxIndex] = useState(null);
   const date = update.createdAt ? new Date(update.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : update.date;
   const time = update.createdAt ? new Date(update.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
 
@@ -33,13 +93,49 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
             <h3 className="text-sm font-medium text-neutral-900">{update.title}</h3>
             <span className="text-[10px] font-medium text-neutral-400 shrink-0">{date}</span>
           </div>
-          <p className="text-xs text-neutral-600 leading-relaxed mb-3">{update.body}</p>
+          <TextWithLinks text={update.body} className="mb-3" />
           {update.images && update.images.length > 0 && (
-            <div className={`grid gap-2 mb-3 ${update.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-              {update.images.map((img, i) => (
-                <img key={i} src={img} alt="" className="w-full rounded-sm object-cover max-h-64 border border-neutral-100" />
-              ))}
+            <div className={`grid gap-1.5 mb-3 ${
+              update.images.length === 1 ? 'grid-cols-1 max-w-md'
+                : update.images.length === 2 ? 'grid-cols-2'
+                  : update.images.length === 3 ? 'grid-cols-3'
+                    : 'grid-cols-2'
+            }`}>
+              {update.images.map((media, i) => {
+                const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(media);
+                const isThree = update.images.length === 3 && i === 0;
+                const isSingle = update.images.length === 1;
+                const thumbnail = (
+                  isVideo ? (
+                    <video src={media} className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={media} alt="" loading="lazy" className="w-full h-full object-cover" />
+                  )
+                );
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setLightboxIndex(i)}
+                    className={`block rounded-sm border border-neutral-200 overflow-hidden hover:border-neutral-400 transition-colors cursor-pointer bg-neutral-50 ${
+                      isThree ? 'row-span-2' : ''
+                    } ${isSingle ? 'max-h-[300px]' : ''}`}
+                  >
+                    {isThree ? (
+                      <div className="h-full min-h-[268px]">{thumbnail}</div>
+                    ) : thumbnail}
+                  </button>
+                );
+              })}
             </div>
+          )}
+
+          {lightboxIndex !== null && (
+            <ImageLightbox
+              images={update.images}
+              index={lightboxIndex}
+              onClose={() => setLightboxIndex(null)}
+            />
           )}
           <div className="flex items-center gap-4 text-[10px] text-neutral-400">
             <span className="font-medium">{update.author}</span>
@@ -173,7 +269,7 @@ const UniversityUpdates = () => {
     }
   };
 
-  if (loading) return <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings"><PageShellSkeleton count={4} /></PageShell>;
 
   return (
     <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings">

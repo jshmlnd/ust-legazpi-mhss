@@ -225,14 +225,19 @@ export const updateProfile = async (req, res) => {
     try {
         const { profilePic } = req.body;
         const userId = req.user._id;
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
 
-        if(!profilePic) {
+        if(profilePic === undefined) {
             return res.status(400).json({ message: "Profile picture is required" });
         }
 
-        const uploadResponse = await cloudinary.uploader.upload(profilePic)
+        if(profilePic === '') {
+            const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
+            return res.status(200).json(updatedUser);
+        }
 
-        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
+
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
 
         res.status(200).json(updatedUser);

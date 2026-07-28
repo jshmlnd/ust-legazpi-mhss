@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check } from 'lucid
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import { PATHS } from '../lib/routes';
 import toast from 'react-hot-toast';
@@ -232,7 +233,7 @@ const CounselorSchedulingSystemPage = () => {
     }
   };
 
-  if (loading) return <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
 
   return (
     <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings">

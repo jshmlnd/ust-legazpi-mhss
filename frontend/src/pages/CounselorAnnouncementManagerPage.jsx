@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { Trash2, Search, Eye, Heart, Megaphone, PenSquare, RotateCcw, ArchiveRestore, Plus, Image, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
+import { compressImage } from '../lib/compressImage';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
+import TextWithLinks from '../components/TextWithLinks';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
 
@@ -20,17 +23,18 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
   const [images, setImages] = useState(announcement?.images || []);
   const fileInputRef = useRef(null);
 
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     const remaining = MAX_IMAGES - images.length;
     const toAdd = files.slice(0, remaining);
-    toAdd.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setImages((prev) => [...prev, ev.target.result]);
-      };
-      reader.readAsDataURL(file);
-    });
+    const compressed = await Promise.all(
+      toAdd.map((file) => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target.result);
+        reader.readAsDataURL(file);
+      })).map((p) => p.then(compressImage))
+    );
+    setImages((prev) => [...prev, ...compressed]);
     e.target.value = '';
   };
 
@@ -286,7 +290,7 @@ const CounselorAnnouncementManagerPage = () => {
     { label: 'Most Reactions', value: mostReacted },
   ];
 
-  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><PageShellSkeleton columns={4} count={4} /></PageShell>;
 
   return (
     <PageShell
@@ -386,7 +390,7 @@ const CounselorAnnouncementManagerPage = () => {
                       </td>
                       <td className="px-6 py-3.5">
                         <span className="text-sm font-medium text-neutral-900">{a.title}</span>
-                        <p className="text-[11px] text-neutral-400 mt-0.5 line-clamp-1">{a.body}</p>
+                        <TextWithLinks text={a.body} maxLines={1} className="mt-0.5" />
                       </td>
                       <td className="px-6 py-3.5 text-sm text-neutral-600">{a.author}</td>
                       <td className="px-6 py-3.5 text-sm text-neutral-500">{a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}</td>

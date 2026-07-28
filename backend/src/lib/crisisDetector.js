@@ -9,6 +9,7 @@ const FILIPINO_MAP = {
   'mamamatay na ako': 'i am going to die',
   'gusto kong mamatay': 'i want to die',
   'ayaw ko na ng buhay': 'i dont want to live anymore',
+  'ayoko na mabuhay' : 'i dont want to live anymore',
   'masakit ang buhay': 'life is painful',
   'sakit ng loob': 'emotional pain',
   'nalulungkot': 'feeling sad',
@@ -26,18 +27,27 @@ const FILIPINO_MAP = {
   'lason': 'poison',
   'tali sa leeg': 'rope on neck',
   'tumalon': 'jumped off',
+  'bigti' : 'hang myself',
+  'gusto ko mag bigti' : 'i want to hang myself',
   'hindi na kaya': 'cant take it anymore',
   'pagod na ako sa buhay': 'tired of living',
   'ayoko na': 'i dont want this anymore',
   'mabuti pang mawala': 'better to disappear',
   'sana mamatay na lang ako': 'i wish i would just die',
   'wala na akong pakialam': 'i dont care anymore',
-  'gaguhin ko ang sarili ko': 'i will hurt myself',
+  'sasaktan ko ang sarili ko': 'i will hurt myself',
   'tatapusin ko na': 'i will end it',
   'end na natin to': 'end this now',
   'self harm': 'self harm',
   'cutting': 'cutting myself',
   'pinaparusahan ko ang sarili ko': 'i punish myself',
+  'sana mamatay na ako' : 'i wish i would die',
+  'laslas' : 'cutting myself',
+  'tapusin sarili ko' : 'end my life',
+  'ayaw ko pa mamatay' : 'i dont want to die',
+  'ayaw ko nang mamatay' : 'i dont want to die',
+  'hindi ako magpapakamatay' : 'i will not kill myself',
+  'hindi ako sasaktan' : 'i will not hurt myself',
 };
 
 // ── Crisis keyword dictionary with severity weights ──
@@ -56,6 +66,9 @@ const CRISIS_DICT = [
   { phrase: 'i will end it', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'end this life', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'disappear forever', weight: 8, category: 'suicidal_ideation' },
+  { phrase: 'suicide', weight: 10, category: 'suicidal_ideation' },
+  { phrase: 'commit suicide', weight: 10, category: 'suicidal_ideation' },
+  { phrase: 'i want to hang myself', weight: 10, category: 'suicidal_ideation' },
 
   // Self-harm (weight: 7-9)
   { phrase: 'hurt myself', weight: 9, category: 'self_harm' },
@@ -66,6 +79,7 @@ const CRISIS_DICT = [
   { phrase: 'scratch myself', weight: 7, category: 'self_harm' },
   { phrase: 'punish myself', weight: 7, category: 'self_harm' },
   { phrase: 'bleeding myself', weight: 8, category: 'self_harm' },
+  { phrase: 'hang myself', weight: 8, category: 'self_harm' },
 
   // Means/method (weight: 8-10)
   { phrase: 'jump off', weight: 9, category: 'means' },
@@ -82,6 +96,7 @@ const CRISIS_DICT = [
   { phrase: 'hopeless', weight: 5, category: 'distress' },
   { phrase: 'nothing matters', weight: 5, category: 'distress' },
   { phrase: 'cant take it', weight: 5, category: 'distress' },
+  { phrase: 'cannot go on', weight: 6, category: 'distress' },
   { phrase: 'cant go on', weight: 6, category: 'distress' },
   { phrase: 'tired of living', weight: 6, category: 'distress' },
   { phrase: 'pain is too much', weight: 6, category: 'distress' },
@@ -139,7 +154,7 @@ function normalize(text) {
 }
 
 // ── Language detection (simple heuristic) ──
-const TAGALOG_MARKERS = /\b(?:ako|ikaw|siya|kami|kayo|sila|ito|iyan|iyan|ang|ng|sa|na|pa|ba|po|ho|opo|kung|dahil|pero|at|o|mga|ni|ko|mo|niya|namin|ninyo|nila|ko|mo|niya|para|kasi|kaya|dahil|habang|pag|kapag|bago|pagkatapos|malapit|malayo|malaki|maliit|bagong|luma|mabuti|masama|maganda|mahirap|madali|mabilis|mabagal|masaya|malungkot|galit|takot|pagod|gutom|uhaw|lamig|init|sakit|ganda|pangit|tao|bata|matanda|lalaki|babae|asawa|anak|magulang|kapatid|kaibigan|kapitbahay|guro|doktor|nurse|pulis| sundalo|gobyerno|paaralan|ospital|bahay|simbahan|palengke|tindahan|opisina|pabrika|bukid|dagat|bundok|ilog|lawa|lupa|langit|araw|buwan|bituin|ulap|ulan|hangin|apoy|tubig|lupa|ginto|pilak|bakal|kahoy|bato|lupa|damo|punso|halaman|hayop|pagong|manok|baboy|baka|karne|isda|bigas|kanin|tinapay|gatas|kape|tsaa|tubig|juice|soda|beer|wine|bago|luma|bago|bata|matanda|bago|malaki|maliit|bago|mabuti|masama|bago|maganda|mahirap|bago|madali|mabilis|bago|mabagal|bago|masaya|malungkot|bago|galit|takot|bago|pagod|gutom|bago|uhaw|lamig|init|bago|sakit|ganda|pangit|bago)\b/i;
+const TAGALOG_MARKERS = /\b(?:ako|ikaw|siya|kami|kayo|sila|ito|iyan|iyan|ang|ng|sa|na|pa|ba|po|ho|opo|kung|dahil|pero|at|o|mga|ni|ko|mo|niya|namin|ninyo|nila|ko|mo|niya|para|kasi|kaya|dahil|habang|pag|kapag|bago|pagkatapos|malapit|malayo|malaki|maliit|bagong|luma|mabuti|masama|maganda|mahirap|madali|mabilis|mabagal|masaya|malungkot|galit|takot|pagod|gutom|uhaw|lamig|init|sakit|ganda|pangit|tao|bata|matanda|lalaki|babae|asawa|anak|magulang|kapatid|kaibigan|kapitbahay|guro|doktor|nurse|pulis| sundalo|gobyerno|paaralan|ospital|bahay|simbahan|palengke|tindahan|opisina|pabrika|bukid|dagat|bundok|ilog|lawa|lupa|langit|araw|buwan|bituin|ulap|ulan|hangin|apoy|tubig|lupa|ginto|pilak|bakal|kahoy|bato|lupa|damo|punso|halaman|hayop|pagong|manok|baboy|baka|karne|isda|bigas|kanin|tinapay|gatas|kape|tsaa|tubig|juice|soda|beer|wine|bago|luma|bago|bata|matanda|bago|malaki|maliit|bago|mabuti|masama|bago|maganda|mahirap|bago|madali|mabilis|bago|mabagal|bago|masaya|malungkot|bago|galit|takot|bago|pagod|gutom|bago|uhaw|lamig|init|bago|sakit|ganda|pangit|bago|bigti)\b/i;
 
 function detectLanguage(text) {
   const lower = text.toLowerCase();
@@ -170,6 +185,15 @@ function calculateSeverity(score) {
   return { level: 'none', label: 'None', color: 'green' };
 }
 
+// ── Proximity negation check ──
+// Returns true if a negation word appears within the last 5 words before `position` in `text`
+function isNegated(text, position) {
+  const before = text.slice(Math.max(0, position - 60), position);
+  const words = before.split(/\s+/).filter(Boolean);
+  const lastWords = words.slice(-5);
+  return lastWords.some(w => /^(?:not|no|never|don'?t|doesn'?t|didn'?t|won'?t|can'?t|cannot|dont|dont|never|ayaw|hindi|wag)$/i.test(w));
+}
+
 // ── Main detection pipeline ──
 export function analyzeCrisis(text) {
   if (!text || typeof text !== 'string') {
@@ -191,27 +215,29 @@ export function analyzeCrisis(text) {
   // Step 4: Keyword/phrase screening (fast pass)
   for (const entry of CRISIS_DICT) {
     if (normalized.includes(entry.phrase)) {
-      matches.push({ type: 'keyword', phrase: entry.phrase, weight: entry.weight, category: entry.category });
-      totalScore += entry.weight;
+      const idx = normalized.indexOf(entry.phrase);
+      if (!isNegated(normalized, idx)) {
+        matches.push({ type: 'keyword', phrase: entry.phrase, weight: entry.weight, category: entry.category });
+        totalScore += entry.weight;
+      }
     }
   }
 
   // Step 5: Intent pattern matching
   for (const pattern of INTENT_PATTERNS) {
-    if (pattern.regex.test(englishText) || pattern.regex.test(normalized)) {
+    const match = pattern.regex.exec(englishText) || pattern.regex.exec(normalized);
+    if (match && !isNegated(match.input, match.index)) {
       matches.push({ type: 'pattern', phrase: pattern.regex.source.slice(0, 40), weight: pattern.weight, category: pattern.category });
       totalScore += pattern.weight;
     }
   }
 
-  // Step 6: Context modifiers
-  const hasNegation = /\b(?:never|no|not|don'?t|doesn'?t|didn'?t|won'?t|can'?t|cannot|never)\b/.test(normalized);
+  // Step 6: Context modifiers (intensifiers / temporal urgency only)
   const hasIntensifier = /\b(?:really|very|extremely|absolutely|totally|completely|always|never)\b/.test(normalized);
   const hasTemporal = /\b(?:now|tonight|today|right now|immediately|soon|this week)\b/.test(normalized);
 
   if (hasIntensifier) totalScore = Math.min(100, totalScore * 1.15);
   if (hasTemporal) totalScore = Math.min(100, totalScore * 1.2);
-  if (hasNegation && totalScore > 0) totalScore = Math.min(100, totalScore * 0.85);
 
   // Cap at 100
   totalScore = Math.min(100, Math.round(totalScore));
@@ -226,7 +252,7 @@ export function analyzeCrisis(text) {
   });
 
   return {
-    isCrisis: totalScore >= 20,
+    isCrisis: totalScore >= 10,
     severity: calculateSeverity(totalScore),
     score: totalScore,
     matches: uniqueMatches,

@@ -5,7 +5,13 @@ import cloudinary from "../lib/cloudinary.js";
 const uploadImages = async (images) => {
   if (!images || images.length === 0) return [];
   const uploads = await Promise.all(
-    images.filter(Boolean).map((img) => cloudinary.uploader.upload(img, { resource_type: 'auto' }))
+    images.filter(Boolean).map((img) =>
+      cloudinary.uploader.upload(img, { 
+        folder: "Announcement Photos", 
+        resource_type: 'auto',
+        transformation: [{ width: 800, crop: 'limit', quality: 'good' }],
+      })
+    )
   );
   return uploads.map((u) => u.secure_url);
 };

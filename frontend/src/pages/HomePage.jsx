@@ -2,14 +2,15 @@ import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader, CalendarDays, Clock, User, MoveRight } from 'lucide-react';
+import { Loader, CalendarDays, Clock, User, MoveRight, Pencil } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
 import { getSocket } from "../lib/socket";
 import { PATHS } from '../lib/routes';
 import Modal from '../components/Modal';
+import RoleGate from '../components/RoleGate';
 import toast from 'react-hot-toast';
 
-const ANNOUNCEMENT = {
+const DEFAULT_NOTICE = {
   tag: "NOTICE",
   text: "Counseling services are available for walk-in appointments every Monday and Thursday, 8:00 AM – 4:00 PM at the Office of Guidance and Testing.",
   linkHref: "/university-updates",
@@ -96,6 +97,37 @@ const HomePage = () => {
   const [f2fAvailableTimes, setF2fAvailableTimes] = useState([]);
   const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
   const [f2fSubmitting, setF2fSubmitting] = useState(false);
+
+  const [notice, setNotice] = useState(DEFAULT_NOTICE);
+  const [noticeEditOpen, setNoticeEditOpen] = useState(false);
+  const [noticeForm, setNoticeForm] = useState({ tag: '', text: '', linkHref: '', linkLabel: '' });
+  const [savingNotice, setSavingNotice] = useState(false);
+
+  useEffect(() => {
+    axiosInstance.get('/notice').then((res) => {
+      if (res.data) setNotice(res.data);
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveNotice = async () => {
+    if (!noticeForm.text.trim()) return;
+    setSavingNotice(true);
+    try {
+      const res = await axiosInstance.put('/notice', noticeForm);
+      setNotice(res.data);
+      setNoticeEditOpen(false);
+      toast.success('Notice updated');
+    } catch {
+      toast.error('Failed to update notice');
+    } finally {
+      setSavingNotice(false);
+    }
+  };
+
+  const openNoticeEdit = () => {
+    setNoticeForm({ tag: notice.tag, text: notice.text, linkHref: notice.linkHref, linkLabel: notice.linkLabel });
+    setNoticeEditOpen(true);
+  };
 
   const refreshActiveChat = async () => {
     try {
@@ -193,7 +225,7 @@ const HomePage = () => {
     setLoadingCounselors(true);
     try {
       const res = await axiosInstance.get("/message/users");
-      setCounselors(res.data);
+      setCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
     } catch {
       toast.error("Failed to load counselors.");
     } finally {
@@ -241,7 +273,7 @@ const HomePage = () => {
     setF2fAvailableTimes([]);
     try {
       const res = await axiosInstance.get("/message/users");
-      setF2fCounselors(res.data);
+      setF2fCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
     } catch { toast.error("Failed to load counselors."); }
   };
 
@@ -296,7 +328,7 @@ const HomePage = () => {
   return (
     <main className="relative min-h-screen overflow-hidden">
       <div
-        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[8px]"
+        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[15px]"
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-white/70" />
@@ -321,20 +353,31 @@ const HomePage = () => {
             <span className="text-sm leading-none"><MoveRight className="size-3" /></span>
           </Link>
           {/* Announcement Card */}
-          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 glass rounded-sm">
+          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 glass rounded-sm relative group">
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">
-              {ANNOUNCEMENT.tag}
+              {notice.tag}
             </span>
-            <div className="min-w-0">
-              <p className="text-sm leading-[1.6] text-neutral-700">{ANNOUNCEMENT.text}</p>
-              <Link
-                to={ANNOUNCEMENT.linkHref}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
-              >
-                {ANNOUNCEMENT.linkLabel}
-                <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
-              </Link>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm leading-[1.6] text-neutral-700">{notice.text}</p>
+              {notice.linkLabel && (
+                <Link
+                  to={notice.linkHref}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
+                >
+                  {notice.linkLabel}
+                  <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
+                </Link>
+              )}
             </div>
+            <RoleGate roles={['counselor']}>
+              <button
+                onClick={openNoticeEdit}
+                className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors opacity-0 group-hover:opacity-100"
+                title="Edit notice"
+              >
+                <Pencil size={12} />
+              </button>
+            </RoleGate>
           </div>
         </section>
 
@@ -565,14 +608,14 @@ const HomePage = () => {
             {SERVICE_CARDS.map((card) => (
               <article
                 key={card.number}
-                className="group relative bg-white/20 glass p-8 transition-all duration-300 hover:bg-neutral-50 cursor-default"
+                className="group relative bg-neutral-50 glass p-8 cursor-default"
               >
-                <span className="text-[13px] font-mono font-semibold text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">
+                <span className="text-[13px] font-mono font-semibold text-neutral-500">
                   {card.number}
                 </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">{card.title}</h3>
-                <p className="mt-3 text-xs leading-[1.8] text-neutral-300 group-hover:text-neutral-500 transition-colors duration-300">{card.description}</p>
-                <div className="mt-6 h-px w-8 bg-neutral-300 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
+                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-500 ">{card.title}</h3>
+                <p className="mt-3 text-xs leading-[1.8] text-neutral-500 ">{card.description}</p>
+                <div className="mt-6 h-px w-8 bg-neutral-500 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
               </article>
             ))}
           </div>
@@ -740,6 +783,54 @@ const HomePage = () => {
           </div>
         </form>
       </Modal>
+
+      {noticeEditOpen && (
+        <Modal isOpen onClose={() => setNoticeEditOpen(false)} title="Edit Dashboard Notice">
+          <div className="space-y-4">
+            <div>
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Tag</label>
+              <input
+                value={noticeForm.tag}
+                onChange={(e) => setNoticeForm({ ...noticeForm, tag: e.target.value })}
+                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Notice Text</label>
+              <textarea
+                value={noticeForm.text}
+                onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
+                rows={4}
+                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link URL</label>
+                <input
+                  value={noticeForm.linkHref}
+                  onChange={(e) => setNoticeForm({ ...noticeForm, linkHref: e.target.value })}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link Label</label>
+                <input
+                  value={noticeForm.linkLabel}
+                  onChange={(e) => setNoticeForm({ ...noticeForm, linkLabel: e.target.value })}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button onClick={() => setNoticeEditOpen(false)} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
+              <button onClick={handleSaveNotice} disabled={savingNotice || !noticeForm.text.trim()} className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50">
+                {savingNotice ? 'Saving...' : 'Save Notice'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 };

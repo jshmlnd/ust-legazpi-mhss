@@ -5,6 +5,7 @@ import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
 import { getSocket } from '../lib/socket';
+import { compressImage } from '../lib/compressImage';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -634,13 +635,17 @@ const CounselorDashboardPage = () => {
                   type="file"
                   accept="image/jpeg,image/png,image/gif,image/webp"
                   multiple
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const files = Array.from(e.target.files || []);
-                    files.slice(0, 4 - announcementImages.length).forEach((file) => {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => setAnnouncementImages((prev) => [...prev, ev.target.result]);
-                      reader.readAsDataURL(file);
-                    });
+                    const toAdd = files.slice(0, 4 - announcementImages.length);
+                    const compressed = await Promise.all(
+                      toAdd.map((file) => new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => resolve(ev.target.result);
+                        reader.readAsDataURL(file);
+                      })).map((p) => p.then(compressImage))
+                    );
+                    setAnnouncementImages((prev) => [...prev, ...compressed]);
                     e.target.value = '';
                   }}
                   className="hidden"

@@ -276,9 +276,9 @@ const StudentChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
-    isSocketConnected, typingUsers,
+    isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
-  const { callState, initiateCall, endCall } = useCallStore();
+  const { callState, initiateCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
 
@@ -287,9 +287,10 @@ const StudentChatView = () => {
     subscribeToMessages();
     return () => {
       unsubscribeFromMessages();
-      if (callState !== 'idle') endCall(false);
+      const st = useCallStore.getState();
+      if (st.callState !== 'idle') st.endCall(false);
     };
-  }, [getUsers, subscribeToMessages, unsubscribeFromMessages, callState, endCall]);
+  }, [getUsers, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     if (users.length > 0 && !selectedUser) {
@@ -324,7 +325,8 @@ const StudentChatView = () => {
         appointment.type === 'Chat' &&
         appointment.status === 'completed'
       ) {
-        if (callState !== 'idle') endCall(false);
+        const st = useCallStore.getState();
+        if (st.callState !== 'idle') st.endCall(false);
         setSessionEnded(true);
         toast.success('Counselor ended the session');
         navigate(PATHS.HOME);
@@ -333,9 +335,15 @@ const StudentChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [authUser._id, navigate, callState, endCall]);
+  }, [authUser._id, navigate]);
 
-  const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
+  const handleSend = useCallback(async (data) => {
+    try {
+      await sendMessage(data);
+    } catch {
+      navigate(PATHS.HOME);
+    }
+  }, [sendMessage, navigate]);
 
   const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
 
@@ -406,7 +414,8 @@ const StudentChatView = () => {
               key={msg._id}
               message={msg}
               isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && hasCrisisKeywords(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
             />
           ))
         )}
@@ -466,7 +475,7 @@ const CounselorChatView = () => {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     flaggedMessage, crisisAnalysis, getUsers, setSelectedUser, sendMessage, getMessages,
     subscribeToMessages, unsubscribeFromMessages, clearFlaggedMessage, removeUser,
-    unreadCounts, isSocketConnected, typingUsers,
+    unreadCounts, isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
   const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
@@ -481,9 +490,10 @@ const CounselorChatView = () => {
     subscribeToMessages();
     return () => {
       unsubscribeFromMessages();
-      if (callState !== 'idle') endCall(false);
+      const st = useCallStore.getState();
+      if (st.callState !== 'idle') st.endCall(false);
     };
-  }, [getUsers, subscribeToMessages, unsubscribeFromMessages, callState, endCall]);
+  }, [getUsers, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     if (users.length > 0) {
@@ -538,7 +548,8 @@ const CounselorChatView = () => {
         appointment.type === 'Chat'
       ) {
         if (appointment.status === 'completed') {
-          if (callState !== 'idle') endCall(false);
+          const st = useCallStore.getState();
+          if (st.callState !== 'idle') st.endCall(false);
           setActiveAppointment(null);
           setSessionEndedBanner(true);
         } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
@@ -550,10 +561,14 @@ const CounselorChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [selectedUser, callState, endCall]);
+  }, [selectedUser]);
 
-  const handleSend = useCallback((data) => {
-    sendMessage(data);
+  const handleSend = useCallback(async (data) => {
+    try {
+      await sendMessage(data);
+    } catch {
+      /* session-ended errors are expected; toast shown by store */
+    }
   }, [sendMessage]);
 
   const handleSelectUser = (user) => {
@@ -750,7 +765,8 @@ const CounselorChatView = () => {
                     key={msg._id}
                     message={msg}
                     isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && hasCrisisKeywords(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
                   />
                 ))
               )}

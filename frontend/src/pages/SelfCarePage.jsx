@@ -1,22 +1,52 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Plus, Trash2, ExternalLink,
+  Plus, Trash2, ExternalLink, ChevronDown,
   Sparkles, Heart, HeartPulse, HeartHandshake,
   Brain, Sun, Moon,
   Leaf, Flower, Star, Smile, SmilePlus,
   Music, Headphones, BookOpen, Coffee, Bed,
   Dumbbell, Timer, Droplets, Waves, Shield,
   Compass, Lightbulb, Palette, Armchair, Footprints, Utensils,
-  CircleDot,
+  CircleDot, Wind,
 } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
+
+function useColumnCount() {
+  const [cols, setCols] = useState(() => {
+    if (typeof window === 'undefined') return 1;
+    if (window.innerWidth >= 1024) return 3;
+    if (window.innerWidth >= 640) return 2;
+    return 1;
+  });
+  useEffect(() => {
+    const mql3 = window.matchMedia('(min-width: 1024px)');
+    const mql2 = window.matchMedia('(min-width: 640px)');
+    const sync = () => {
+      if (mql3.matches) setCols(3);
+      else if (mql2.matches) setCols(2);
+      else setCols(1);
+    };
+    sync();
+    mql3.addEventListener('change', sync);
+    mql2.addEventListener('change', sync);
+    return () => { mql3.removeEventListener('change', sync); mql2.removeEventListener('change', sync); };
+  }, []);
+  return cols;
+}
+
+function transposeToColumns(arr, numCols) {
+  const result = Array.from({ length: numCols }, () => []);
+  arr.forEach((item, i) => { result[i % numCols].push(item); });
+  return result;
+}
 
 const ICON_OPTIONS = [
   { name: 'Sparkles', label: 'Sparkles' },
@@ -48,6 +78,7 @@ const ICON_OPTIONS = [
   { name: 'Footprints', label: 'Walk' },
   { name: 'Utensils', label: 'Nutrition' },
   { name: 'CircleDot', label: 'Focus' },
+  { name: 'Wind', label: 'Breathing' },
 ];
 
 const ICON_MAP = {
@@ -57,7 +88,7 @@ const ICON_MAP = {
   Music, Headphones, BookOpen, Coffee, Bed,
   Dumbbell, Timer, Droplets, Waves, Shield,
   Compass, Lightbulb, Palette, Armchair, Footprints, Utensils,
-  CircleDot,
+  CircleDot, Wind,
 };
 
 const ICON_BG_COLORS = [
@@ -122,9 +153,9 @@ const IconPicker = ({ value, onChange }) => (
 );
 
 const ActivityItem = ({ activity }) => (
-  <li className="flex items-start gap-2 py-1.5">
+  <li className="flex items-start gap-2.5 py-2 border-b border-neutral-100 last:border-0">
     <span className="size-1.5 rounded-full bg-neutral-300 mt-1.5 shrink-0" />
-    <span className="text-sm text-neutral-600 leading-relaxed flex-1">{activity.label}</span>
+    <span className="text-[13px] text-neutral-600 leading-relaxed flex-1">{activity.label}</span>
     {activity.link && (
       <a href={activity.link} target="_blank" rel="noopener noreferrer" className="shrink-0 text-neutral-400 hover:text-neutral-900 transition-colors mt-0.5" title="Open link">
         <ExternalLink size={12} />
@@ -134,34 +165,40 @@ const ActivityItem = ({ activity }) => (
 );
 
 const ModuleCard = ({ module, onDelete, isCounselor }) => {
+  const [open, setOpen] = useState(false);
   const total = module.activities.length;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm overflow-hidden flex flex-col">
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2.5">
-            <ModuleIcon name={module.icon} />
-            <div>
-              <h3 className="text-sm font-medium text-neutral-900">{module.title}</h3>
-              <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
-            </div>
+    <div className="bg-white border border-neutral-200 rounded-sm hover:border-neutral-300 transition-colors">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full p-5 text-left flex items-start justify-between gap-3"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <ModuleIcon name={module.icon} />
+          <div className="min-w-0">
+            <h3 className="text-sm font-medium text-neutral-900 truncate">{module.title}</h3>
+            <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
           </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
           {isCounselor && (
-            <button
-              onClick={() => onDelete(module._id)}
-              className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+            <span
+              onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
+              className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
               title="Delete module"
             >
               <Trash2 size={13} />
-            </button>
+            </span>
           )}
+          <ChevronDown size={15} className={`text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         </div>
-      </div>
+      </button>
 
-      {total > 0 && (
-        <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/50">
-          <ul className="space-y-0.5">
+      {total > 0 && open && (
+        <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/60">
+          <ul className="space-y-0">
             {module.activities.map((a) => (
               <ActivityItem key={a._id || a.id} activity={a} />
             ))}
@@ -291,7 +328,10 @@ const SelfCarePage = () => {
     }
   }, []);
 
-  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  const colCount = useColumnCount();
+  const columns = useMemo(() => transposeToColumns(modules, colCount), [modules, colCount]);
+
+  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><PageShellSkeleton columns={3} count={6} /></PageShell>;
 
   return (
     <PageShell
@@ -308,14 +348,18 @@ const SelfCarePage = () => {
       {modules.length === 0 ? (
         <EmptyState icon={Sparkles} title="No self-care modules yet" description={isCounselor ? 'Create wellness modules with guided activities for students.' : 'Check back for self-care routines.'} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {modules.map((m) => (
-            <ModuleCard
-              key={m._id}
-              module={m}
-              onDelete={handleDeleteModule}
-              isCounselor={isCounselor}
-            />
+        <div className="flex gap-5 items-start">
+          {columns.map((col, ci) => (
+            <div key={ci} className="flex-1 flex flex-col gap-5">
+              {col.map((m) => (
+                <ModuleCard
+                  key={m._id}
+                  module={m}
+                  onDelete={handleDeleteModule}
+                  isCounselor={isCounselor}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}

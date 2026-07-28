@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw } from 'lucide-react';
+import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw, Image, XIcon } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
 import { getSocket } from '../lib/socket';
+import { compressImage } from '../lib/compressImage';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
@@ -100,7 +101,6 @@ const AnalyticsSummary = ({ data }) => (
 
 const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSession, endingSessionId }) => {
   const navigate = useNavigate();
-  const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm">
@@ -114,7 +114,9 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
       {sessions.length === 0 ? (
         <div className="px-6 py-8 text-center text-xs text-neutral-400">No upcoming sessions.</div>
       ) : (
-      <div className="overflow-x-auto">
+      <>
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-left">
           <thead>
             <tr className="border-t border-neutral-100">
@@ -130,9 +132,8 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
               <tr key={`${session.id}-${session.date}-${session.time}`} className="border-t border-neutral-100 hover:bg-neutral-50 transition-colors">
                 <td className="px-6 py-3.5 text-sm font-medium text-neutral-900">{session.id}</td>
                 <td className="px-6 py-3.5">
-                  <span className={`inline-flex items-center gap-1.5 text-[11px] font-medium tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'text-emerald-700' : 'text-neutral-600'}`}>
-                    <span className={`size-1.5 rounded-full ${session.type === 'Chat' ? 'bg-emerald-500' : 'bg-neutral-400'}`} />
-                    {session.type === 'Chat' ? 'Chat' : 'F2F'}
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] font-semibold tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                    {session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}
                   </span>
                 </td>
                 <td className="px-6 py-3.5 text-sm text-neutral-600">{session.date} {session.time}</td>
@@ -198,6 +199,76 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
           </tbody>
         </table>
       </div>
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {sessions.map((session) => (
+          <div key={`card-${session.id}-${session.date}-${session.time}`} className="border border-neutral-100 rounded-sm p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-neutral-900">{session.id}</span>
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] font-semibold tracking-[0.05em] uppercase ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                {session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}
+              </span>
+            </div>
+            <p className="text-xs text-neutral-500">{session.date} {session.time}</p>
+            <div className="flex items-center justify-between">
+              {session.status === 'pending' ? (
+                <span className="text-[11px] font-medium text-amber-600">Awaiting</span>
+              ) : session.status === 'active' ? (
+                <span className="text-[11px] font-medium text-emerald-600">Accepted</span>
+              ) : session.status === 'declined' ? (
+                <span className="text-[11px] font-medium text-red-500">Declined</span>
+              ) : (
+                <span className="text-[11px] font-medium text-neutral-400">{session.status}</span>
+              )}
+              <div className="flex items-center gap-2">
+                {session.status === 'pending' ? (
+                  <>
+                    <button
+                      onClick={() => onAccept(session)}
+                      disabled={acceptingId === session.id}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
+                    >
+                      {acceptingId === session.id ? <Loader size={12} className="animate-spin" /> : <Check size={12} />}
+                      Accept
+                    </button>
+                    <button
+                      onClick={() => onDecline(session)}
+                      disabled={acceptingId === session.id}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-red-600 hover:border-red-300 transition-colors rounded-sm disabled:opacity-50"
+                    >
+                      <X size={12} />
+                      Decline
+                    </button>
+                  </>
+                ) : session.status === 'active' ? (
+                  <>
+                    {session.type === 'Chat' ? (
+                      <button
+                        onClick={() => navigate(`${PATHS.MESSAGES}?user=${session.studentId}`)}
+                        className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                      >
+                        Join Chat
+                      </button>
+                    ) : (
+                      <span className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm">
+                        Approved
+                      </span>
+                    )}
+                    <button
+                      onClick={() => onEndSession(session)}
+                      disabled={endingSessionId === session.id}
+                      className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50"
+                    >
+                      {endingSessionId === session.id ? <Loader size={12} className="animate-spin" /> : 'End'}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      </>
       )}
     </div>
   );
@@ -235,26 +306,27 @@ const CounselorDashboardPage = () => {
   const [sessionDistribution, setSessionDistribution] = useState([]);
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [summaryData, setSummaryData] = useState({ peakHours: '—', topResources: '—', avgDuration: '—', accessPct: 0 });
-  const [loading, setLoading] = useState(true);
   const [acceptingId, setAcceptingId] = useState(null);
   const [endingSessionId, setEndingSessionId] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
+  const [announcementImages, setAnnouncementImages] = useState([]);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+  const announcementFileRef = useRef(null);
 
   const fetchSuggestions = async () => {
     try {
       const res = await axiosInstance.get('/suggestions');
       setSuggestions(res.data);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const fetchAnnouncements = async () => {
     try {
       const res = await axiosInstance.get('/announcements');
       setAnnouncements(res.data);
-    } catch {}
+    } catch { /* ignore */ }
   };
 
   const deleteSuggestion = async (id) => {
@@ -281,9 +353,10 @@ const CounselorDashboardPage = () => {
     if (!announcementForm.title.trim() || !announcementForm.body.trim()) return;
     setCreatingAnnouncement(true);
     try {
-      const res = await axiosInstance.post('/announcements', announcementForm);
+      const res = await axiosInstance.post('/announcements', { ...announcementForm, images: announcementImages });
       setAnnouncements((prev) => [res.data, ...prev]);
       setAnnouncementForm({ title: '', body: '' });
+      setAnnouncementImages([]);
       toast.success('Announcement created');
     } catch {
       toast.error('Failed to create announcement');
@@ -371,14 +444,20 @@ const CounselorDashboardPage = () => {
         setSummaryData(summaryRes.data);
       } catch (err) {
         console.error('Failed to fetch dashboard:', err);
-      } finally {
-        setLoading(false);
       }
     };
 
+    const loadSuggestions = async () => {
+      try { const res = await axiosInstance.get('/suggestions'); setSuggestions(res.data); } catch { /* ignore */ }
+    };
+
+    const loadAnnouncements = async () => {
+      try { const res = await axiosInstance.get('/announcements'); setAnnouncements(res.data); } catch { /* ignore */ }
+    };
+
     fetchData();
-    fetchSuggestions();
-    fetchAnnouncements();
+    loadSuggestions();
+    loadAnnouncements();
 
     const socket = getSocket();
     if (socket) {
@@ -526,6 +605,50 @@ const CounselorDashboardPage = () => {
                   placeholder="Write your announcement..."
                   rows={3}
                   className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+                />
+                {announcementImages.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {announcementImages.map((img, i) => (
+                      <div key={i} className="relative group rounded-sm overflow-hidden border border-neutral-200">
+                        <img src={img} alt="" className="w-full h-16 object-cover" />
+                        <button
+                          onClick={() => setAnnouncementImages((prev) => prev.filter((_, j) => j !== i))}
+                          className="absolute top-1 right-1 size-4 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XIcon size={8} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {announcementImages.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={() => announcementFileRef.current?.click()}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 border border-dashed border-neutral-300 rounded-sm text-[10px] text-neutral-400 hover:border-neutral-500 hover:text-neutral-600 transition-colors"
+                  >
+                    <Image size={12} /> Add image
+                  </button>
+                )}
+                <input
+                  ref={announcementFileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  multiple
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    const toAdd = files.slice(0, 4 - announcementImages.length);
+                    const compressed = await Promise.all(
+                      toAdd.map((file) => new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => resolve(ev.target.result);
+                        reader.readAsDataURL(file);
+                      })).map((p) => p.then(compressImage))
+                    );
+                    setAnnouncementImages((prev) => [...prev, ...compressed]);
+                    e.target.value = '';
+                  }}
+                  className="hidden"
                 />
                 <button
                   onClick={createAnnouncement}

@@ -82,7 +82,7 @@ export const deleteMessagesByAppointment = async (req, res) => {
 
 export const sendMessage = async (req, res) => {
     try {
-        const { text, image, type, callDuration, appointmentId, fileUrl, fileName, fileSize } = req.body;
+        const { text, image, type, appointmentId, fileUrl, fileName, fileSize } = req.body;
         const { id: receiverId } = req.params;
         const senderId = req.user._id;
 
@@ -127,7 +127,6 @@ export const sendMessage = async (req, res) => {
             senderId, senderModel, receiverId, receiverModel,
             text, image: imageUrl,
             type: type || 'text',
-            callDuration: callDuration || 0,
             appointmentId: appointmentId || activeAppointment._id,
             fileUrl, fileName, fileSize,
         });

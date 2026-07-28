@@ -14,7 +14,7 @@ export const useAuthStore = create((set) => ({
         try {
             const res = await axiosInstance.get("/auth/check");
             set({ authUser: res.data });
-        } catch (error) {
+        } catch {
             set({ authUser: null });
         } finally {
             set({ isCheckingAuth: false });
@@ -29,7 +29,7 @@ export const useAuthStore = create((set) => ({
             return res.data;
         } catch (error) {
             const message = error.response?.data?.message || "Login failed";
-            throw new Error(message);
+            throw new Error(message, { cause: error });
         } finally {
             set({ isLoggingIn: false });
         }
@@ -53,7 +53,7 @@ export const useAuthStore = create((set) => ({
             return res.data;
         } catch (error) {
             const message = error.response?.data?.message || "Failed to update profile";
-            throw new Error(message);
+            throw new Error(message, { cause: error });
         } finally {
             set({ isUpdating: false });
         }

@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
-import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart, CalendarDays } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
-import SectionDivider from '../components/SectionDivider';
 import toast from 'react-hot-toast';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 const MOODS = [
   { key: 'great', icon: Heart, label: 'Great', color: 'text-emerald-600 bg-emerald-50' },
@@ -20,7 +23,7 @@ const EntryCard = ({ entry, onDelete }) => {
   const MoodIcon = mood?.icon || Meh;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-5 hover:border-neutral-300 transition-colors">
+    <div className="bg-white p-5 hover:bg-neutral-50 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-8 rounded-sm flex items-center justify-center shrink-0 ${mood?.color || 'bg-neutral-100 text-neutral-500'}`}>
@@ -78,7 +81,7 @@ const EntryForm = ({ onSave, onClose }) => {
         />
         <div>
           <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-2">Mood</span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {MOODS.map((m) => {
               const Icon = m.icon;
               const selected = mood === m.key;
@@ -142,10 +145,142 @@ const MoodOverview = ({ entries }) => {
   );
 };
 
+const MoodTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-neutral-200 px-4 py-3 rounded-sm">
+        <p className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-400 mb-1">{label}</p>
+        <p className="text-sm font-medium text-neutral-900">Mood Score: {payload[0].value}</p>
+      </div>
+    );
+  }
+  return null;
+};
+
+const WeeklyMoodChart = ({ data }) => (
+  <div className="bg-white border border-neutral-200 rounded-sm">
+    <div className="px-6 pt-6 pb-2">
+      <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Mood Trends</span>
+      <h3 className="mt-1 text-sm font-medium text-neutral-900">Weekly Mood Overview</h3>
+    </div>
+    <div className="px-2 pb-4 h-52">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
+          <defs>
+            <linearGradient id="moodFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.15} />
+              <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a3a3a3', fontWeight: 500 }} dy={8} />
+          <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a3a3a3', fontWeight: 500 }} dx={-4} />
+          <Tooltip content={<MoodTooltip />} cursor={{ stroke: '#d4d4d4', strokeWidth: 1 }} />
+          <Area type="monotone" dataKey="score" stroke="#14b8a6" strokeWidth={2} fill="url(#moodFill)" dot={{ r: 3, fill: '#14b8a6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#14b8a6', stroke: '#fff', strokeWidth: 2 }} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+);
+
+const ActivityHeatmap = ({ entries }) => {
+  const entryDates = useMemo(() => {
+    const dates = new Set();
+    entries.forEach((e) => { dates.add(e.date); });
+    return dates;
+  }, [entries]);
+
+  const weeks = useMemo(() => {
+    const result = [];
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 111);
+
+    const dayOfWeek = startDate.getDay();
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+
+    for (let w = 0; w < 16; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const date = new Date(startDate);
+        date.setDate(date.getDate() + w * 7 + d);
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+        week.push({
+          date: dateStr,
+          hasEntry: entryDates.has(dateStr),
+          isFuture: date > today,
+        });
+      }
+      result.push(week);
+    }
+    return result;
+  }, [entryDates]);
+
+  return (
+    <div className="bg-white border border-neutral-200 rounded-sm p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <CalendarDays size={14} className="text-neutral-500" />
+        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activity</span>
+      </div>
+      <div className="flex gap-1">
+        <div className="flex flex-col gap-1 mr-2 pt-px">
+          {['S', 'M', 'T', 'W', 'Th', 'F', 'S'].map((label, i) => (
+            <div key={i} className="h-3 min-w-[14px] flex items-center">
+              <span className="text-[8px] leading-none text-neutral-400">{label}</span>
+            </div>
+          ))}
+        </div>
+        {weeks.map((week, wi) => (
+          <div key={wi} className="flex flex-col gap-1">
+            {week.map((day, di) => (
+              <div
+                key={di}
+                className={`size-3 rounded-[3px] transition-colors ${
+                  day.isFuture
+                    ? 'bg-transparent'
+                    : day.hasEntry
+                    ? 'bg-emerald-500'
+                    : 'bg-neutral-100'
+                }`}
+                title={`${day.date}${day.hasEntry ? ' - Journal entry' : ''}`}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5 mt-3 justify-end">
+        <span className="text-[9px] text-neutral-400">Less</span>
+        <div className="size-3 rounded-[3px] bg-neutral-100" />
+        <div className="size-3 rounded-[3px] bg-emerald-500" />
+        <span className="text-[9px] text-neutral-400">More</span>
+      </div>
+    </div>
+  );
+};
+
+const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
+
 const YourDiary = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+
+  const weeklyMoodData = useMemo(() => {
+    const today = new Date();
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const result = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const dayMoods = entries.filter((e) => e.date === dateStr);
+      const avgScore = dayMoods.length > 0
+        ? Math.round(dayMoods.reduce((sum, e) => sum + (MOOD_SCORE[e.mood] || 5), 0) / dayMoods.length)
+        : 0;
+      result.push({ day: dayNames[date.getDay()], score: avgScore });
+    }
+    return result;
+  }, [entries]);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -179,12 +314,12 @@ const YourDiary = () => {
       await axiosInstance.delete(`/journal/${id}`);
       setEntries((prev) => prev.filter((e) => e._id !== id));
       toast.success('Entry deleted');
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete entry');
     }
   };
 
-  if (loading) return <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections"><PageShellSkeleton showSidebar count={3} /></PageShell>;
 
   return (
     <PageShell
@@ -201,6 +336,9 @@ const YourDiary = () => {
     >
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
+          <div className="mb-6">
+            <WeeklyMoodChart data={weeklyMoodData} />
+          </div>
           {entries.length === 0 ? (
             <EmptyState icon={Book} title="No journal entries yet" description="Start writing to track your emotions and thoughts over time." action={
               <button onClick={() => setModalOpen(true)} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
@@ -213,8 +351,9 @@ const YourDiary = () => {
             </div>
           )}
         </div>
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
           <MoodOverview entries={entries} />
+          <ActivityHeatmap entries={entries} />
         </div>
       </div>
 

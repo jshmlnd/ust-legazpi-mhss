@@ -10,19 +10,11 @@ const formatDuration = (seconds) => {
 
 const VoiceCallModal = ({ peerName }) => {
   const {
-    callState, incomingCall, isMuted, callDuration, remoteStream,
+    callState, incomingCall, isMuted, callDuration,
     acceptCall, rejectCall, endCall, toggleMute,
   } = useCallStore();
 
-  const audioRef = useRef(null);
   const ringRef = useRef(null);
-
-  useEffect(() => {
-    if (audioRef.current && remoteStream) {
-      audioRef.current.srcObject = remoteStream;
-      audioRef.current.play().catch(() => {});
-    }
-  }, [remoteStream]);
 
   useEffect(() => {
     const ring = ringRef.current;
@@ -45,12 +37,10 @@ const VoiceCallModal = ({ peerName }) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <audio ref={audioRef} autoPlay />
       <audio ref={ringRef} src="/ring.mp3" loop />
 
       <div className="bg-white rounded-sm shadow-xl w-full max-w-sm mx-4 overflow-hidden">
         {isIncoming ? (
-          /* ─── Incoming Call ─── */
           <div className="flex flex-col items-center py-10 px-6">
             <div className="size-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4 animate-pulse">
               <Phone size={24} className="text-neutral-700" />
@@ -73,7 +63,6 @@ const VoiceCallModal = ({ peerName }) => {
             </div>
           </div>
         ) : callState === 'ringing' ? (
-          /* ─── Outgoing Ringing ─── */
           <div className="flex flex-col items-center py-10 px-6">
             <div className="size-16 rounded-full bg-neutral-100 flex items-center justify-center mb-4">
               <Phone size={24} className="text-neutral-700 animate-pulse" />
@@ -88,7 +77,6 @@ const VoiceCallModal = ({ peerName }) => {
             </button>
           </div>
         ) : (
-          /* ─── Active Call ─── */
           <div className="flex flex-col items-center py-10 px-6">
             <div className="size-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
               <Phone size={24} className="text-emerald-600" />

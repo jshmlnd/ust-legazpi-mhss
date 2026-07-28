@@ -2,19 +2,15 @@ import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader, CalendarDays, Clock, User, MoveRight } from 'lucide-react';
+import { Loader, CalendarDays, Clock, User, MoveRight, Pencil } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
 import { getSocket } from "../lib/socket";
 import { PATHS } from '../lib/routes';
 import Modal from '../components/Modal';
+import RoleGate from '../components/RoleGate';
 import toast from 'react-hot-toast';
 
-const ALL_TIMES = [
-  '8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM',
-  '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM',
-];
-
-const ANNOUNCEMENT = {
+const DEFAULT_NOTICE = {
   tag: "NOTICE",
   text: "Counseling services are available for walk-in appointments every Monday and Thursday, 8:00 AM – 4:00 PM at the Office of Guidance and Testing.",
   linkHref: "/university-updates",
@@ -75,7 +71,6 @@ const SERVICE_CARDS = [
 const HomePage = () => {
   const { authUser } = useAuthStore();
   const navigate = useNavigate();
-  const [diaryHover, setDiaryHover] = useState(false);
 
   const firstName = authUser?.fullName?.split(" ")[0] ?? "Student";
   const genid = authUser?._id;
@@ -103,7 +98,38 @@ const HomePage = () => {
   const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
   const [f2fSubmitting, setF2fSubmitting] = useState(false);
 
-  const fetchActiveChat = async () => {
+  const [notice, setNotice] = useState(DEFAULT_NOTICE);
+  const [noticeEditOpen, setNoticeEditOpen] = useState(false);
+  const [noticeForm, setNoticeForm] = useState({ tag: '', text: '', linkHref: '', linkLabel: '' });
+  const [savingNotice, setSavingNotice] = useState(false);
+
+  useEffect(() => {
+    axiosInstance.get('/notice').then((res) => {
+      if (res.data) setNotice(res.data);
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveNotice = async () => {
+    if (!noticeForm.text.trim()) return;
+    setSavingNotice(true);
+    try {
+      const res = await axiosInstance.put('/notice', noticeForm);
+      setNotice(res.data);
+      setNoticeEditOpen(false);
+      toast.success('Notice updated');
+    } catch {
+      toast.error('Failed to update notice');
+    } finally {
+      setSavingNotice(false);
+    }
+  };
+
+  const openNoticeEdit = () => {
+    setNoticeForm({ tag: notice.tag, text: notice.text, linkHref: notice.linkHref, linkLabel: notice.linkLabel });
+    setNoticeEditOpen(true);
+  };
+
+  const refreshActiveChat = async () => {
     try {
       const [appRes, usersRes] = await Promise.all([
         axiosInstance.get("/appointments"),
@@ -133,14 +159,41 @@ const HomePage = () => {
     }
   };
 
-  useEffect(() => { fetchActiveChat(); }, []);
-
   useEffect(() => {
+    const fetchActiveChat = async () => {
+      try {
+        const [appRes, usersRes] = await Promise.all([
+          axiosInstance.get("/appointments"),
+          axiosInstance.get("/message/users"),
+        ]);
+        const active = appRes.data.find(
+          (a) => a.type === "Chat" && a.status === "active"
+        );
+        setHasActiveChat(!!active);
+        const pending = appRes.data.find(
+          (a) => a.type === "Chat" && a.status === "pending"
+        );
+        if (pending) setPendingRequest(pending);
+        const f2f = appRes.data.find(
+          (a) => a.type === "f2f" && ["pending", "confirmed", "active"].includes(a.status)
+        );
+        setUpcomingF2f(f2f || null);
+        const declined = appRes.data.find(
+          (a) => a.type === "f2f" && a.status === "declined"
+        );
+        setDeclinedF2f(declined || null);
+        const map = {};
+        usersRes.data.forEach((c) => { map[c._id] = c.fullName; });
+        setCounselorMap(map);
+      } catch (err) {
+        console.error("Failed to check active Chat:", err);
+      }
+    };
+    fetchActiveChat();
     const socket = getSocket();
     if (!socket) return;
-    const handler = () => fetchActiveChat();
-    socket.on("appointment:updated", handler);
-    return () => socket.off("appointment:updated", handler);
+    socket.on("appointment:updated", fetchActiveChat);
+    return () => socket.off("appointment:updated", fetchActiveChat);
   }, []);
 
   useEffect(() => {
@@ -172,7 +225,7 @@ const HomePage = () => {
     setLoadingCounselors(true);
     try {
       const res = await axiosInstance.get("/message/users");
-      setCounselors(res.data);
+      setCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
     } catch {
       toast.error("Failed to load counselors.");
     } finally {
@@ -203,7 +256,7 @@ const HomePage = () => {
       setConcern("");
       setSelectedCounselor("");
       setPendingRequest(res.data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to request Chat session.");
     } finally {
       setSubmitting(false);
@@ -220,7 +273,7 @@ const HomePage = () => {
     setF2fAvailableTimes([]);
     try {
       const res = await axiosInstance.get("/message/users");
-      setF2fCounselors(res.data);
+      setF2fCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
     } catch { toast.error("Failed to load counselors."); }
   };
 
@@ -258,22 +311,24 @@ const HomePage = () => {
     try {
       await axiosInstance.post("/appointments", {
         counselorId: Number(f2fCounselorId),
-        type: "f2f",
+        type: "Face-To-Face",
         date: f2fDate,
         time: f2fTime,
         concern: f2fConcern.trim(),
       });
       toast.success("Face-to-face session booked! Awaiting counselor confirmation.");
       setF2fOpen(false);
-      fetchActiveChat();
-    } catch { toast.error("Failed to book session."); }
-    finally { setF2fSubmitting(false); }
+      refreshActiveChat();
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message || "Failed to book session.";
+      toast.error(msg);
+    } finally { setF2fSubmitting(false); }
   };
 //
   return (
     <main className="relative min-h-screen overflow-hidden">
       <div
-        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[8px]"
+        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[15px]"
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
       />
       <div className="absolute inset-0 -z-10 bg-white/70" />
@@ -298,20 +353,31 @@ const HomePage = () => {
             <span className="text-sm leading-none"><MoveRight className="size-3" /></span>
           </Link>
           {/* Announcement Card */}
-          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 bg-neutral-50 rounded-r-sm">
+          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 glass rounded-sm relative group">
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">
-              {ANNOUNCEMENT.tag}
+              {notice.tag}
             </span>
-            <div className="min-w-0">
-              <p className="text-sm leading-[1.6] text-neutral-700">{ANNOUNCEMENT.text}</p>
-              <Link
-                to={ANNOUNCEMENT.linkHref}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
-              >
-                {ANNOUNCEMENT.linkLabel}
-                <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
-              </Link>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm leading-[1.6] text-neutral-700">{notice.text}</p>
+              {notice.linkLabel && (
+                <Link
+                  to={notice.linkHref}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
+                >
+                  {notice.linkLabel}
+                  <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
+                </Link>
+              )}
             </div>
+            <RoleGate roles={['counselor']}>
+              <button
+                onClick={openNoticeEdit}
+                className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors opacity-0 group-hover:opacity-100"
+                title="Edit notice"
+              >
+                <Pencil size={12} />
+              </button>
+            </RoleGate>
           </div>
         </section>
 
@@ -503,8 +569,6 @@ const HomePage = () => {
             {/* Card 3 — Diary */}
             <div
               className="group relative bg-white/20 glass p-8"
-              onMouseEnter={() => setDiaryHover(true)}
-              onMouseLeave={() => setDiaryHover(false)}
             >
               <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">
                 Personal
@@ -544,14 +608,14 @@ const HomePage = () => {
             {SERVICE_CARDS.map((card) => (
               <article
                 key={card.number}
-                className="group relative bg-white/20 glass p-8 transition-all duration-300 hover:bg-neutral-50 cursor-default"
+                className="group relative bg-neutral-50 glass p-8 cursor-default"
               >
-                <span className="text-[13px] font-mono font-semibold text-neutral-300 group-hover:text-neutral-900 transition-colors duration-300">
+                <span className="text-[13px] font-mono font-semibold text-neutral-500">
                   {card.number}
                 </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-600">{card.title}</h3>
-                <p className="mt-3 text-xs leading-[1.8] text-neutral-500">{card.description}</p>
-                <div className="mt-6 h-px w-8 bg-neutral-300 group-hover:w-full group-hover:bg-neutral-900 transition-all duration-300" />
+                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-500 ">{card.title}</h3>
+                <p className="mt-3 text-xs leading-[1.8] text-neutral-500 ">{card.description}</p>
+                <div className="mt-6 h-px w-8 bg-neutral-500 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
               </article>
             ))}
           </div>
@@ -560,7 +624,7 @@ const HomePage = () => {
         {/* ──────── FOOTER ──────── */}
         <footer className="mt-28 pt-8 border-t border-neutral-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-[11px] text-neutral-400 tracking-[0.05em]">
-            &copy; {new Date().getFullYear()} University of Santo Tomas&ndash;Legazpi. All rights reserved.
+            &copy; {new Date().getFullYear()} <a href="https://github.com/jshmlnd" target="_blank" rel="noopener noreferrer">@jshmlnd</a> & <a href="https://github.com/grxg0r" target="_blank" rel="noopener noreferrer">@grxg0r</a>. All rights reserved.
           </p>
           <div className="flex items-center gap-5">
             <Link to={PATHS.RESOURCES} className="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors tracking-[0.05em]">Resources</Link>
@@ -574,7 +638,7 @@ const HomePage = () => {
       </div>
 
       <Modal isOpen={requestOpen} onClose={() => { setRequestOpen(false); setConcern(""); setSelectedCounselor(""); }} title="Request Chat Session">
-        <div className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleRequestChat(); }} className="space-y-4">
           <p className="text-xs text-neutral-500 leading-relaxed">
             Select your counselor and briefly describe your concern. All information is kept confidential.
           </p>
@@ -617,19 +681,18 @@ const HomePage = () => {
               Cancel
             </button>
             <button
-              type="button"
-              onClick={handleRequestChat}
+              type="submit"
               disabled={submitting || loadingCounselors}
               className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
             >
               {submitting ? "Requesting..." : "Submit Request"}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       <Modal isOpen={f2fOpen} onClose={() => { setF2fOpen(false); setF2fConcern(""); setF2fAllSlots([]); setF2fAvailableTimes([]); }} title="Book Face-to-Face Session">
-        <div className="space-y-4">
+        <form onSubmit={(e) => { e.preventDefault(); handleBookF2f(); }} className="space-y-4">
           <p className="text-xs text-neutral-500 leading-relaxed">
             Schedule an on-campus appointment with your counselor. Select a date and time that works for you.
           </p>
@@ -670,37 +733,26 @@ const HomePage = () => {
             </div>
           )}
 
-          {f2fCounselorId && f2fAllSlots.length > 0 && (
+{f2fCounselorId && f2fAllSlots.length > 0 && (
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Date (Manual)</label>
-              <input
-                type="date"
-                value={f2fDate}
-                onChange={(e) => handleF2fDateChange(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-              />
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>
+              {f2fLoadingSlots ? (
+                <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading available times...</div>
+              ) : (
+                <select
+                  value={f2fTime}
+                  onChange={(e) => setF2fTime(e.target.value)}
+                  disabled={!f2fCounselorId || !f2fDate}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors disabled:opacity-40"
+                >
+                  <option value="">Select a time slot</option>
+                  {f2fAvailableTimes.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>
-            {f2fLoadingSlots ? (
-              <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading available times...</div>
-            ) : (
-              <select
-                value={f2fTime}
-                onChange={(e) => setF2fTime(e.target.value)}
-                disabled={!f2fCounselorId || !f2fDate}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors disabled:opacity-40"
-              >
-                <option value="">Select a time slot</option>
-                {f2fAvailableTimes.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            )}
-          </div>
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Concern (optional)</label>
@@ -722,16 +774,63 @@ const HomePage = () => {
               Cancel
             </button>
             <button
-              type="button"
-              onClick={handleBookF2f}
+              type="submit"
               disabled={f2fSubmitting || !f2fCounselorId || !f2fDate || !f2fTime}
               className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
             >
               {f2fSubmitting ? "Booking..." : "Book Session"}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
+
+      {noticeEditOpen && (
+        <Modal isOpen onClose={() => setNoticeEditOpen(false)} title="Edit Dashboard Notice">
+          <div className="space-y-4">
+            <div>
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Tag</label>
+              <input
+                value={noticeForm.tag}
+                onChange={(e) => setNoticeForm({ ...noticeForm, tag: e.target.value })}
+                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Notice Text</label>
+              <textarea
+                value={noticeForm.text}
+                onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
+                rows={4}
+                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link URL</label>
+                <input
+                  value={noticeForm.linkHref}
+                  onChange={(e) => setNoticeForm({ ...noticeForm, linkHref: e.target.value })}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link Label</label>
+                <input
+                  value={noticeForm.linkLabel}
+                  onChange={(e) => setNoticeForm({ ...noticeForm, linkLabel: e.target.value })}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button onClick={() => setNoticeEditOpen(false)} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
+              <button onClick={handleSaveNotice} disabled={savingNotice || !noticeForm.text.trim()} className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50">
+                {savingNotice ? 'Saving...' : 'Save Notice'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 };

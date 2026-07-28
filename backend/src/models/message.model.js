@@ -29,7 +29,7 @@ const messageSchema = new mongoose.Schema(
         },
         type: {
             type: String,
-            enum: ['text', 'image', 'file', 'video', 'call-log'],
+            enum: ['text', 'image', 'file', 'video'],
             default: 'text',
         },
         text: {
@@ -45,10 +45,6 @@ const messageSchema = new mongoose.Schema(
             type: String,
         },
         fileSize: {
-            type: Number,
-            default: 0,
-        },
-        callDuration: {
             type: Number,
             default: 0,
         },

@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, CalendarCheck, Clock, MessageCircle, ChevronRight, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, User, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
+import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
-import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import toast from 'react-hot-toast';
@@ -126,34 +126,30 @@ const SessionsPage = () => {
   const [slots, setSlots] = useState([]);
   const [archiving, setArchiving] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [bookRes, slotRes] = await Promise.all([
-        axiosInstance.get('/appointments'),
-        axiosInstance.get('/availability/0'),
-      ]);
-      setAppointments(bookRes.data);
-      setSlots(slotRes.data);
-    } catch (err) {
-      console.error('Failed to fetch data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [bookRes, slotRes] = await Promise.all([
+          axiosInstance.get('/appointments'),
+          axiosInstance.get('/availability/0'),
+        ]);
+        setAppointments(bookRes.data);
+        setSlots(slotRes.data);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     socket.on("appointment:updated", fetchData);
     return () => socket.off("appointment:updated", fetchData);
-  }, [fetchData]);
+  }, []);
 
-  const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active'].includes(a.status));
-  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined'].includes(a.status));
+  const upcoming = appointments.filter((a) => ['pending', 'active'].includes(a.status));
+  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'confirmed'].includes(a.status));
   const hasPast = past.length > 0;
 
   const dateStr = selectedDay?.dateStr || '';
@@ -174,7 +170,7 @@ const SessionsPage = () => {
       toast.success(`Booked ${slot.time}`);
       const res = await axiosInstance.get('/appointments');
       setAppointments(res.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to book slot');
     }
   };
@@ -203,7 +199,8 @@ const SessionsPage = () => {
     setArchiving(true);
     try {
       await axiosInstance.post('/appointments/archive-past');
-      setAppointments((prev) => prev.filter((a) => a.status !== 'archived'));
+      const res = await axiosInstance.get('/appointments');
+      setAppointments(res.data);
       toast.success('Past sessions cleared');
     } catch {
       toast.error('Failed to clear past sessions');
@@ -212,28 +209,34 @@ const SessionsPage = () => {
     }
   };
 
-  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
 
   return (
     <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
-        <div className="lg:col-span-1">
-          <MiniCalendar
-            year={year} month={month}
-            onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
-            onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
-            bookings={appointments} openSlots={slots}
-            onDateClick={handleDateClick}
-          />
+      <div className="space-y-8">
+
+        <div>
+          <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Calendar</h3>
+          <div className="bg-white border border-neutral-200 rounded-sm p-5 max-w-lg">
+            <MiniCalendar
+              year={year} month={month}
+              onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
+              onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
+              bookings={appointments} openSlots={slots}
+              onDateClick={handleDateClick}
+            />
+          </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div>
-            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Chat Sessions</h3>
+            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Sessions</h3>
             {upcoming.length === 0 ? (
-              <EmptyState icon={CalendarDays} title="No upcoming sessions" description="Book a session with your counselor to get started." />
+              <div className="bg-white border border-neutral-200 rounded-sm">
+                <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
+              </div>
             ) : (
-              <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
+              <div className="space-y-2">
                 {upcoming.map((s) => <SessionCard key={s._id} session={s} type="upcoming" />)}
               </div>
             )}
@@ -242,14 +245,16 @@ const SessionsPage = () => {
           <div>
             <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Available Slots</h3>
             {slots.length === 0 ? (
-              <p className="text-xs text-neutral-400">No available slots at this time. Check back later.</p>
+              <div className="bg-white border border-neutral-200 rounded-sm p-6 text-center">
+                <p className="text-xs text-neutral-400">No available slots at this time.</p>
+              </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-neutral-200 rounded-sm overflow-hidden">
+              <div className="space-y-2">
                 {slots.map((slot) => (
-                  <div key={slot._id} className="bg-white p-4 flex items-center justify-between">
+                  <div key={slot._id} className="bg-white border border-neutral-200 rounded-sm p-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-neutral-900">{slot.fullName || `Counselor #${slot.counselorId}`}</p>
-                      <p className="text-xs text-neutral-400">{slot.date} · {slot.time}</p>
+                      <p className="text-xs text-neutral-400 mt-0.5">{slot.date} · {slot.time}</p>
                     </div>
                     <button
                       onClick={() => handleBook(slot)}
@@ -263,32 +268,38 @@ const SessionsPage = () => {
             )}
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-4 mb-6">
-        <span className="h-px flex-1 bg-neutral-200" />
-        <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
-        {hasPast && (
-          <button
-            onClick={handleClearPast}
-            disabled={archiving}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
-          >
-            {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
-            Clear All
-          </button>
-        )}
-        <span className="h-px flex-1 bg-neutral-200" />
-      </div>
-      {past.length === 0 ? (
-        <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
-      ) : (
-        <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
-          {past.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
+        <div>
+          <div className="flex items-center gap-4 mb-4">
+            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
+            {hasPast && (
+              <button
+                onClick={handleClearPast}
+                disabled={archiving}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
+              >
+                {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                Clear All
+              </button>
+            )}
+            <span className="h-px flex-1 bg-neutral-200" />
+          </div>
+          {past.length === 0 ? (
+            <div className="bg-white border border-neutral-200 rounded-sm">
+              <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {past.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
+            </div>
+          )}
         </div>
-      )}
+
+      </div>
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedDay ? `Schedule — ${dateStr}` : ''}>
+        <div className="max-h-[60vh] overflow-y-auto pr-1">
         {dayBookings.length > 0 && (
           <div className="mb-4">
             <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Your Appointments</span>
@@ -314,6 +325,7 @@ const SessionsPage = () => {
         ) : dayBookings.length === 0 ? (
           <p className="text-sm text-neutral-400 py-4 text-center">No slots or bookings for this day.</p>
         ) : null}
+        </div>
       </Modal>
     </PageShell>
   );

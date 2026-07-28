@@ -9,20 +9,25 @@ export const PATHS = {
   MESSAGES: '/messages',
   UNIVERSITY_UPDATES: '/university-updates',
   SUGGESTIONS: '/suggestions',
+  
   DASHBOARD: '/dashboard',
   MANAGE_SESSIONS: '/manage/sessions',
-
   MANAGE_ANNOUNCEMENT: '/manage/announcement',
   MANAGE_SELF_CARE: '/manage/self-care',
   MANAGE_RESOURCES: '/manage/resources',
   COUNSELOR_SCHEDULE: '/appointments',
   STUDENT_IDENTITY: '/identity/user',
   STUDENT_IDENTITY_DETAIL: '/identity/user/:id',
-  SETTINGS: '/settings',
   PROFILE: '/profile',
+
+  ADMIN: '/admin',
+  ADMIN_REGISTER_STUDENT: '/admin/register-student',
+  ADMIN_REGISTER_COUNSELOR: '/admin/register-counselor',
 };
 
 export const NAV_ITEMS = [
+  { label: 'Home', path: PATHS.HOME, allowedRoles: ['student'] },
+  { label: 'Dashboard', path: PATHS.DASHBOARD, allowedRoles: ['counselor'] },
   { label: 'Sessions', path: PATHS.SESSIONS, allowedRoles: ['student'] },
   { label: 'Resources', path: PATHS.RESOURCES, allowedRoles: ['student'] },
   { label: 'Self Care', path: PATHS.SELF_CARE, allowedRoles: ['student'] },
@@ -32,4 +37,7 @@ export const NAV_ITEMS = [
   { label: 'Self-Care', path: PATHS.MANAGE_SELF_CARE, allowedRoles: ['counselor'] },
   { label: 'Announcements', path: PATHS.MANAGE_ANNOUNCEMENT, allowedRoles: ['counselor'] },
   { label: 'My Account', path: PATHS.MY_ACCOUNT, allowedRoles: ['student', 'counselor'] },
+  { label: 'Admin', path: PATHS.ADMIN, allowedRoles: ['administrator'] },
+  { label: 'Register Student', path: PATHS.ADMIN_REGISTER_STUDENT, allowedRoles: ['administrator'] },
+  { label: 'Register Counselor', path: PATHS.ADMIN_REGISTER_COUNSELOR, allowedRoles: ['administrator'] },
 ];

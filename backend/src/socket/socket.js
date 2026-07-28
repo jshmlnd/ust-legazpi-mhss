@@ -66,34 +66,25 @@ export const setupSocket = (httpServer) => {
 
     io.emit("onlineUsers", Object.keys(userSocketMap));
 
-    socket.on("call:offer", ({ offer, calleeId }) => {
+    socket.on("call:offer", ({ calleeId, callerName, channelName }) => {
       const targetSockets = userSocketMap[String(calleeId)];
       if (targetSockets) {
         for (const socketId of targetSockets) {
           io.to(socketId).emit("call:initiated", {
-            offer,
             callerId: userId,
             callerName: socket.user.fullName,
             callerModel: socket.user.constructor.modelName,
+            channelName,
           });
         }
       }
     });
 
-    socket.on("call:answer", ({ answer, callerId }) => {
+    socket.on("call:answer", ({ callerId, channelName }) => {
       const targetSockets = userSocketMap[String(callerId)];
       if (targetSockets) {
         for (const socketId of targetSockets) {
-          io.to(socketId).emit("call:answer", { answer });
-        }
-      }
-    });
-
-    socket.on("call:ice-candidate", ({ candidate, targetId }) => {
-      const targetSockets = userSocketMap[String(targetId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("call:ice-candidate", { candidate });
+          io.to(socketId).emit("call:answer", { channelName });
         }
       }
     });

@@ -1,0 +1,44 @@
+import express from "express";
+import pkg from "agora-access-token";
+const { RtcTokenBuilder, RtcRole } = pkg;
+import { protectRoute } from "../middleware/auth.middleware.js";
+
+const router = express.Router();
+
+const APP_ID = process.env.AGORA_APP_ID;
+const APP_CERTIFICATE = process.env.AGORA_APP_CERTIFICATE;
+const TOKEN_EXPIRATION = parseInt(process.env.TOKEN_EXPIRATION) || 3600;
+
+router.post("/token", protectRoute, (req, res) => {
+    try {
+        if (!APP_ID || !APP_CERTIFICATE) {
+            console.error("[Agora] Missing env vars: AGORA_APP_ID =", !!APP_ID, "AGORA_APP_CERTIFICATE =", !!APP_CERTIFICATE);
+            return res.status(500).json({ error: "Agora credentials not configured on server" });
+        }
+
+        const { channelName, uid } = req.body;
+
+        if (!channelName || !uid) {
+            return res.status(400).json({ error: "channelName and uid are required" });
+        }
+
+        const currentTime = Math.floor(Date.now() / 1000);
+        const privilegeExpire = currentTime + TOKEN_EXPIRATION;
+
+        const token = RtcTokenBuilder.buildTokenWithUid(
+            APP_ID,
+            APP_CERTIFICATE,
+            channelName,
+            parseInt(uid),
+            RtcRole.PUBLISHER,
+            privilegeExpire
+        );
+
+        res.status(200).json({ token, appId: APP_ID });
+    } catch (error) {
+        console.log("Error generating Agora token: ", error.message);
+        res.status(500).json({ error: "Failed to generate token" });
+    }
+});
+
+export default router;

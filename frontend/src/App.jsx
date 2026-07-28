@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 
 import Navbar from "./components/Navbar";
@@ -19,20 +19,37 @@ import SuggestionsPage from './pages/SuggestionsPage';
 
 import YourDiary from './pages/YourDiary';
 import StudentIdentityPage from './pages/StudentIdentityPage';
+import RegisterStudentPage from './pages/RegisterStudentPage';
+import RegisterCounselorPage from './pages/RegisterCounselorPage';
+import Administrator from './pages/Administrator';
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from './store/useAuthStore';
 import { useChatStore } from './store/useChatStore';
+import { useCallStore } from './store/useCallStore';
 import { Loader } from "lucide-react";
 
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
+import VoiceCallModal from './components/VoiceCallModal';
 
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
-  const { subscribeToMessages, unsubscribeFromMessages } = useChatStore();
+  const { subscribeToMessages, unsubscribeFromMessages, selectedUser } = useChatStore();
+  const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
+
+  const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
+  const peerDisplayName = (() => {
+    if (incomingCall?.callerName) {
+      return isCounselor ? `STU-${incomingCall.callerId}` : incomingCall.callerName;
+    }
+    if (selectedUser) {
+      return isCounselor ? `STU-${selectedUser._id}` : selectedUser.fullName;
+    }
+    return '';
+  })();
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
@@ -44,17 +61,17 @@ const App = () => {
     if (authUser) {
       connectSocket();
       subscribeToMessages();
+      subscribeToCallEvents();
       requestNotificationPermission();
     }
     return () => {
       unsubscribeFromMessages();
+      unsubscribeFromCallEvents();
       disconnectSocket();
     };
-  }, [authUser, subscribeToMessages, unsubscribeFromMessages]);
+  }, [authUser, subscribeToMessages, unsubscribeFromMessages, subscribeToCallEvents, unsubscribeFromCallEvents]);
 
-  console.log({ authUser });
-
-  if(isCheckingAuth && !authUser) return (
+if(isCheckingAuth && !authUser) return (
     <div className="flex items-center justify-center h-screen">
       <Loader className="size-10 animate-spin" />
     </div>
@@ -65,6 +82,9 @@ const App = () => {
 
     <Navbar />
     <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+    <VoiceCallModal
+      peerName={peerDisplayName}
+    />
 
     <Routes>
       {/* Student Routes */}
@@ -79,7 +99,7 @@ const App = () => {
 
 
       {/* Shared Route */}
-      <Route path={PATHS.MESSAGES} element={authUser ? <ChatPage /> : <Navigate to={PATHS.LOGIN} /> } /> 
+      <Route path={PATHS.MESSAGES} element={authUser ? <ChatPage /> : <Navigate to={PATHS.LOGIN} /> } />
       <Route path={PATHS.UNIVERSITY_UPDATES} element={authUser ? < UniversityUpdates/> : <Navigate to={PATHS.LOGIN} /> } />
 
       {/* Counselor Routes */}
@@ -91,8 +111,12 @@ const App = () => {
       <Route path={PATHS.MANAGE_RESOURCES} element={authUser ? <ResourcePage /> : <Navigate to={PATHS.LOGIN} /> } />
       <Route path={PATHS.STUDENT_IDENTITY} element={authUser ? <StudentIdentityPage /> : <Navigate to={PATHS.LOGIN}/> } />
       <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={authUser ? <StudentIdentityPage /> : <Navigate to={PATHS.LOGIN}/> } />
-      <Route path={PATHS.SETTINGS} element={authUser ? <ProfilePage /> : <Navigate to={PATHS.LOGIN}/> } />
       <Route path={PATHS.PROFILE} element={authUser ? <Navigate to={PATHS.MY_ACCOUNT} /> : <Navigate to={PATHS.LOGIN}/> } />
+
+      {/* Admin Routes */}
+      <Route path={PATHS.ADMIN} element={authUser?.userType?.toLowerCase() === 'administrator' ? <Administrator /> : <Navigate to={PATHS.LOGIN} />} />
+      <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterStudentPage /> : <Navigate to={PATHS.LOGIN} />} />
+      <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterCounselorPage /> : <Navigate to={PATHS.LOGIN} />} />
     </Routes>
 
   </div>);

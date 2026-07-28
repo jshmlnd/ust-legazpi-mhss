@@ -16,20 +16,27 @@ export const getSlots = async (req, res) => {
 
 export const setSlots = async (req, res) => {
   try {
-    const { slots } = req.body;
-    const dates = [...new Set(slots.map((s) => s.date || ""))];
-    await AvailabilitySlot.deleteMany({
-      counselorId: req.user._id,
-      date: { $in: dates },
-    });
-    const docs = slots.map((s) => ({
-      counselorId: req.user._id,
-      date: s.date,
-      time: s.time,
-      isAvailable: s.isAvailable !== false,
-    }));
-    const created = await AvailabilitySlot.insertMany(docs);
-    res.status(201).json(created);
+    const { slots, dates: bodyDates } = req.body;
+    const dates = slots.length > 0
+      ? [...new Set(slots.map((s) => s.date || ""))]
+      : (bodyDates || []);
+    if (dates.length > 0) {
+      await AvailabilitySlot.deleteMany({
+        counselorId: req.user._id,
+        date: { $in: dates },
+      });
+    }
+    if (slots.length > 0) {
+      const docs = slots.map((s) => ({
+        counselorId: req.user._id,
+        date: s.date,
+        time: s.time,
+        isAvailable: s.isAvailable !== false,
+      }));
+      const created = await AvailabilitySlot.insertMany(docs);
+      return res.status(201).json(created);
+    }
+    res.json([]);
   } catch (error) {
     console.error("Error in setSlots:", error.message);
     res.status(500).json({ error: "Internal server error" });

@@ -2,7 +2,7 @@ import express from "express";
 import { protectRoute } from "../middleware/auth.middleware.js";
 import {
   getAnnouncements, createAnnouncement, updateAnnouncement,
-  deleteAnnouncement, restoreAnnouncement, incrementViews, toggleReaction,
+  deleteAnnouncement, permanentDeleteAnnouncement, restoreAnnouncement, incrementViews, toggleReaction,
 } from "../controllers/announcement.controller.js";
 
 const router = express.Router();
@@ -12,6 +12,7 @@ router.post("/", protectRoute, createAnnouncement);
 router.put("/:id", protectRoute, updateAnnouncement);
 router.patch("/:id/views", protectRoute, incrementViews);
 router.post("/:id/react", protectRoute, toggleReaction);
+router.delete("/:id/permanent", protectRoute, permanentDeleteAnnouncement);
 router.delete("/:id", protectRoute, deleteAnnouncement);
 router.patch("/:id/restore", protectRoute, restoreAnnouncement);
 

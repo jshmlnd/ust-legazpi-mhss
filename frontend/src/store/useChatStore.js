@@ -5,14 +5,29 @@ import { getSocket } from "../lib/socket";
 import { showNotification } from "../lib/notifications";
 import { useAuthStore } from "./useAuthStore";
 
-const CRISIS_KEYWORDS = [
-  'self-harm', 'suicide', 'kill myself', 'want to die',
-  'end my life', 'life-threatening', 'crisis', 'emergency',
-  'hurt myself', 'not safe', 'help me please',
-];
+export const analyzeCrisis = async (text) => {
+  try {
+    const res = await axiosInstance.post("/crisis/analyze", { text });
+    return res.data;
+  } catch {
+    return { isCrisis: false, severity: { level: 'none', label: 'None', color: 'green' }, score: 0, matches: [], language: 'english' };
+  }
+};
 
-const containsCrisisContent = (text) =>
-  CRISIS_KEYWORDS.some((kw) => text?.toLowerCase().includes(kw));
+const logCrisisAudit = async ({ studentId, counselorId, messageId, analysis }) => {
+  try {
+    await axiosInstance.post("/audit-trails/crisis", {
+      studentId,
+      counselorId,
+      messageId,
+      severity: analysis.severity?.level,
+      crisisScore: analysis.score,
+      messageText: '',
+      matches: analysis.matches,
+      language: analysis.language,
+    });
+  } catch { /* audit logging should not block UI */ }
+};
 
 export const useChatStore = create((set, get) => ({
   users: [],
@@ -21,6 +36,8 @@ export const useChatStore = create((set, get) => ({
   isUsersLoading: false,
   isMessagesLoading: false,
   flaggedMessage: null,
+  crisisAnalysis: null,
+  crisisMessageMap: {},
   onlineUsers: [],
   isSocketConnected: false,
   unreadCounts: {},
@@ -31,7 +48,7 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get("/message/users");
       set({ users: res.data });
-    } catch (error) {
+    } catch {
       toast.error("Failed to load contacts");
     } finally {
       set({ isUsersLoading: false });
@@ -42,9 +59,14 @@ export const useChatStore = create((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       const params = appointmentId ? `?appointmentId=${appointmentId}` : '';
-      const res = await axiosInstance.get(`/message/${userId}${params}`);
-      set({ messages: res.data });
-    } catch (error) {
+      const [msgRes, logRes] = await Promise.all([
+        axiosInstance.get(`/message/${userId}${params}`),
+        axiosInstance.get(`/call-logs/${userId}`),
+      ]);
+      const combined = [...msgRes.data, ...logRes.data]
+        .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+      set({ messages: combined });
+    } catch {
       toast.error("Failed to load messages");
     } finally {
       set({ isMessagesLoading: false });
@@ -55,26 +77,46 @@ export const useChatStore = create((set, get) => ({
     const { selectedUser, messages } = get();
     if (!selectedUser) return;
 
+    const authUser = useAuthStore.getState().authUser;
+    const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
     const text = messageData.text || '';
     try {
       const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, messageData);
       set({ messages: [...messages, res.data] });
 
-      if (containsCrisisContent(text)) {
-        set({ flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id } });
+      if (!isCounselor && text) {
+        const analysis = await analyzeCrisis(text);
+        if (analysis.isCrisis) {
+          set((state) => ({
+            flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
+            crisisAnalysis: analysis,
+            crisisMessageMap: { ...state.crisisMessageMap, [res.data._id]: analysis.severity.level },
+          }));
+          logCrisisAudit({
+            studentId: selectedUser._id,
+            counselorId: authUser?._id,
+            messageId: res.data._id,
+            analysis,
+          });
+        }
       }
     } catch (error) {
       const msg = error.response?.data?.error || "Failed to send message";
       toast.error(msg);
+      if (error.response?.status === 403 && msg === "No active Chat session") {
+        throw error;
+      }
     }
   },
 
   setSelectedUser: (user, appointmentId) => {
-    set({ selectedUser: user, messages: [], flaggedMessage: null });
+    set({ selectedUser: user, messages: [], crisisMessageMap: {} });
     if (user) {
       get().markAsRead(user._id);
       get().markMessagesAsRead(user._id);
-      get().getMessages(user._id, appointmentId);
+      if (appointmentId) {
+        get().getMessages(user._id, appointmentId);
+      }
     }
   },
 
@@ -124,7 +166,7 @@ export const useChatStore = create((set, get) => ({
       set({ isSocketConnected: false });
     });
 
-    socket.off("newMessage").on("newMessage", (message) => {
+    socket.off("newMessage").on("newMessage", async (message) => {
       const { selectedUser, messages, unreadCounts } = get();
       const isRelevant =
         selectedUser &&
@@ -134,8 +176,22 @@ export const useChatStore = create((set, get) => ({
       if (isRelevant) {
         set({ messages: [...messages, message] });
 
-        if (containsCrisisContent(message.text)) {
-          set({ flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id } });
+        if (message.senderModel !== 'Counselor' && message.text) {
+          const analysis = await analyzeCrisis(message.text);
+          if (analysis.isCrisis) {
+            const authUser = useAuthStore.getState().authUser;
+            set((state) => ({
+              flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
+              crisisAnalysis: analysis,
+              crisisMessageMap: { ...state.crisisMessageMap, [message._id]: analysis.severity.level },
+            }));
+            logCrisisAudit({
+              studentId: message.senderId,
+              counselorId: authUser?._id,
+              messageId: message._id,
+              analysis,
+            });
+          }
         }
 
         get().markMessagesAsRead(message.senderId);
@@ -146,8 +202,20 @@ export const useChatStore = create((set, get) => ({
         set({ unreadCounts: { ...unreadCounts, [String(otherId)]: (unreadCounts[String(otherId)] || 0) + 1 } });
 
         const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
-        const notifBody = message.type === 'call-log' ? message.text : (message.text || 'Sent an image');
+        const notifBody = message.text || 'Sent an image';
         showNotification(senderName, notifBody);
+      }
+    });
+
+    socket.off("callLog").on("callLog", (callLog) => {
+      const { selectedUser, messages } = get();
+      const isRelevant =
+        selectedUser &&
+        (String(callLog.callerId) === String(selectedUser._id) ||
+          String(callLog.receiverId) === String(selectedUser._id));
+
+      if (isRelevant) {
+        set({ messages: [...messages, callLog] });
       }
     });
 
@@ -190,6 +258,7 @@ export const useChatStore = create((set, get) => ({
     const socket = getSocket();
     if (!socket) return;
     socket.off("newMessage");
+    socket.off("callLog");
     socket.off("onlineUsers");
     socket.off("connect");
     socket.off("disconnect");
@@ -198,7 +267,7 @@ export const useChatStore = create((set, get) => ({
     socket.off("messagesRead");
   },
 
-  clearFlaggedMessage: () => set({ flaggedMessage: null }),
+  clearFlaggedMessage: () => set({ flaggedMessage: null, crisisAnalysis: null }),
 
   removeUser: (userId) => {
     const { users } = get();

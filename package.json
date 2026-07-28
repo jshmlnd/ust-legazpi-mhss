@@ -4,19 +4,31 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npm install agora-rtc-sdk-ng --prefix frontend && npm install agora-access-token --prefix backend",
     "start": "npm run start --prefix backend"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Teika666/thesis-system.git"
+    "url": "git+https://github.com/jshmlnd/ust-legazpi-mhss.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/Teika666/thesis-system/issues"
+    "url": "https://github.com/jshmlnd/ust-legazpi-mhss/issues"
   },
-  "homepage": "https://github.com/Teika666/thesis-system#readme"
+  "homepage": "https://github.com/jshmlnd/ust-legazpi-mhss#readme",
+  "devDependencies": {
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
+    "commitizen": "^4.3.2",
+    "cz-conventional-changelog": "^3.3.0",
+    "husky": "^9.1.7"
+  },
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  }
 }

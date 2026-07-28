@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
 import toast from 'react-hot-toast';
@@ -27,7 +27,9 @@ const LoginPage = () => {
     try {
       const user = await login(studentId.trim(), password);
       const isCounselor = user?.userType?.toLowerCase() === 'counselor';
-      navigate(isCounselor ? PATHS.DASHBOARD : PATHS.HOME);
+      const isAdministrator = user?.userType?.toLowerCase() === 'administrator';
+      navigate(isCounselor ? PATHS.DASHBOARD : isAdministrator ? PATHS.ADMIN : PATHS.HOME);
+
     } catch (error) {
       toast.error(error.message);
     }
@@ -35,7 +37,7 @@ const LoginPage = () => {
 
   return (
     <main>
-      <div className="absolute inset-0 -z-10 scale-100 bg-center bg-cover bg-no-repeat blur-[8px]"
+      <div className="absolute inset-0 -z-10 scale-100 bg-center bg-cover bg-no-repeat blur-[20px]"
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }} />
       <div className="min-h-full pt-32 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">

@@ -8,25 +8,27 @@ import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import toast from 'react-hot-toast';
 import { PATHS } from '../lib/routes';
-import VoiceCallModal from '../components/VoiceCallModal';
-import AudioPlayer from '../components/AudioPlayer';
 
-const CRISIS_KEYWORDS = [
-  'self-harm', 'suicide', 'kill myself', 'want to die',
-  'end my life', 'life-threatening', 'crisis', 'emergency',
-  'hurt myself', 'not safe',
+const CRISIS_DISPLAY_TERMS = [
+  'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'suicide',
+  'no hope', 'not safe', 'help me', 'crisis', 'emergency', 'can\'t go on',
 ];
 
-const containsCrisisContent = (text) =>
-  CRISIS_KEYWORDS.some((kw) => text?.toLowerCase().includes(kw));
+const hasCrisisKeywords = (text) =>
+  CRISIS_DISPLAY_TERMS.some((kw) => text?.toLowerCase().includes(kw));
 
-const MessageBubble = ({ message, isOwn, isCrisis }) => {
-  if (message.type === 'call-log') {
+const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity }) => {
+  if (message.callerId !== undefined) {
+    const mins = Math.floor((message.duration || 0) / 60);
+    const secs = (message.duration || 0) % 60;
+    const statusText = message.status === 'cancelled'
+      ? 'Call cancelled'
+      : `Voice call ended (${mins}m ${secs}s)`;
     return (
       <div className="flex justify-center mb-3">
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-100 text-neutral-500 text-xs">
           <Phone size={12} />
-          <span>{message.text}</span>
+          <span>{statusText}</span>
           <span className="text-neutral-400">
             {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
@@ -42,6 +44,14 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   };
 
+  const crisisStyles = {
+    critical: 'bg-red-50 text-red-800 border border-red-300',
+    high: 'bg-red-50 text-red-800 border border-red-200',
+    medium: 'bg-amber-50 text-amber-800 border border-amber-200',
+    low: 'bg-yellow-50 text-yellow-800 border border-yellow-200',
+    none: 'bg-neutral-100 text-neutral-900',
+  };
+
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
@@ -49,7 +59,7 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
           isOwn
             ? 'bg-neutral-900 text-white rounded-sm'
             : isCrisis
-              ? 'bg-red-50 text-red-800 border border-red-200'
+              ? crisisStyles[crisisSeverity] || crisisStyles.none
               : 'bg-neutral-100 text-neutral-900'
         }`}
       >
@@ -88,30 +98,40 @@ const MessageBubble = ({ message, isOwn, isCrisis }) => {
   );
 };
 
-const EmergencyBanner = ({ studentName, onReveal, onDismiss }) => (
-  <div className="bg-red-50 border-b border-red-200 px-6 py-3 flex items-center justify-between gap-4">
-    <div className="flex items-center gap-3 min-w-0">
-      <div className="size-8 rounded-sm bg-red-100 flex items-center justify-center shrink-0">
-        <AlertTriangle size={16} className="text-red-600" />
+const EmergencyBanner = ({ onReveal, onDismiss, severity }) => {
+  const severityConfig = {
+    critical: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', iconColor: 'text-red-600', title: 'text-red-800', subtitle: 'text-red-600', btn: 'bg-red-600 hover:bg-red-700' },
+    high: { bg: 'bg-red-50', border: 'border-red-200', iconBg: 'bg-red-100', iconColor: 'text-red-600', title: 'text-red-800', subtitle: 'text-red-600', btn: 'bg-red-600 hover:bg-red-700' },
+    medium: { bg: 'bg-amber-50', border: 'border-amber-200', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', title: 'text-amber-800', subtitle: 'text-amber-600', btn: 'bg-amber-600 hover:bg-amber-700' },
+    low: { bg: 'bg-yellow-50', border: 'border-yellow-200', iconBg: 'bg-yellow-100', iconColor: 'text-yellow-600', title: 'text-yellow-800', subtitle: 'text-yellow-600', btn: 'bg-yellow-600 hover:bg-yellow-700' },
+  };
+  const s = severityConfig[severity] || severityConfig.high;
+
+  return (
+    <div className={`${s.bg} border-b ${s.border} px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className={`size-8 rounded-sm ${s.iconBg} flex items-center justify-center shrink-0`}>
+          <AlertTriangle size={16} className={s.iconColor} />
+        </div>
+        <div className="min-w-0">
+          <p className={`text-sm font-medium ${s.title} truncate`}>Crisis Alert Detected</p>
+          <p className={`text-[11px] ${s.subtitle} truncate`}>This student may be in immediate danger</p>
+        </div>
       </div>
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-red-800 truncate">Crisis Alert Detected</p>
-        <p className="text-[11px] text-red-600 truncate">This student may be in immediate danger</p>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={onReveal}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white ${s.btn} transition-colors rounded-sm`}
+        >
+          <Eye size={14} /> <span className="hidden sm:inline">Reveal Identity</span><span className="sm:hidden">Reveal</span>
+        </button>
+        <button onClick={onDismiss} className={`text-[11px] ${s.subtitle} hover:opacity-70 transition-opacity uppercase tracking-[0.05em] font-medium`}>
+          Dismiss
+        </button>
       </div>
     </div>
-    <div className="flex items-center gap-2 shrink-0">
-      <button
-        onClick={onReveal}
-        className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
-      >
-        <Eye size={14} /> Reveal Identity
-      </button>
-      <button onClick={onDismiss} className="text-[11px] text-red-500 hover:text-red-700 transition-colors uppercase tracking-[0.05em] font-medium">
-        Dismiss
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 const MessageInput = ({ onSend, disabled, receiverId }) => {
   const [text, setText] = useState('');
@@ -255,20 +275,22 @@ const StudentChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    getUsers, setSelectedUser, sendMessage, isSocketConnected, typingUsers,
+    getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
+    isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
-  const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
+  const { callState, initiateCall } = useCallStore();
   const messagesEndRef = useRef(null);
   const [sessionEnded, setSessionEnded] = useState(false);
 
   useEffect(() => {
     getUsers();
-    subscribeToCallEvents();
+    subscribeToMessages();
     return () => {
-      unsubscribeFromCallEvents();
-      if (callState !== 'idle') endCall(false);
+      unsubscribeFromMessages();
+      const st = useCallStore.getState();
+      if (st.callState !== 'idle') st.endCall(false);
     };
-  }, [getUsers]);
+  }, [getUsers, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     if (users.length > 0 && !selectedUser) {
@@ -281,6 +303,19 @@ const StudentChatView = () => {
   }, [messages]);
 
   useEffect(() => {
+    if (!selectedUser) return;
+    const fetchAppointment = async () => {
+      try {
+        const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
+        getMessages(selectedUser._id, res.data?._id);
+      } catch {
+        getMessages(selectedUser._id);
+      }
+    };
+    fetchAppointment();
+  }, [selectedUser, getMessages]);
+
+  useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
 
@@ -290,7 +325,8 @@ const StudentChatView = () => {
         appointment.type === 'Chat' &&
         appointment.status === 'completed'
       ) {
-        if (callState !== 'idle') endCall(false);
+        const st = useCallStore.getState();
+        if (st.callState !== 'idle') st.endCall(false);
         setSessionEnded(true);
         toast.success('Counselor ended the session');
         navigate(PATHS.HOME);
@@ -299,16 +335,20 @@ const StudentChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [authUser._id, navigate, callState, endCall]);
+  }, [authUser._id, navigate]);
 
-  const handleSend = useCallback((data) => sendMessage(data), [sendMessage]);
+  const handleSend = useCallback(async (data) => {
+    try {
+      await sendMessage(data);
+    } catch {
+      navigate(PATHS.HOME);
+    }
+  }, [sendMessage, navigate]);
 
   const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
 
   return (
     <div className="flex flex-col h-[calc(100vh-68px)]">
-      <VoiceCallModal peerName={counselor?.fullName || 'Counselor'} />
-      <AudioPlayer />
       <div className="border-b border-neutral-200 px-6 py-4 bg-white shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -374,7 +414,8 @@ const StudentChatView = () => {
               key={msg._id}
               message={msg}
               isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && containsCrisisContent(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
             />
           ))
         )}
@@ -432,12 +473,13 @@ const CounselorChatView = () => {
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
-    flaggedMessage, getUsers, setSelectedUser, sendMessage, clearFlaggedMessage, removeUser,
-    unreadCounts, isSocketConnected, typingUsers,
+    flaggedMessage, crisisAnalysis, getUsers, setSelectedUser, sendMessage, getMessages,
+    subscribeToMessages, unsubscribeFromMessages, clearFlaggedMessage, removeUser,
+    unreadCounts, isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
-  const { callState, initiateCall, subscribeToCallEvents, unsubscribeFromCallEvents, endCall } = useCallStore();
+  const { callState, initiateCall, endCall } = useCallStore();
   const messagesEndRef = useRef(null);
-  const [showMobileList, setShowMobileList] = useState(true);
+  const [showMobileList, setShowMobileList] = useState(() => !searchParams.get('user'));
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [isEndingSession, setIsEndingSession] = useState(false);
   const [sessionEndedBanner, setSessionEndedBanner] = useState(false);
@@ -445,12 +487,13 @@ const CounselorChatView = () => {
 
   useEffect(() => {
     getUsers();
-    subscribeToCallEvents();
+    subscribeToMessages();
     return () => {
-      unsubscribeFromCallEvents();
-      if (callState !== 'idle') endCall(false);
+      unsubscribeFromMessages();
+      const st = useCallStore.getState();
+      if (st.callState !== 'idle') st.endCall(false);
     };
-  }, [getUsers]);
+  }, [getUsers, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
     if (users.length > 0) {
@@ -459,7 +502,6 @@ const CounselorChatView = () => {
         const match = users.find((u) => String(u._id) === userIdFromUrl);
         if (match && (!selectedUser || String(selectedUser._id) !== userIdFromUrl)) {
           setSelectedUser(match);
-          setShowMobileList(false);
         }
       }
     }
@@ -470,11 +512,11 @@ const CounselorChatView = () => {
   }, [messages]);
 
   useEffect(() => {
-    if (!selectedUser) {
-      setActiveAppointment(null);
-      return;
-    }
     const fetchAppointment = async () => {
+      if (!selectedUser) {
+        setActiveAppointment(null);
+        return;
+      }
       setAppointmentLoading(true);
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
@@ -484,15 +526,17 @@ const CounselorChatView = () => {
         } else {
           setSessionEndedBanner(false);
         }
+        getMessages(selectedUser._id, res.data?._id);
       } catch {
         setActiveAppointment(null);
         setSessionEndedBanner(true);
+        getMessages(selectedUser._id);
       } finally {
         setAppointmentLoading(false);
       }
     };
     fetchAppointment();
-  }, [selectedUser]);
+  }, [selectedUser, getMessages]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -504,7 +548,8 @@ const CounselorChatView = () => {
         appointment.type === 'Chat'
       ) {
         if (appointment.status === 'completed') {
-          if (callState !== 'idle') endCall(false);
+          const st = useCallStore.getState();
+          if (st.callState !== 'idle') st.endCall(false);
           setActiveAppointment(null);
           setSessionEndedBanner(true);
         } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
@@ -516,10 +561,14 @@ const CounselorChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [selectedUser, callState, endCall]);
+  }, [selectedUser]);
 
-  const handleSend = useCallback((data) => {
-    sendMessage(data);
+  const handleSend = useCallback(async (data) => {
+    try {
+      await sendMessage(data);
+    } catch {
+      /* session-ended errors are expected; toast shown by store */
+    }
   }, [sendMessage]);
 
   const handleSelectUser = (user) => {
@@ -565,10 +614,8 @@ const CounselorChatView = () => {
 
   return (
     <div className="flex h-[calc(100vh-68px)] bg-white">
-      <VoiceCallModal peerName={selectedUser ? `STU-${selectedUser._id}` : ''} />
-      <AudioPlayer />
       {/* ─── Sidebar ─── */}
-      <div className={`w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
+      <div className={`w-full lg:w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'
       }`}>
         <div className="px-5 py-[24px] border-b border-neutral-200">
@@ -698,6 +745,7 @@ const CounselorChatView = () => {
                 studentName={`STU-${selectedUser._id}`}
                 onReveal={handleReveal}
                 onDismiss={clearFlaggedMessage}
+                severity={crisisAnalysis?.severity?.level}
               />
             )}
 
@@ -717,7 +765,8 @@ const CounselorChatView = () => {
                     key={msg._id}
                     message={msg}
                     isOwn={msg.senderId === authUser._id}
-                    isCrisis={msg.senderId !== authUser._id && containsCrisisContent(msg.text)}
+              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
                   />
                 ))
               )}

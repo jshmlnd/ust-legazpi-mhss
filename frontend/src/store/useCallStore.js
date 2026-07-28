@@ -1,235 +1,120 @@
 import { create } from "zustand";
+import AgoraRTC from "agora-rtc-sdk-ng";
 import { getSocket } from "../lib/socket";
 import { axiosInstance } from "../lib/axios";
-import { useChatStore } from "./useChatStore";
+import { useAuthStore } from "./useAuthStore";
 import toast from "react-hot-toast";
 
-const RTC_CONFIG = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
+const generateChannelName = (userId1, userId2) => {
+  const sorted = [String(userId1), String(userId2)].sort();
+  return `mhss-${sorted[0]}-${sorted[1]}`;
 };
+
+const generateUid = (userId) => {
+  let hash = 0;
+  const str = String(userId);
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) || 1;
+};
+
+let agoraClient = null;
 
 export const useCallStore = create((set, get) => ({
   callState: "idle", // idle | ringing | active | ended
-  localStream: null,
-  remoteStream: null,
-  peerConnection: null,
-  incomingCall: null, // { callerId, callerName, callerModel, socketId }
+  localAudioTrack: null,
+  remoteUsers: [],
+  incomingCall: null, // { callerId, callerName, callerModel, channelName }
   peerId: null,
   isMuted: false,
   callDuration: 0,
   callTimer: null,
   _logged: false,
-  _pendingIceCandidates: [],
 
-  initiateCall: async (calleeId) => {
-    try {
-      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const peerConnection = new RTCPeerConnection(RTC_CONFIG);
+  _getClient: () => {
+    if (!agoraClient) {
+      agoraClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
 
-      localStream.getTracks().forEach((track) => {
-        peerConnection.addTrack(track, localStream);
-      });
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          const socket = getSocket();
-          socket.emit("call:ice-candidate", {
-            candidate: event.candidate,
-            targetId: calleeId,
-          });
+      agoraClient.on("user-published", async (user, mediaType) => {
+        try {
+          await agoraClient.subscribe(user, mediaType);
+          console.log("[Agora] subscribed to uid:", user.uid, "type:", mediaType);
+        } catch (err) {
+          console.error("[Agora] subscribe failed for uid", user.uid, err);
+          return;
         }
-      };
 
-      peerConnection.ontrack = (event) => {
-        set({ remoteStream: event.streams[0] });
-      };
-
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-
-      const socket = getSocket();
-      socket.emit("call:offer", {
-        offer,
-        calleeId,
-        callerName: get().callerName,
-      });
-
-      set({
-        callState: "ringing",
-        localStream,
-        peerConnection,
-        peerId: calleeId,
-        callerName: null,
-      });
-
-      get()._startTimer();
-    } catch (error) {
-      console.error("Failed to initiate call:", error);
-      toast.error("Could not access microphone");
-      get().cleanup();
-    }
-  },
-
-  handleIncomingCall: (data) => {
-    set({ incomingCall: data, callState: "ringing" });
-  },
-
-  acceptCall: async (data) => {
-    try {
-      const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const peerConnection = new RTCPeerConnection(RTC_CONFIG);
-
-      localStream.getTracks().forEach((track) => {
-        peerConnection.addTrack(track, localStream);
-      });
-
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-          const socket = getSocket();
-          socket.emit("call:ice-candidate", {
-            candidate: event.candidate,
-            targetId: data.callerId,
-          });
+        if (mediaType === "audio") {
+          const attemptPlay = (retries = 5) => {
+            const remote = agoraClient?.remoteUsers.find((u) => u.uid === user.uid);
+            const track = remote?.audioTrack;
+            if (!track) {
+              if (retries > 0) setTimeout(() => attemptPlay(retries - 1), 300);
+              return;
+            }
+            track.play().then(() => {
+              console.log("[Agora] remote audio playing, uid:", user.uid);
+            }).catch((err) => {
+              console.warn("[Agora] audio play failed, retrying...", err.message);
+              if (retries > 0) setTimeout(() => attemptPlay(retries - 1), 500);
+            });
+          };
+          attemptPlay();
         }
-      };
 
-      peerConnection.ontrack = (event) => {
-        set({ remoteStream: event.streams[0] });
-      };
-
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-
-      get()._flushPendingIceCandidates();
-
-      const socket = getSocket();
-      socket.emit("call:answer", {
-        answer,
-        callerId: data.callerId,
+        set((state) => {
+          const exists = state.remoteUsers.find((u) => u.uid === user.uid);
+          if (exists) {
+            return {
+              remoteUsers: state.remoteUsers.map((u) =>
+                u.uid === user.uid ? user : u
+              ),
+            };
+          }
+          return { remoteUsers: [...state.remoteUsers, user] };
+        });
       });
 
-      set({
-        callState: "active",
-        localStream,
-        peerConnection,
-        incomingCall: null,
-        peerId: data.callerId,
+      agoraClient.on("user-unpublished", (user, mediaType) => {
+        if (mediaType === "audio") {
+          user.audioTrack?.stop();
+        }
       });
 
-      get()._startTimer();
-    } catch (error) {
-      console.error("Failed to accept call:", error);
-      toast.error("Could not access microphone");
-      get().cleanup();
-    }
-  },
-
-  handleCallAnswered: async (answer) => {
-    const { peerConnection } = get();
-    if (peerConnection) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-      set({ callState: "active" });
-      get()._flushPendingIceCandidates();
-    }
-  },
-
-  handleIceCandidate: async (candidate) => {
-    const { peerConnection } = get();
-    if (peerConnection) {
-      try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.warn("Failed to add ICE candidate:", e);
-      }
-    } else {
-      set((state) => ({
-        _pendingIceCandidates: [...state._pendingIceCandidates, candidate],
-      }));
-    }
-  },
-
-  rejectCall: () => {
-    const { incomingCall } = get();
-    if (incomingCall) {
-      const socket = getSocket();
-      socket.emit("call:rejected", { callerId: incomingCall.callerId });
-    }
-    set({ incomingCall: null, callState: "idle" });
-  },
-
-  endCall: (notifyPeer = true) => {
-    const { peerId, callDuration, callState } = get();
-    if (notifyPeer && peerId) {
-      const socket = getSocket();
-      socket.emit("call:ended", { targetId: peerId });
-    }
-    if (peerId) {
-      const wasActive = callState === 'active';
-      get()._logCall(peerId, wasActive ? callDuration : 0, wasActive);
-    }
-    get().cleanup();
-  },
-
-  handleCallEnded: () => {
-    const { peerId, callDuration } = get();
-    if (peerId) get()._logCall(peerId, callDuration);
-    toast("Call ended");
-    get().cleanup();
-  },
-
-  handleCallRejected: () => {
-    const { peerId } = get();
-    if (peerId) get()._logCall(peerId, 0);
-    toast("Call rejected");
-    get().cleanup();
-  },
-
-  toggleMute: () => {
-    const { localStream, isMuted } = get();
-    if (localStream) {
-      localStream.getAudioTracks().forEach((track) => {
-        track.enabled = isMuted;
+      agoraClient.on("user-joined", (user) => {
+        console.log("[Agora] remote user joined:", user.uid);
       });
-      set({ isMuted: !isMuted });
+
+      agoraClient.on("user-left", (user) => {
+        console.log("[Agora] remote user left:", user.uid);
+        set((state) => ({
+          remoteUsers: state.remoteUsers.filter((u) => u.uid !== user.uid),
+        }));
+      });
     }
+    return agoraClient;
   },
 
-  _logCall: async (peerId, duration, wasActive = true) => {
-    if (get()._logged) return;
-    set({ _logged: true });
+  _getChannelName: (peerId) => {
+    const { authUser } = useAuthStore.getState();
+    return generateChannelName(authUser._id, peerId);
+  },
+
+  _getUid: () => {
+    const { authUser } = useAuthStore.getState();
+    return generateUid(authUser._id);
+  },
+
+  _fetchToken: async (channelName) => {
+    const uid = get()._getUid();
     try {
-      const text = wasActive
-        ? `Voice call ended (${Math.floor(duration / 60)}m ${duration % 60}s)`
-        : 'Call cancelled';
-      const res = await axiosInstance.post(`/message/send/${peerId}`, {
-        type: 'call-log',
-        callDuration: duration,
-        text,
-      });
-      const { selectedUser, messages } = useChatStore.getState();
-      if (selectedUser && String(selectedUser._id) === String(peerId)) {
-        useChatStore.setState({ messages: [...messages, res.data] });
-      }
-    } catch {
-      // silently fail — call log is non-critical
+      const res = await axiosInstance.post("/agora/token", { channelName, uid });
+      return res.data;
+    } catch (err) {
+      const detail = err.response?.data?.error || err.message;
+      throw new Error(`Token fetch failed: ${detail}`, { cause: err });
     }
-  },
-
-  _flushPendingIceCandidates: async () => {
-    const { peerConnection, _pendingIceCandidates } = get();
-    if (!peerConnection || _pendingIceCandidates.length === 0) return;
-    for (const candidate of _pendingIceCandidates) {
-      try {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (e) {
-        console.warn("Failed to add buffered ICE candidate:", e);
-      }
-    }
-    set({ _pendingIceCandidates: [] });
   },
 
   _startTimer: () => {
@@ -242,24 +127,172 @@ export const useCallStore = create((set, get) => ({
     set({ callTimer: timer });
   },
 
-  cleanup: () => {
-    const { localStream, peerConnection, callTimer } = get();
+  _logCall: async (peerId, duration, wasActive = true) => {
+    if (get()._logged) return;
+    set({ _logged: true });
+    try {
+      await axiosInstance.post('/call-logs', {
+        receiverId: peerId,
+        duration,
+        status: wasActive ? 'ended' : 'cancelled',
+      });
+    } catch {
+      // silently fail
+    }
+  },
+
+  initiateCall: async (calleeId) => {
+    try {
+      const channelName = get()._getChannelName(calleeId);
+      console.log("[Agora] initiating call to", calleeId, "channel:", channelName);
+
+      const client = get()._getClient();
+      console.log("[Agora] client created");
+
+      const { token, appId } = await get()._fetchToken(channelName);
+      console.log("[Agora] token fetched, appId:", appId);
+
+      const uid = get()._getUid();
+      console.log("[Agora] uid:", uid);
+
+      await client.join(appId, channelName, token, uid);
+      console.log("[Agora] joined channel");
+
+      const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      console.log("[Agora] mic track created");
+
+      await client.publish([localAudioTrack]);
+      console.log("[Agora] published");
+
+      const socket = getSocket();
+      socket.emit("call:offer", {
+        calleeId,
+        callerName: useAuthStore.getState().authUser.fullName,
+        channelName,
+      });
+
+      set({
+        callState: "ringing",
+        localAudioTrack,
+        peerId: calleeId,
+      });
+
+      get()._startTimer();
+    } catch (error) {
+      console.error("[Agora] Failed to initiate call:", error);
+      toast.error(`Call failed: ${error.message || "Unknown error"}`);
+      await get().cleanup();
+    }
+  },
+
+  handleIncomingCall: (data) => {
+    set({ incomingCall: data, callState: "ringing" });
+  },
+
+  acceptCall: async (data) => {
+    try {
+      const client = get()._getClient();
+      const { token, appId } = await get()._fetchToken(data.channelName);
+      const uid = get()._getUid();
+      console.log("[Agora] accepting call, channel:", data.channelName, "uid:", uid);
+
+      await client.join(appId, data.channelName, token, uid);
+      console.log("[Agora] joined channel");
+
+      const localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      console.log("[Agora] mic track created");
+      await client.publish([localAudioTrack]);
+      console.log("[Agora] published");
+
+      const socket = getSocket();
+      socket.emit("call:answer", {
+        callerId: data.callerId,
+        channelName: data.channelName,
+      });
+
+      set({
+        callState: "active",
+        localAudioTrack,
+        incomingCall: null,
+        peerId: data.callerId,
+      });
+
+      get()._startTimer();
+    } catch (error) {
+      console.error("Failed to accept call:", error);
+      const msg = error.message?.includes("microphone") || error.message?.includes("NotAllowed")
+        ? "Microphone access denied. Please allow microphone access and try again."
+        : "Could not join call. Please try again.";
+      toast.error(msg);
+      await get().cleanup();
+    }
+  },
+
+  handleCallAnswered: async () => {
+    set({ callState: "active" });
+  },
+
+  rejectCall: () => {
+    const { incomingCall } = get();
+    if (incomingCall) {
+      const socket = getSocket();
+      socket.emit("call:rejected", { callerId: incomingCall.callerId });
+    }
+    set({ incomingCall: null, callState: "idle" });
+  },
+
+  endCall: async (notifyPeer = true) => {
+    const { peerId, callDuration, callState } = get();
+    if (notifyPeer && peerId) {
+      const socket = getSocket();
+      socket.emit("call:ended", { targetId: peerId });
+    }
+    if (peerId) {
+      const wasActive = callState === "active";
+      await get()._logCall(peerId, wasActive ? callDuration : 0, wasActive);
+    }
+    await get().cleanup();
+  },
+
+  handleCallEnded: async () => {
+    await get().cleanup();
+    toast("Call ended");
+  },
+
+  handleCallRejected: async () => {
+    await get().cleanup();
+    toast("Call rejected");
+  },
+
+  toggleMute: () => {
+    const { localAudioTrack, isMuted } = get();
+    if (localAudioTrack) {
+      localAudioTrack.setMuted(!isMuted);
+      set({ isMuted: !isMuted });
+    }
+  },
+
+  cleanup: async () => {
+    const { localAudioTrack, callTimer } = get();
     if (callTimer) clearInterval(callTimer);
-    if (localStream) localStream.getTracks().forEach((t) => t.stop());
-    if (peerConnection) peerConnection.close();
+    if (localAudioTrack) {
+      localAudioTrack.close();
+    }
+    if (agoraClient) {
+      try { await agoraClient.leave(); } catch (e) { console.warn("Agora leave failed:", e); }
+      agoraClient = null;
+    }
 
     set({
       callState: "idle",
-      localStream: null,
-      remoteStream: null,
-      peerConnection: null,
+      localAudioTrack: null,
+      remoteUsers: [],
       incomingCall: null,
       peerId: null,
       isMuted: false,
       callDuration: 0,
       callTimer: null,
       _logged: false,
-      _pendingIceCandidates: [],
     });
   },
 
@@ -272,11 +305,7 @@ export const useCallStore = create((set, get) => ({
     });
 
     socket.off("call:answer").on("call:answer", async (data) => {
-      await get().handleCallAnswered(data.answer);
-    });
-
-    socket.off("call:ice-candidate").on("call:ice-candidate", async (data) => {
-      await get().handleIceCandidate(data.candidate);
+      await get().handleCallAnswered(data);
     });
 
     socket.off("call:ended").on("call:ended", () => {
@@ -293,7 +322,6 @@ export const useCallStore = create((set, get) => ({
     if (!socket) return;
     socket.off("call:initiated");
     socket.off("call:answer");
-    socket.off("call:ice-candidate");
     socket.off("call:ended");
     socket.off("call:rejected");
   },

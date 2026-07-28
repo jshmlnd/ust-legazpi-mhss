@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
+import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
@@ -69,7 +70,7 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
   const locations = resources.filter((r) => r.lat && r.lng && r.type !== 'article' && r.type !== 'sheet');
 
   return (
-    <div className="h-full w-full rounded-sm overflow-hidden border border-neutral-200">
+    <div className="h-full w-full rounded-sm overflow-hidden border border-neutral-200 relative z-0">
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
@@ -250,7 +251,7 @@ const ResourcePage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
+  const [viewMode, setViewMode] = useState('split');
 
   const normalizeResource = (r) => ({
     ...r,
@@ -292,7 +293,7 @@ const ResourcePage = () => {
       setModalOpen(false);
       setEditing(null);
       toast.success(editing ? 'Resource updated' : 'Resource added');
-    } catch (err) {
+    } catch {
       toast.error('Failed to save resource');
     }
   }, [editing]);
@@ -303,7 +304,7 @@ const ResourcePage = () => {
       setResources((prev) => prev.filter((r) => r._id !== id));
       setSelectedId((prev) => (prev === id ? null : prev));
       toast.success('Resource deleted');
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete resource');
     }
   }, []);
@@ -332,14 +333,14 @@ const ResourcePage = () => {
     setSelectedId((prev) => (prev === r._id ? null : r._id));
   }, []);
 
-  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><p className="text-sm text-neutral-400">Loading...</p></PageShell>;
+  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><PageShellSkeleton columns={3} count={6} /></PageShell>;
 
   return (
     <PageShell
       title="Wellness Resources"
       subtitle="Articles, hotlines, tools, and physical support centers"
       actions={
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center border border-neutral-200 rounded-sm overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}

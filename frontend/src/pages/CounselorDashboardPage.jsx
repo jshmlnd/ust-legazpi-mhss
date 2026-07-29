@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw, Image, XIcon } from 'lucide-react';
+import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw, Image, XIcon, Pencil } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -315,6 +315,10 @@ const CounselorDashboardPage = () => {
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const announcementFileRef = useRef(null);
 
+  const [notice, setNotice] = useState(null);
+  const [noticeForm, setNoticeForm] = useState({ tag: '', text: '', linkHref: '', linkLabel: '' });
+  const [savingNotice, setSavingNotice] = useState(false);
+
   const fetchSuggestions = async () => {
     try {
       const res = await axiosInstance.get('/suggestions');
@@ -382,6 +386,29 @@ const CounselorDashboardPage = () => {
       toast.success('Announcement restored');
     } catch {
       toast.error('Failed to restore announcement');
+    }
+  };
+
+  useEffect(() => {
+    axiosInstance.get('/notice').then((res) => {
+      if (res.data) {
+        setNotice(res.data);
+        setNoticeForm({ tag: res.data.tag, text: res.data.text, linkHref: res.data.linkHref, linkLabel: res.data.linkLabel });
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveNotice = async () => {
+    if (!noticeForm.text.trim()) return;
+    setSavingNotice(true);
+    try {
+      const res = await axiosInstance.put('/notice', noticeForm);
+      setNotice(res.data);
+      toast.success('Notice updated');
+    } catch {
+      toast.error('Failed to update notice');
+    } finally {
+      setSavingNotice(false);
     }
   };
 
@@ -526,6 +553,74 @@ const CounselorDashboardPage = () => {
             <div className="lg:col-span-1">
               <AnalyticsSummary data={summaryData} />
             </div>
+          </div>
+        </div>
+
+        <div className="mb-8">
+          <div className="mb-4 flex items-center gap-4">
+            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400">Dashboard Notice</span>
+            <span className="h-px flex-1 bg-neutral-200" />
+          </div>
+          <div className="bg-white border border-neutral-200 rounded-sm p-6">
+            <div className="flex items-center gap-2.5 mb-4">
+              <Pencil size={16} className="text-neutral-500" />
+              <div>
+                <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Notice</span>
+                <h3 className="mt-0.5 text-sm font-medium text-neutral-900">Edit the notice shown on the student homepage</h3>
+              </div>
+            </div>
+            {notice ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Tag</label>
+                  <input
+                    value={noticeForm.tag}
+                    onChange={(e) => setNoticeForm({ ...noticeForm, tag: e.target.value })}
+                    className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Notice Text</label>
+                  <textarea
+                    value={noticeForm.text}
+                    onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
+                    rows={3}
+                    className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link URL</label>
+                    <input
+                      value={noticeForm.linkHref}
+                      onChange={(e) => setNoticeForm({ ...noticeForm, linkHref: e.target.value })}
+                      className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link Label</label>
+                    <input
+                      value={noticeForm.linkLabel}
+                      onChange={(e) => setNoticeForm({ ...noticeForm, linkLabel: e.target.value })}
+                      className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-end pt-1">
+                  <button
+                    onClick={handleSaveNotice}
+                    disabled={savingNotice || !noticeForm.text.trim()}
+                    className="inline-flex items-center gap-2 px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm"
+                  >
+                    {savingNotice ? <Loader size={12} className="animate-spin" /> : <Pencil size={12} />}
+                    {savingNotice ? 'Saving...' : 'Save Notice'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading notice...</div>
+            )}
           </div>
         </div>
 

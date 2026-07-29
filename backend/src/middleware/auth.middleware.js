@@ -43,3 +43,12 @@ export const adminOnly = async (req, res, next) => {
         next();
     });
 };
+
+export const counselorOnly = async (req, res, next) => {
+    await protectRoute(req, res, () => {
+        if (!req.user || req.user.userType?.toLowerCase() !== 'counselor') {
+            return res.status(403).json({ message: "Forbidden - Counselor access only" });
+        }
+        next();
+    });
+};

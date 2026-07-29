@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check, X, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
-import { PATHS } from '../lib/routes';
 import toast from 'react-hot-toast';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -112,11 +110,27 @@ const SlotManager = ({ availableSlots, onToggleSlot, selectedDate, multiMode, se
   </div>
 );
 
-const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
-  const navigate = useNavigate();
+const getStatusLabel = (b) => {
+  if (b.type === 'Chat') {
+    if (b.status === 'on-going' || b.status === 'active') return { label: 'On-going', style: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    if (b.status === 'ended' || b.status === 'completed') return { label: 'Ended', style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+    return { label: b.status, style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+  }
+  if (b.type === 'Face-To-Face' || b.type === 'f2f') {
+    if (b.status === 'pending') return { label: 'Waiting for Approval', style: 'text-amber-700 bg-amber-50 border-amber-200' };
+    if (b.status === 'on-going') return { label: 'On-going', style: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    if (b.status === 'confirmed' || b.status === 'active') return { label: 'Approved', style: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
+    if (b.status === 'paused') return { label: 'Paused', style: 'text-sky-700 bg-sky-50 border-sky-200' };
+    if (b.status === 'ended') return { label: 'Ended', style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+    return { label: b.status, style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+  }
+  return { label: b.status, style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+};
+
+const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
   if (!date) return null;
   const dateLabel = date.dateStr || '';
-  const dayBookings = bookings.filter((b) => b.date === dateLabel);
+  const dayBookings = bookings.filter((b) => b.date === dateLabel && b.status !== 'archived');
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Bookings — ${dateLabel}`} wide>
@@ -124,7 +138,9 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
         <p className="text-sm text-neutral-400 py-6 text-center">No bookings on this day.</p>
       ) : (
         <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
-          {dayBookings.map((b) => (
+          {dayBookings.map((b) => {
+            const status = getStatusLabel(b);
+            return (
             <div key={b._id} className="flex items-center justify-between py-3 px-4 bg-neutral-50 rounded-sm">
               <div className="flex items-center gap-3">
                 <div className="size-8 rounded-full bg-neutral-200 flex items-center justify-center">
@@ -135,14 +151,84 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings }) => {
                   <p className="text-[11px] text-neutral-400">{b.time} · {b.type === 'Chat' ? 'Chat Session' : 'Face-to-Face'}</p>
                 </div>
               </div>
-              <button
-                onClick={() => { onClose(); navigate(PATHS.UPCOMING_SESSIONS); }}
-                className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
-              >
-                {b.type === 'Chat' ? 'Join' : 'View'}
-              </button>
+              <div className="flex items-center gap-2">
+                {b.type === 'Face-To-Face' && (b.status === 'confirmed' || b.status === 'active') && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await axiosInstance.patch(`/appointments/${b._id}`, { status: 'on-going' });
+                        toast.success('F2F session started');
+                        onRefresh();
+                      } catch { toast.error('Failed to start session'); }
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                  >
+                    Start
+                  </button>
+                )}
+                <span className={`px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] uppercase rounded-sm border ${status.style}`}>
+                  {status.label}
+                </span>
+                {(b.type === 'Face-To-Face' && b.status === 'on-going') && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await axiosInstance.patch(`/appointments/${b._id}`, { status: 'paused' });
+                          toast.success('F2F session paused');
+                          onRefresh();
+                        } catch { toast.error('Failed to pause session'); }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-amber-600 hover:bg-amber-700 transition-colors rounded-sm"
+                    >
+                      Pause
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await axiosInstance.patch(`/appointments/${b._id}`, { status: 'ended' });
+                          toast.success('F2F session ended');
+                          onRefresh();
+                        } catch { toast.error('Failed to end session'); }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+                    >
+                      End
+                    </button>
+                  </>
+                )}
+                {b.type === 'Face-To-Face' && b.status === 'paused' && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await axiosInstance.patch(`/appointments/${b._id}`, { status: 'on-going' });
+                          toast.success('F2F session resumed');
+                          onRefresh();
+                        } catch { toast.error('Failed to resume session'); }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                    >
+                      Resume
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await axiosInstance.patch(`/appointments/${b._id}`, { status: 'ended' });
+                          toast.success('F2F session ended');
+                          onRefresh();
+                        } catch { toast.error('Failed to end session'); }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+                    >
+                      End
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Modal>
@@ -217,6 +303,13 @@ const CounselorSchedulingSystemPage = () => {
     }
     return slots.filter((s) => s.date === selectedDate && s.isAvailable).map((s) => s.time).sort();
   })();
+
+  const refreshBookings = async () => {
+    try {
+      const res = await axiosInstance.get('/appointments');
+      setBookings(res.data);
+    } catch {}
+  };
 
   const handleToggleSlot = async (time) => {
     try {
@@ -306,7 +399,7 @@ const CounselorSchedulingSystemPage = () => {
         </div>
       </div>
 
-      <BookingDetailModal isOpen={modalOpen} onClose={() => setModalOpen(false)} date={selectedCell} bookings={bookings} />
+      <BookingDetailModal isOpen={modalOpen} onClose={() => setModalOpen(false)} date={selectedCell} bookings={bookings} onRefresh={refreshBookings} />
     </PageShell>
   );
 };

@@ -10,8 +10,8 @@ const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
 export const getDashboard = async (req, res) => {
   try {
     const totalStudents = await User.countDocuments();
-    const completedSessions = await Appointment.countDocuments({ status: "completed" });
-    const pendingSessions = await Appointment.countDocuments({ status: { $in: ["pending", "active"] } });
+    const completedSessions = await Appointment.countDocuments({ status: { $in: ["completed", "ended"] } });
+    const pendingSessions = await Appointment.countDocuments({ status: { $in: ["pending", "active", "on-going", "paused"] } });
 
     const journalEntries = await JournalEntry.find();
     const avgSentiment = journalEntries.length > 0
@@ -78,7 +78,7 @@ export const getUpcomingSessions = async (req, res) => {
   try {
     const sessions = await Appointment.find({
       counselorId: req.user._id,
-      status: { $in: ["pending", "active", "declined", "completed", "cancelled"] },
+      status: { $in: ["pending", "active", "declined", "completed", "cancelled", "on-going", "paused", "ended"] },
     })
       .sort({ createdAt: -1 })
       .limit(20);

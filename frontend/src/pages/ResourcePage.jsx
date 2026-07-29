@@ -205,6 +205,10 @@ const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
   const [form, setForm] = useState(initial || empty);
   const isEdit = !!initial;
 
+  useEffect(() => {
+    setForm(initial ? { ...empty, ...initial } : empty);
+  }, [initial]);
+
   const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   const handleSubmit = (e) => {
     e.preventDefault();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw, Image, XIcon } from 'lucide-react';
+import { Check, X, Loader, MessageSquare, Megaphone, Trash2, RotateCcw, Image, XIcon, Pencil } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -99,7 +99,7 @@ const AnalyticsSummary = ({ data }) => (
   </div>
 );
 
-const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSession, endingSessionId }) => {
+const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId }) => {
   const navigate = useNavigate();
 
   return (
@@ -140,6 +140,14 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
                 <td className="px-6 py-3.5">
                   {session.status === 'pending' ? (
                     <span className="text-[11px] font-medium text-amber-600">Awaiting</span>
+                  ) : session.status === 'on-going' ? (
+                    <span className="text-[11px] font-medium text-emerald-600">On-going</span>
+                  ) : session.status === 'paused' ? (
+                    <span className="text-[11px] font-medium text-sky-600">Paused</span>
+                  ) : session.status === 'ended' ? (
+                    <span className="text-[11px] font-medium text-neutral-400">Ended</span>
+                  ) : session.status === 'confirmed' ? (
+                    <span className="text-[11px] font-medium text-emerald-600">Approved</span>
                   ) : session.status === 'active' ? (
                     <span className="text-[11px] font-medium text-emerald-600">Accepted</span>
                   ) : session.status === 'declined' ? (
@@ -170,7 +178,7 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
                         Decline
                       </button>
                     </div>
-                  ) : session.status === 'active' ? (
+                  ) : (session.status === 'on-going' || session.status === 'active' || session.status === 'confirmed') ? (
                     <div className="flex items-center justify-end gap-2">
                       {session.type === 'Chat' ? (
                         <button
@@ -180,17 +188,13 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
                           Join Chat
                         </button>
                       ) : (
-                        <span className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm">
-                          Approved
-                        </span>
+                        <button
+                          onClick={() => navigate(PATHS.COUNSELOR_SCHEDULE)}
+                          className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                        >
+                          View
+                        </button>
                       )}
-                      <button
-                        onClick={() => onEndSession(session)}
-                        disabled={endingSessionId === session.id}
-                        className="px-3.5 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50"
-                      >
-                        {endingSessionId === session.id ? <Loader size={12} className="animate-spin" /> : 'End'}
-                      </button>
                     </div>
                   ) : null}
                 </td>
@@ -213,8 +217,16 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
             <div className="flex items-center justify-between">
               {session.status === 'pending' ? (
                 <span className="text-[11px] font-medium text-amber-600">Awaiting</span>
-              ) : session.status === 'active' ? (
-                <span className="text-[11px] font-medium text-emerald-600">Accepted</span>
+              ) : session.status === 'on-going' ? (
+                <span className="text-[11px] font-medium text-emerald-600">On-going</span>
+                ) : session.status === 'paused' ? (
+                  <span className="text-[11px] font-medium text-sky-600">Paused</span>
+                ) : session.status === 'ended' ? (
+                  <span className="text-[11px] font-medium text-neutral-400">Ended</span>
+                ) : session.status === 'confirmed' ? (
+                  <span className="text-[11px] font-medium text-emerald-600">Approved</span>
+                ) : session.status === 'active' ? (
+                  <span className="text-[11px] font-medium text-emerald-600">Accepted</span>
               ) : session.status === 'declined' ? (
                 <span className="text-[11px] font-medium text-red-500">Declined</span>
               ) : (
@@ -240,7 +252,7 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
                       Decline
                     </button>
                   </>
-                ) : session.status === 'active' ? (
+                ) : (session.status === 'on-going' || session.status === 'active' || session.status === 'confirmed') ? (
                   <>
                     {session.type === 'Chat' ? (
                       <button
@@ -250,17 +262,13 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onEndSes
                         Join Chat
                       </button>
                     ) : (
-                      <span className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-sm">
-                        Approved
-                      </span>
+                      <button
+                        onClick={() => navigate(PATHS.MANAGE_SESSIONS)}
+                        className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                      >
+                        View
+                      </button>
                     )}
-                    <button
-                      onClick={() => onEndSession(session)}
-                      disabled={endingSessionId === session.id}
-                      className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm disabled:opacity-50"
-                    >
-                      {endingSessionId === session.id ? <Loader size={12} className="animate-spin" /> : 'End'}
-                    </button>
                   </>
                 ) : null}
               </div>
@@ -307,13 +315,16 @@ const CounselorDashboardPage = () => {
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [summaryData, setSummaryData] = useState({ peakHours: '—', topResources: '—', avgDuration: '—', accessPct: 0 });
   const [acceptingId, setAcceptingId] = useState(null);
-  const [endingSessionId, setEndingSessionId] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
   const [announcementImages, setAnnouncementImages] = useState([]);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const announcementFileRef = useRef(null);
+
+  const [notice, setNotice] = useState(null);
+  const [noticeForm, setNoticeForm] = useState({ text: '' });
+  const [savingNotice, setSavingNotice] = useState(false);
 
   const fetchSuggestions = async () => {
     try {
@@ -385,16 +396,24 @@ const CounselorDashboardPage = () => {
     }
   };
 
-  const handleEndSession = async (session) => {
-    setEndingSessionId(session.id);
+  useEffect(() => {
+    axiosInstance.get('/notice').then((res) => {
+      if (res.data) setNotice(res.data);
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveNotice = async () => {
+    if (!noticeForm.text.trim()) return;
+    setSavingNotice(true);
     try {
-      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'completed' });
-      setUpcomingSessions((prev) =>
-        prev.map((s) => (s._id === session._id ? { ...s, status: 'completed' } : s))
-      );
-      toast.success(`Session ended with ${session.id}`);
-    } catch { toast.error('Failed to end session.'); }
-    finally { setEndingSessionId(null); }
+      const res = await axiosInstance.put('/notice', { ...noticeForm, tag: 'NOTICE', linkHref: '/university-updates', linkLabel: 'Read latest updates' });
+      setNotice(res.data);
+      toast.success('Notice updated');
+    } catch {
+      toast.error('Failed to update notice');
+    } finally {
+      setSavingNotice(false);
+    }
   };
 
   const handleAccept = async (session) => {
@@ -529,9 +548,45 @@ const CounselorDashboardPage = () => {
           </div>
         </div>
 
+        <div className="mb-8">
+          <div className="mb-4 flex items-center gap-4">
+            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400">Dashboard Notice</span>
+            <span className="h-px flex-1 bg-neutral-200" />
+          </div>
+          <div className="bg-white border border-neutral-200 rounded-sm p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Pencil size={14} className="text-neutral-400" />
+              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Edit Student Homepage Notice</span>
+            </div>
+            {notice ? (
+              <div className="space-y-3">
+                <textarea
+                  value={noticeForm.text}
+                  onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
+                  rows={2}
+                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+                />
+                <div className="flex items-center justify-end">
+                  <button
+                    onClick={handleSaveNotice}
+                    disabled={savingNotice || !noticeForm.text.trim()}
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm"
+                  >
+                    {savingNotice ? <Loader size={10} className="animate-spin" /> : null}
+                    {savingNotice ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading notice...</div>
+            )}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-neutral-200 rounded-sm overflow-hidden">
           <div className="lg:col-span-2">
-            <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} onEndSession={handleEndSession} endingSessionId={endingSessionId} />
+            <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} />
           </div>
           <div className="lg:col-span-1">
             <ResourceTracking />

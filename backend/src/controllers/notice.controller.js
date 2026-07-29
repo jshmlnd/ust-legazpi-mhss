@@ -20,15 +20,15 @@ export const getNotice = async (req, res) => {
 
 export const updateNotice = async (req, res) => {
   try {
-    const { tag, text, linkHref, linkLabel } = req.body;
+    const { text } = req.body;
     let notice = await Notice.findOne();
     if (!notice) {
-      notice = await Notice.create({ tag, text, linkHref, linkLabel });
+      notice = await Notice.create({ tag: 'NOTICE', text, linkHref: '/university-updates', linkLabel: 'Read latest updates' });
     } else {
-      if (tag !== undefined) notice.tag = tag;
       if (text !== undefined) notice.text = text;
-      if (linkHref !== undefined) notice.linkHref = linkHref;
-      if (linkLabel !== undefined) notice.linkLabel = linkLabel;
+      notice.tag = 'NOTICE';
+      notice.linkHref = '/university-updates';
+      notice.linkLabel = 'Read latest updates';
       await notice.save();
     }
     res.json(notice);

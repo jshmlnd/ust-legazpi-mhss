@@ -11,7 +11,7 @@ export const getAppointments = async (req, res) => {
     if (isCounselor) {
       appointments = await Appointment.find({ counselorId: req.user._id }).sort({ date: -1, time: -1 });
     } else {
-      appointments = await Appointment.find({ studentId: req.user._id }).sort({ date: -1, time: -1 });
+      appointments = await Appointment.find({ studentId: req.user._id, studentArchived: { $ne: true } }).sort({ date: -1, time: -1 });
     }
 
     const counselorIds = [...new Set(appointments.map((appointment) => String(appointment.counselorId)))];
@@ -91,10 +91,10 @@ export const updateAppointment = async (req, res) => {
       }
     }
 
-    if (req.body.status === 'active' && appointment.status !== 'active') {
+    if ((req.body.status === 'on-going' || req.body.status === 'active') && appointment.status !== 'on-going' && appointment.status !== 'active') {
       appointment.startedAt = new Date();
     }
-    if (req.body.status === 'completed' && appointment.status !== 'completed') {
+    if ((req.body.status === 'ended' || req.body.status === 'completed') && appointment.status !== 'ended' && appointment.status !== 'completed') {
       appointment.endedAt = new Date();
     }
 
@@ -129,7 +129,7 @@ export const getActiveAppointment = async (req, res) => {
       studentId,
       counselorId: req.user._id,
       type: "Chat",
-      status: { $in: ["active", "confirmed"] },
+      status: { $in: ["active", "confirmed", "on-going"] },
     });
     if (!appointment) return res.status(404).json({ error: "No active appointment found" });
     res.json(appointment);
@@ -155,9 +155,9 @@ export const archivePastSessions = async (req, res) => {
     const result = await Appointment.updateMany(
       {
         studentId: req.user._id,
-        status: { $in: ["completed", "cancelled", "declined"] },
+        status: { $in: ["completed", "cancelled", "declined", "ended"] },
       },
-      { $set: { status: "archived" } }
+      { $set: { studentArchived: true } }
     );
     res.json({ message: `Archived ${result.modifiedCount} session(s)` });
   } catch (error) {

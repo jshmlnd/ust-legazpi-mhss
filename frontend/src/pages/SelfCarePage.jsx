@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Plus, Trash2, ExternalLink, ChevronDown,
+  Plus, Pencil, Trash2, ExternalLink, ChevronDown,
   Sparkles, Heart, HeartPulse, HeartHandshake,
   Brain, Sun, Moon,
   Leaf, Flower, Star, Smile, SmilePlus,
@@ -164,7 +164,7 @@ const ActivityItem = ({ activity }) => (
   </li>
 );
 
-const ModuleCard = ({ module, onDelete, isCounselor }) => {
+const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
   const [open, setOpen] = useState(false);
   const total = module.activities.length;
 
@@ -184,13 +184,22 @@ const ModuleCard = ({ module, onDelete, isCounselor }) => {
         </div>
         <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
           {isCounselor && (
-            <span
-              onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
-              className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-              title="Delete module"
-            >
-              <Trash2 size={13} />
-            </span>
+            <>
+              <span
+                onClick={(e) => { e.stopPropagation(); onEdit(module); }}
+                className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+                title="Edit module"
+              >
+                <Pencil size={12} />
+              </span>
+              <span
+                onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
+                className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Delete module"
+              >
+                <Trash2 size={13} />
+              </span>
+            </>
           )}
           <ChevronDown size={15} className={`text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         </div>
@@ -209,10 +218,26 @@ const ModuleCard = ({ module, onDelete, isCounselor }) => {
   );
 };
 
-const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
+const ModuleFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
+  const isEdit = !!initial;
   const [title, setTitle] = useState('');
   const [icon, setIcon] = useState('Sparkles');
   const [activities, setActivities] = useState([{ label: '', link: '' }, { label: '', link: '' }, { label: '', link: '' }]);
+
+  useEffect(() => {
+    if (initial) {
+      setTitle(initial.title || '');
+      setIcon(initial.icon || 'Sparkles');
+      const acts = initial.activities?.length
+        ? initial.activities.map((a) => ({ label: a.label || '', link: a.link || '' }))
+        : [{ label: '', link: '' }, { label: '', link: '' }, { label: '', link: '' }];
+      setActivities(acts);
+    } else {
+      setTitle('');
+      setIcon('Sparkles');
+      setActivities([{ label: '', link: '' }, { label: '', link: '' }, { label: '', link: '' }]);
+    }
+  }, [initial]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -223,10 +248,6 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
       icon,
       activities: filtered.map((a) => ({ label: a.label.trim(), link: a.link.trim() })),
     });
-    setTitle('');
-    setIcon('Sparkles');
-    setActivities([{ label: '', link: '' }, { label: '', link: '' }, { label: '', link: '' }]);
-    onClose();
   };
 
   const removeActivity = (index) => {
@@ -242,7 +263,7 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Add Self-Care Module">
+    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit Self-Care Module' : 'Add Self-Care Module'}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Module Title" name="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Midday Reset" required />
         <IconPicker value={icon} onChange={setIcon} />
@@ -279,7 +300,7 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit }) => {
         </div>
         <div className="sticky bottom-0 bg-white pt-3 -mx-6 px-6 -mb-5 pb-5 border-t border-neutral-100 flex items-center justify-end gap-3">
           <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-          <button type="submit" className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">Create Module</button>
+          <button type="submit" className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">{isEdit ? 'Save Changes' : 'Create Module'}</button>
         </div>
       </form>
     </Modal>
@@ -293,6 +314,7 @@ const SelfCarePage = () => {
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -318,6 +340,25 @@ const SelfCarePage = () => {
     }
   }, []);
 
+  const handleEditModule = useCallback(async (mod) => {
+    try {
+      const res = await axiosInstance.patch(`/self-care/${mod._id}`, {
+        title: mod.title,
+        icon: mod.icon,
+        activities: mod.activities,
+      });
+      setModules((prev) => prev.map((m) => (m._id === mod._id ? res.data : m)));
+      setModalOpen(false);
+      setEditing(null);
+      toast.success('Module updated');
+    } catch {
+      toast.error('Failed to update module');
+    }
+  }, []);
+
+  const openAdd = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (mod) => { setEditing(mod); setModalOpen(true); };
+
   const handleDeleteModule = useCallback(async (id) => {
     try {
       await axiosInstance.delete(`/self-care/${id}`);
@@ -339,7 +380,7 @@ const SelfCarePage = () => {
       subtitle="Daily routines and wellness exercises"
       actions={
         <RoleGate roles={['counselor']}>
-          <button onClick={() => setModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
+          <button onClick={openAdd} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
             <Plus size={14} /> Add Module
           </button>
         </RoleGate>
@@ -355,6 +396,7 @@ const SelfCarePage = () => {
                 <ModuleCard
                   key={m._id}
                   module={m}
+                  onEdit={openEdit}
                   onDelete={handleDeleteModule}
                   isCounselor={isCounselor}
                 />
@@ -364,7 +406,7 @@ const SelfCarePage = () => {
         </div>
       )}
 
-      <ModuleFormModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSubmit={handleAddModule} />
+      <ModuleFormModal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} onSubmit={editing ? handleEditModule : handleAddModule} initial={editing} />
     </PageShell>
   );
 };

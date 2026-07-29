@@ -100,7 +100,7 @@ const HomePage = () => {
 
   const [notice, setNotice] = useState(DEFAULT_NOTICE);
   const [noticeEditOpen, setNoticeEditOpen] = useState(false);
-  const [noticeForm, setNoticeForm] = useState({ tag: '', text: '', linkHref: '', linkLabel: '' });
+  const [noticeForm, setNoticeForm] = useState({ text: '' });
   const [savingNotice, setSavingNotice] = useState(false);
 
   useEffect(() => {
@@ -113,7 +113,7 @@ const HomePage = () => {
     if (!noticeForm.text.trim()) return;
     setSavingNotice(true);
     try {
-      const res = await axiosInstance.put('/notice', noticeForm);
+      const res = await axiosInstance.put('/notice', { ...noticeForm, tag: 'NOTICE', linkHref: '/university-updates', linkLabel: 'Read latest updates' });
       setNotice(res.data);
       setNoticeEditOpen(false);
       toast.success('Notice updated');
@@ -125,7 +125,7 @@ const HomePage = () => {
   };
 
   const openNoticeEdit = () => {
-    setNoticeForm({ tag: notice.tag, text: notice.text, linkHref: notice.linkHref, linkLabel: notice.linkLabel });
+    setNoticeForm({ text: notice.text });
     setNoticeEditOpen(true);
   };
 
@@ -785,47 +785,19 @@ const HomePage = () => {
       </Modal>
 
       {noticeEditOpen && (
-        <Modal isOpen onClose={() => setNoticeEditOpen(false)} title="Edit Dashboard Notice">
-          <div className="space-y-4">
-            <div>
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Tag</label>
-              <input
-                value={noticeForm.tag}
-                onChange={(e) => setNoticeForm({ ...noticeForm, tag: e.target.value })}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Notice Text</label>
-              <textarea
-                value={noticeForm.text}
-                onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
-                rows={4}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link URL</label>
-                <input
-                  value={noticeForm.linkHref}
-                  onChange={(e) => setNoticeForm({ ...noticeForm, linkHref: e.target.value })}
-                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Link Label</label>
-                <input
-                  value={noticeForm.linkLabel}
-                  onChange={(e) => setNoticeForm({ ...noticeForm, linkLabel: e.target.value })}
-                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button onClick={() => setNoticeEditOpen(false)} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-              <button onClick={handleSaveNotice} disabled={savingNotice || !noticeForm.text.trim()} className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50">
-                {savingNotice ? 'Saving...' : 'Save Notice'}
+        <Modal isOpen onClose={() => setNoticeEditOpen(false)} title="Edit Notice">
+          <div className="space-y-3">
+            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Notice Text</label>
+            <textarea
+              value={noticeForm.text}
+              onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
+              rows={3}
+              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+            />
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button onClick={() => setNoticeEditOpen(false)} className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
+              <button onClick={handleSaveNotice} disabled={savingNotice || !noticeForm.text.trim()} className="px-4 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50">
+                {savingNotice ? 'Saving...' : 'Save'}
               </button>
             </div>
           </div>

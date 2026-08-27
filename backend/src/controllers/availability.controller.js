@@ -1,4 +1,24 @@
 import AvailabilitySlot from "../models/availabilitySlot.model.js";
+import Counselor from "../models/counselor.model.js";
+
+export const getAllSlots = async (req, res) => {
+  try {
+    const slots = await AvailabilitySlot.find().sort({ date: 1, time: 1 });
+    const counselorIds = [...new Set(slots.map((slot) => slot.counselorId))];
+    const counselors = counselorIds.length > 0
+      ? await Counselor.find({ _id: { $in: counselorIds } }).select("fullName _id").lean()
+      : [];
+    const nameMap = Object.fromEntries(counselors.map((c) => [String(c._id), c.fullName]));
+
+    res.json(slots.map((slot) => ({
+      ...slot.toObject(),
+      fullName: nameMap[String(slot.counselorId)] || null,
+    })));
+  } catch (error) {
+    console.error("Error in getAllSlots:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 export const getSlots = async (req, res) => {
   try {

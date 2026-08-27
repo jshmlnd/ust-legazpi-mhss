@@ -17,7 +17,7 @@ const CRISIS_DISPLAY_TERMS = [
 const hasCrisisKeywords = (text) =>
   CRISIS_DISPLAY_TERMS.some((kw) => text?.toLowerCase().includes(kw));
 
-const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity }) => {
+const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerPic }) => {
   if (message.callerId !== undefined) {
     const mins = Math.floor((message.duration || 0) / 60);
     const secs = (message.duration || 0) % 60;
@@ -52,12 +52,27 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity }) => {
     none: 'bg-neutral-100 text-neutral-900',
   };
 
+  const avatarPic = isOwn ? ownPic : peerPic;
+
   return (
-    <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
+    <div className={`chat ${isOwn ? 'chat-end' : 'chat-start'} mb-3`}>
+      <div className="chat-image avatar avatar-placeholder">
+        <div className="size-10 rounded-full bg-neutral-100">
+          {avatarPic ? (
+            <img src={avatarPic} alt="avatar" />
+          ) : (
+            <span className="text-neutral-400"><User size={22} className="translate-y-2 translate-x-2" /></span>
+          )}
+        </div>
+      </div>
       <div
-        className={`max-w-[75%] px-4 py-2.5 rounded-xl text-sm leading-relaxed ${
+<<<<<<< HEAD
+        className={`chat-bubble max-w-[25%] text-sm leading-relaxed ${
+=======
+        className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-xl text-sm leading-relaxed break-words whitespace-pre-wrap ${
+>>>>>>> 0c213188c623c9a7771a49eada0c10747570db00
           isOwn
-            ? 'bg-neutral-900 text-white rounded-sm'
+            ? 'bg-neutral-900 text-white'
             : isCrisis
               ? crisisStyles[crisisSeverity] || crisisStyles.none
               : 'bg-neutral-100 text-neutral-900'
@@ -80,23 +95,37 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity }) => {
           <video src={message.fileUrl} controls className="max-w-full rounded-sm mb-2 max-h-64" />
         )}
         {message.text && <p>{message.text}</p>}
-        <div className={`flex items-center gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
-          <p className={`text-[10px] ${isOwn ? 'text-neutral-400' : 'text-neutral-400'}`}>
-            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
-          {isOwn && (
-            <span className="flex items-center gap-0.5">
-              {message.read
-                ? <><CheckCheck size={12} className="text-blue-400" /><span className="text-[10px] text-blue-400">Read</span></>
-                : <><Check size={12} className="text-neutral-400" /><span className="text-[10px] text-neutral-400">Sent</span></>
-              }
-            </span>
-          )}
-        </div>
+      </div>
+      <div className="chat-footer flex items-center gap-1 text-[10px] text-neutral-400">
+        <span>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        {isOwn && (
+          message.read ? (
+            <span className="inline-flex items-center gap-0.5 text-blue-400"><CheckCheck size={12} />Read</span>
+          ) : (
+            <span className="inline-flex items-center gap-0.5"><Check size={12} />Sent</span>
+          )
+        )}
       </div>
     </div>
   );
 };
+
+const TypingBubble = ({ pic }) => (
+  <div className="chat chat-start mb-3">
+    <div className="chat-image avatar avatar-placeholder">
+      <div className="size-10 rounded-full bg-neutral-100">
+        {pic ? (
+          <img src={pic} alt="avatar" />
+        ) : (
+          <span className="text-neutral-400"><User size={22} className="translate-y-2 translate-x-2" /></span>
+        )}
+      </div>
+    </div>
+    <div className="chat-bubble bg-neutral-100">
+      <p className="text-xs text-neutral-500 animate-pulse">typing...</p>
+    </div>
+  </div>
+);
 
 const EmergencyBanner = ({ onReveal, onDismiss, severity }) => {
   const severityConfig = {
@@ -414,19 +443,15 @@ const StudentChatView = () => {
               key={msg._id}
               message={msg}
               isOwn={msg.senderId === authUser._id}
+              ownPic={authUser.profilePic}
+              peerPic={counselor?.profilePic}
               isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
               crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
             />
           ))
         )}
         <div ref={messagesEndRef} />
-        {typingUsers[counselor?._id] && (
-          <div className="flex justify-start mb-3">
-            <div className="bg-neutral-100 px-4 py-2.5 rounded-xl rounded-sm">
-              <p className="text-xs text-neutral-500 animate-pulse">typing...</p>
-            </div>
-          </div>
-        )}
+        {typingUsers[counselor?._id] && <TypingBubble pic={counselor?.profilePic} />}
       </div>
 
       {sessionEnded && (
@@ -765,19 +790,15 @@ const CounselorChatView = () => {
                     key={msg._id}
                     message={msg}
                     isOwn={msg.senderId === authUser._id}
-              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
-              crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
+                    ownPic={authUser.profilePic}
+                    peerPic={selectedUser?.profilePic}
+                    isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+                    crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
                   />
                 ))
               )}
               <div ref={messagesEndRef} />
-              {typingUsers[selectedUser._id] && (
-                <div className="flex justify-start mb-3">
-                  <div className="bg-neutral-100 px-4 py-2.5 rounded-xl rounded-sm">
-                    <p className="text-xs text-neutral-500 animate-pulse">typing...</p>
-                  </div>
-                </div>
-              )}
+              {typingUsers[selectedUser._id] && <TypingBubble pic={selectedUser?.profilePic} />}
             </div>
 
             {sessionEndedBanner && (

@@ -104,7 +104,7 @@ const SessionCard = ({ session, type }) => {
           </div>
         </div>
 
-        {isUpcoming && session.type !== 'f2f' && (
+        {isUpcoming && session.type === 'Chat' && (
           <Link to={PATHS.MESSAGES} className="shrink-0 size-9 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 transition-colors">
             <ArrowUpRight size={15} />
           </Link>
@@ -131,10 +131,10 @@ const SessionsPage = () => {
       try {
         const [bookRes, slotRes] = await Promise.all([
           axiosInstance.get('/appointments'),
-          axiosInstance.get('/availability/0'),
+          axiosInstance.get('/availability'),
         ]);
         setAppointments(bookRes.data);
-        setSlots(slotRes.data);
+        setSlots(slotRes.data.filter((s) => s.isAvailable !== false));
       } catch (err) {
         console.error('Failed to fetch data:', err);
       } finally {
@@ -148,12 +148,15 @@ const SessionsPage = () => {
     return () => socket.off("appointment:updated", fetchData);
   }, []);
 
-  const upcoming = appointments.filter((a) => ['pending', 'active'].includes(a.status));
-  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'confirmed'].includes(a.status));
+  const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active', 'on-going', 'paused'].includes(a.status));
+  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'ended', 'archived'].includes(a.status));
   const hasPast = past.length > 0;
 
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const bookableSlots = slots.filter((s) => s.date >= todayStr);
+
   const dateStr = selectedDay?.dateStr || '';
-  const daySlots = slots.filter((s) => s.date === dateStr);
+  const daySlots = bookableSlots.filter((s) => s.date === dateStr);
   const dayBookings = appointments.filter((b) => b.date === dateStr);
 
   const handleDateClick = (cell) => { setSelectedDay(cell); setModalOpen(true); };
@@ -161,17 +164,16 @@ const SessionsPage = () => {
     try {
       await axiosInstance.post('/appointments', {
         counselorId: slot.counselorId,
-        fullName: slot.fullName,
-        type: slot.type || 'Chat',
+        type: 'Face-To-Face',
         date: slot.date,
         time: slot.time,
         concern: '',
       });
-      toast.success(`Booked ${slot.time}`);
+      toast.success(`Booked ${slot.time} — awaiting counselor confirmation`);
       const res = await axiosInstance.get('/appointments');
       setAppointments(res.data);
-    } catch {
-      toast.error('Failed to book slot');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to book slot');
     }
   };
 
@@ -222,7 +224,7 @@ const SessionsPage = () => {
               year={year} month={month}
               onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
               onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
-              bookings={appointments} openSlots={slots}
+              bookings={appointments} openSlots={bookableSlots}
               onDateClick={handleDateClick}
             />
           </div>
@@ -244,13 +246,13 @@ const SessionsPage = () => {
 
           <div>
             <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Available Slots</h3>
-            {slots.length === 0 ? (
+            {bookableSlots.length === 0 ? (
               <div className="bg-white border border-neutral-200 rounded-sm p-6 text-center">
                 <p className="text-xs text-neutral-400">No available slots at this time.</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {slots.map((slot) => (
+                {bookableSlots.map((slot) => (
                   <div key={slot._id} className="bg-white border border-neutral-200 rounded-sm p-4 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-neutral-900">{slot.fullName || `Counselor #${slot.counselorId}`}</p>

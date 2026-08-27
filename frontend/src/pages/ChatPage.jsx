@@ -55,7 +55,7 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity }) => {
   return (
     <div className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
-        className={`max-w-[75%] px-4 py-2.5 rounded-xl text-sm leading-relaxed ${
+        className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-xl text-sm leading-relaxed break-words whitespace-pre-wrap ${
           isOwn
             ? 'bg-neutral-900 text-white rounded-sm'
             : isCrisis

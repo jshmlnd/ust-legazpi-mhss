@@ -6,7 +6,7 @@ const appointmentSchema = new mongoose.Schema({
   type: { type: String, enum: ['Chat', 'Face-To-Face', 'Review'], required: true },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'declined', 'archived'],
+    enum: ['pending', 'confirmed', 'active', 'completed', 'cancelled', 'declined', 'archived', 'on-going', 'paused', 'ended'],
     default: 'pending',
   },
   date: { type: String, required: true },
@@ -16,6 +16,7 @@ const appointmentSchema = new mongoose.Schema({
   notes: { type: String, default: '' },
   startedAt: { type: Date },
   endedAt: { type: Date },
+  studentArchived: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

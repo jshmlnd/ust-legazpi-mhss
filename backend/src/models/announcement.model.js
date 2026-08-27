@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const announcementSchema = new mongoose.Schema({
   title: { type: String, required: true },
   body: { type: String, required: true },
+  images: { type: [String], default: [] },
   author: { type: String, default: 'Counseling Office' },
   views: { type: Number, default: 0 },
   viewedBy: { type: [Number], default: [] },

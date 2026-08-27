@@ -27,6 +27,10 @@ const counselorSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        pin: {
+            type: String,
+            default: "",
+        },
         userType: {
             type: String,
             default: "Counselor",

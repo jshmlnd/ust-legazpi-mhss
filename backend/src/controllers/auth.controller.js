@@ -225,14 +225,19 @@ export const updateProfile = async (req, res) => {
     try {
         const { profilePic } = req.body;
         const userId = req.user._id;
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
 
-        if(!profilePic) {
+        if(profilePic === undefined) {
             return res.status(400).json({ message: "Profile picture is required" });
         }
 
-        const uploadResponse = await cloudinary.uploader.upload(profilePic)
+        if(profilePic === '') {
+            const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
+            return res.status(200).json(updatedUser);
+        }
 
-        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
+
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
 
         res.status(200).json(updatedUser);
@@ -248,6 +253,57 @@ export const checkAuth = (req, res) => {
         res.status(200).json(req.user);
     } catch (error) {
         console.log("Error in checkAuth controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export const setPin = async (req, res) => {
+    try {
+        const { pin } = req.body;
+        const userId = req.user._id;
+
+        if (!pin || pin.length < 4) {
+            return res.status(400).json({ message: "PIN must be at least 4 digits" });
+        }
+
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        account.pin = pin;
+        await account.save();
+
+        res.status(200).json({ message: "PIN set successfully" });
+    } catch (error) {
+        console.log("Error in setPin controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export const verifyPin = async (req, res) => {
+    try {
+        const { pin } = req.body;
+        const userId = req.user._id;
+
+        if (!pin) {
+            return res.status(400).json({ message: "PIN is required" });
+        }
+
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.pin) {
+            return res.status(400).json({ message: "No PIN set. Please set a PIN first." });
+        }
+
+        if (account.pin !== pin) {
+            return res.status(401).json({ message: "Incorrect PIN" });
+        }
+
+        res.status(200).json({ message: "PIN verified" });
+    } catch (error) {
+        console.log("Error in verifyPin controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
     }
 }

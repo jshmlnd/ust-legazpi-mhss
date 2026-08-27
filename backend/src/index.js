@@ -15,6 +15,9 @@ import analyticsRoutes from "./routes/analytics.route.js";
 import suggestionRoutes from "./routes/suggestion.route.js";
 import agoraRoutes from "./routes/agora.route.js";
 import callLogRoutes from "./routes/callLog.route.js";
+import crisisRoutes from "./routes/crisis.route.js";
+import auditTrailRoutes from "./routes/auditTrail.route.js";
+import noticeRoutes from "./routes/notice.route.js";
 
 import dotenv from "dotenv";
 import { connectDB } from "./lib/db.js";
@@ -45,6 +48,9 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/suggestions", suggestionRoutes);
 app.use("/api/agora", agoraRoutes);
 app.use("/api/call-logs", callLogRoutes);
+app.use("/api/crisis", crisisRoutes);
+app.use("/api/audit-trails", auditTrailRoutes);
+app.use("/api/notice", noticeRoutes);
 
 if(process.env.NODE_ENV==="production"){
     app.use(express.static(path.join(__dirname, "../frontend/dist")));

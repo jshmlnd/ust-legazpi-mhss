@@ -13,21 +13,21 @@ import EmptyState from '../components/EmptyState';
 import toast from 'react-hot-toast';
 
 const RESOURCE_TYPES = [
-  { value: 'article', label: 'Wellness Article' },
   { value: 'hotline', label: 'Emergency Hotline' },
-  { value: 'sheet', label: 'Downloadable Sheet' },
+  { value: 'psychiatrist', label: 'Psychiatrist' },
+  { value: 'psychologist', label: 'Psychologist' },
   { value: 'location', label: 'Physical Center' },
 ];
 
-const TYPE_ICONS = { article: FileText, hotline: Phone, sheet: Download, location: MapPin };
-const TYPE_LABELS = { article: 'Article', hotline: 'Hotline', sheet: 'Worksheet', location: 'Center' };
+const TYPE_ICONS = { hotline: Phone, location: MapPin, psychologist: Phone, psychiatrist: Phone };
+const TYPE_LABELS = { hotline: 'Hotline', location: 'Center', psychologist: 'Psychologist', psychiatrist: 'Psychiatrist' };
 
 const MAP_CENTER = [13.1391, 123.7438];
 const MAP_ZOOM = 12;
 const ALBAY_BOUNDS = L.latLngBounds([12.8, 123.3], [13.6, 124.2]);
 
 const createMarkerIcon = (type, isSelected) => {
-  const colors = { article: '#525252', hotline: '#a3a3a3', sheet: '#737373', location: '#171717' };
+  const colors = { hotline: '#a3a3a3', location: '#171717', psychologist: '#525252', psychiatrist: '#525252' };
   const color = colors[type] || '#525252';
   const border = isSelected ? '#000000' : color;
   const size = isSelected ? 16 : 12;

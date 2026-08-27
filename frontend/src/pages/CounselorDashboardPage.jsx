@@ -600,15 +600,15 @@ const CounselorDashboardPage = () => {
             <span className="h-px flex-1 bg-neutral-200" />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-neutral-200 rounded-sm">
-              <div className="px-6 pt-6 pb-3 flex items-center gap-2.5">
+            <div className="bg-white border border-neutral-200 rounded-sm flex flex-col max-h-[760px]">
+              <div className="px-6 pt-6 pb-3 flex items-center gap-2.5 shrink-0">
                 <MessageSquare size={16} className="text-neutral-500" />
                 <div>
                   <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Student Suggestions</span>
                   <h3 className="mt-0.5 text-sm font-medium text-neutral-900">{suggestions.length} submissions</h3>
                 </div>
               </div>
-              <div className="max-h-80 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {suggestions.length === 0 ? (
                   <div className="px-6 py-8 text-center text-xs text-neutral-400">No suggestions yet.</div>
                 ) : (
@@ -639,15 +639,15 @@ const CounselorDashboardPage = () => {
               </div>
             </div>
 
-            <div className="bg-white border border-neutral-200 rounded-sm">
-              <div className="px-6 pt-6 pb-3 flex items-center gap-2.5">
+            <div className="bg-white border border-neutral-200 rounded-sm flex flex-col max-h-[760px]">
+              <div className="px-6 pt-6 pb-3 flex items-center gap-2.5 shrink-0">
                 <Megaphone size={16} className="text-neutral-500" />
                 <div>
                   <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Announcements</span>
                   <h3 className="mt-0.5 text-sm font-medium text-neutral-900">{announcements.length} total</h3>
                 </div>
               </div>
-              <div className="px-6 pb-4 space-y-3">
+              <div className="px-6 pb-4 space-y-3 shrink-0">
                 <input
                   value={announcementForm.title}
                   onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
@@ -714,7 +714,7 @@ const CounselorDashboardPage = () => {
                   Post Announcement
                 </button>
               </div>
-              <div className="max-h-60 overflow-y-auto border-t border-neutral-100">
+              <div className="flex-1 min-h-0 overflow-y-auto border-t border-neutral-100">
                 {announcements.length === 0 ? (
                   <div className="px-6 py-6 text-center text-xs text-neutral-400">No announcements.</div>
                 ) : (

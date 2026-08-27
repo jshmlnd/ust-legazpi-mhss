@@ -66,11 +66,7 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerP
         </div>
       </div>
       <div
-<<<<<<< HEAD
         className={`chat-bubble max-w-[25%] text-sm leading-relaxed ${
-=======
-        className={`max-w-[85%] sm:max-w-[75%] md:max-w-[60%] px-4 py-2.5 rounded-xl text-sm leading-relaxed break-words whitespace-pre-wrap ${
->>>>>>> 0c213188c623c9a7771a49eada0c10747570db00
           isOwn
             ? 'bg-neutral-900 text-white'
             : isCrisis

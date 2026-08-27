@@ -15,9 +15,9 @@ import toast from 'react-hot-toast';
 
 const RESOURCE_TYPES = [
   { value: 'hotline', label: 'Emergency Hotline' },
+  { value: 'psychiatrist', label: 'Psychiatrist' },
+  { value: 'psychologist', label: 'Psychologist' },
   { value: 'location', label: 'Physical Center' },
-  { value: 'psychologist', label: 'Psychologist Hotline' },
-  { value: 'psychiatrist', label: 'Psychiatrist Hotline' },
 ];
 
 const TYPE_ICONS = { hotline: Phone, location: MapPin, psychologist: Phone, psychiatrist: Phone };

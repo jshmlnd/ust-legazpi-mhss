@@ -1,4 +1,5 @@
-import { generateToken } from "../lib/utils.js";
+import { generateToken, generateTwoFactorToken } from "../lib/utils.js";
+import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
@@ -69,6 +70,11 @@ export const login = async (req , res) => {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
+        if (account.twoFactorEnabled && account.pin) {
+            const twoFactorToken = generateTwoFactorToken(account._id);
+            return res.status(200).json({ twoFactorRequired: true, twoFactorToken });
+        }
+
         generateToken(account._id, res);
 
         return res.status(200).json({ 
@@ -83,10 +89,64 @@ export const login = async (req , res) => {
             yearLevel: account.yearLevel,
             profilePic: account.profilePic || '',
             userType: account.userType || role, 
+            pin: account.pin,
+            twoFactorEnabled: account.twoFactorEnabled,
          });
 
     } catch (error) {
         console.log("Error in login controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const verifyTwoFactor = async (req, res) => {
+    try {
+        const { twoFactorToken, pin } = req.body;
+
+        if (!twoFactorToken || !pin) {
+            return res.status(400).json({ message: "PIN is required" });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(twoFactorToken, process.env.JWT_SECRET);
+        } catch {
+            return res.status(401).json({ message: "Session expired. Please sign in again." });
+        }
+
+        if (!decoded.twoFactor) {
+            return res.status(401).json({ message: "Invalid 2FA token" });
+        }
+
+        let account = await User.findById(decoded.userId);
+        if (!account) account = await Counselor.findById(decoded.userId);
+        if (!account) {
+            return res.status(404).json({ message: "Account not found" });
+        }
+
+        if (account.pin !== pin) {
+            return res.status(401).json({ message: "Incorrect PIN" });
+        }
+
+        generateToken(account._id, res);
+
+        return res.status(200).json({
+            _id: account._id,
+            dynamicId: getDailyDynamicId(account.dynamicId),
+            fullName: account.fullName,
+            email: account.email,
+            phone: account.phone || null,
+            studentId: account.studentId,
+            department: account.department,
+            program: account.program,
+            yearLevel: account.yearLevel,
+            profilePic: account.profilePic || '',
+            userType: account.userType,
+            pin: account.pin,
+            twoFactorEnabled: account.twoFactorEnabled,
+        });
+    } catch (error) {
+        console.log("Error in verifyTwoFactor controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -312,6 +372,39 @@ export const verifyPin = async (req, res) => {
         res.status(200).json({ message: "PIN verified" });
     } catch (error) {
         console.log("Error in verifyPin controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+export const setTwoFactor = async (req, res) => {
+    try {
+        const { enabled, pin } = req.body;
+        const userId = req.user._id;
+
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (enabled) {
+            if (!account.pin) {
+                return res.status(400).json({ message: "Please set a PIN in Security settings before enabling 2FA." });
+            }
+            if (!pin || account.pin !== pin) {
+                return res.status(401).json({ message: "Incorrect PIN" });
+            }
+            account.twoFactorEnabled = true;
+        } else {
+            if (!account.pin || !pin || account.pin !== pin) {
+                return res.status(401).json({ message: "Incorrect PIN" });
+            }
+            account.twoFactorEnabled = false;
+        }
+
+        await account.save();
+
+        res.status(200).json({ twoFactorEnabled: account.twoFactorEnabled });
+    } catch (error) {
+        console.log("Error in setTwoFactor controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
     }
 }

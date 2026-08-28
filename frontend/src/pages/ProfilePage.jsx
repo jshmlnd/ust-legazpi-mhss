@@ -58,6 +58,9 @@ const SecurityCard = () => {
   const [pinLoading, setPinLoading] = useState(false);
   const [pinVerified, setPinVerified] = useState(false);
 
+  const twoFAEnabled = !!authUser?.twoFactorEnabled;
+  const pinSatisfied = !twoFAEnabled || pinVerified;
+
   const strength = getPasswordStrength(form.newPassword);
   const passwordsMatch = form.newPassword === form.confirmPassword && form.confirmPassword.length > 0;
   const hasMinLength = form.newPassword.length >= 8;
@@ -65,7 +68,7 @@ const SecurityCard = () => {
   const hasNumber = /[0-9]/.test(form.newPassword);
   const hasSpecial = /[^A-Za-z0-9]/.test(form.newPassword);
 
-  const canSubmit = form.currentPassword.length > 0 && form.newPassword.length >= 8 && passwordsMatch && pinVerified;
+  const canSubmit = form.currentPassword.length > 0 && form.newPassword.length >= 8 && passwordsMatch && pinSatisfied;
   const isChangeSet = pinMode === 'change-set';
   const canSetPin = pinMode === 'setup' || isChangeSet
     ? pinValue.length >= 4 && pinValue === pinConfirm
@@ -163,7 +166,7 @@ const SecurityCard = () => {
         </div>
         <div>
           <h3 className="text-sm font-medium text-neutral-900">Security Settings</h3>
-          <p className="text-[11px] text-neutral-400">Verify your PIN, then change your password</p>
+          <p className="text-[11px] text-neutral-400">{twoFAEnabled ? 'Verify your PIN, then change your password' : 'Change your password'}</p>
         </div>
       </div>
 
@@ -176,7 +179,7 @@ const SecurityCard = () => {
       )}
 
       {/* PIN Section */}
-      {!pinVerified && (
+      {(twoFAEnabled && !pinVerified) && (
       <div className="mb-5 pb-5 border-b border-neutral-100">
         <div className="flex items-center gap-2 mb-3">
           <KeyRound size={14} className="text-neutral-400" />
@@ -256,8 +259,8 @@ const SecurityCard = () => {
       </div>
       )}
 
-      {/* Password Section — hidden until PIN verified */}
-      {pinVerified && (
+      {/* Password Section — shown automatically unless 2FA requires PIN */}
+      {pinSatisfied && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current Password</label>
@@ -319,8 +322,54 @@ const SecurityCard = () => {
 };
 
 const PreferencesCard = () => {
-  const { authUser } = useAuthStore();
+  const { authUser, setTwoFactor } = useAuthStore();
   const { prefs, togglePref } = usePrefs(authUser?._id);
+
+  const [twoFA, setTwoFA] = useState(!!authUser?.twoFactorEnabled);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pendingEnabled, setPendingEnabled] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [saving2FA, setSaving2FA] = useState(false);
+  const [pinError, setPinError] = useState(null);
+
+  const needsPinSetup = pendingEnabled && !authUser?.pin;
+
+  const inputClass = 'w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors';
+
+  const handleToggleTwoFA = (checked) => {
+    setPendingEnabled(checked);
+    setPinInput('');
+    setPinConfirm('');
+    setPinError(null);
+    setShowPinModal(true);
+  };
+
+  const confirmToggleTwoFA = async () => {
+    setSaving2FA(true);
+    setPinError(null);
+    try {
+      if (needsPinSetup) {
+        if (pinInput.length < 4 || pinInput !== pinConfirm) {
+          setPinError('Please enter a PIN of at least 4 digits that matches.');
+          setSaving2FA(false);
+          return;
+        }
+        await axiosInstance.post('/auth/pin', { pin: pinInput });
+        const res = await setTwoFactor(true, pinInput);
+        setTwoFA(res.twoFactorEnabled);
+      } else {
+        const res = await setTwoFactor(pendingEnabled, pinInput);
+        setTwoFA(res.twoFactorEnabled);
+      }
+      setShowPinModal(false);
+      toast.success(pendingEnabled ? 'PIN 2FA enabled.' : 'PIN 2FA disabled.');
+    } catch (err) {
+      setPinError(err.response?.data?.message || 'Failed to update 2FA.');
+    } finally {
+      setSaving2FA(false);
+    }
+  };
 
   const items = [
     { key: 'sessionReminders', title: 'Session Reminders', desc: 'Email me before scheduled counseling sessions.' },
@@ -343,6 +392,19 @@ const PreferencesCard = () => {
       </div>
 
       <div className="divide-y divide-neutral-100">
+        <div className="flex items-center justify-between gap-4 py-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-neutral-900">PIN 2FA</p>
+            <p className="text-[11px] text-neutral-400 mt-0.5">Add an extra layer of security using your PIN.</p>
+          </div>
+          <input
+            type="checkbox"
+            className="toggle toggle-sm"
+            checked={twoFA}
+            onChange={(e) => handleToggleTwoFA(e.target.checked)}
+          />
+        </div>
+
         {items.map((it) => (
           <div key={it.key} className="flex items-center justify-between gap-4 py-4">
             <div className="min-w-0">
@@ -360,6 +422,81 @@ const PreferencesCard = () => {
       </div>
 
       <p className="text-[10px] text-neutral-400 mt-4">Preferences are saved on this device.</p>
+
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-sm p-6 w-full max-w-sm">
+            <h4 className="text-sm font-medium text-neutral-900 mb-1">
+              {needsPinSetup ? 'Set up a PIN' : pendingEnabled ? 'Enable PIN 2FA' : 'Disable PIN 2FA'}
+            </h4>
+            <p className="text-[11px] text-neutral-400 mb-4">
+              {needsPinSetup
+                ? 'Create a PIN to secure your account with two-factor authentication.'
+                : `Enter your PIN to ${pendingEnabled ? 'enable' : 'disable'} two-factor authentication.`}
+            </p>
+
+            {needsPinSetup ? (
+              <div className="space-y-3">
+                <input
+                  type="password"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="New PIN (at least 4 digits)"
+                  maxLength={6}
+                  autoFocus
+                  className={inputClass}
+                />
+                <input
+                  type="password"
+                  value={pinConfirm}
+                  onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="Confirm PIN"
+                  maxLength={6}
+                  className={inputClass}
+                />
+                {pinInput.length > 0 && pinInput !== pinConfirm && (
+                  <p className="text-[11px] text-red-500">PINs do not match</p>
+                )}
+              </div>
+            ) : (
+              <input
+                type="password"
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter PIN"
+                maxLength={6}
+                autoFocus
+                className={inputClass}
+              />
+            )}
+
+            {pinError && <p className="text-[11px] text-red-500 mt-2">{pinError}</p>}
+            <div className="flex items-center gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowPinModal(false)}
+                className="flex-1 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmToggleTwoFA}
+                disabled={
+                  saving2FA ||
+                  (needsPinSetup
+                    ? !(pinInput.length >= 4 && pinInput === pinConfirm)
+                    : pinInput.length < 4)
+                }
+                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm"
+              >
+                {saving2FA ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                {needsPinSetup ? 'Set PIN' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

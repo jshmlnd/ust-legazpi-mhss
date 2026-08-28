@@ -25,6 +25,9 @@ export const useAuthStore = create((set) => ({
         set({ isLoggingIn: true });
         try {
             const res = await axiosInstance.post("/auth/login", { studentId, counselorId: studentId, password });
+            if (res.data.twoFactorRequired) {
+                return res.data;
+            }
             set({ authUser: res.data });
             return res.data;
         } catch (error) {
@@ -33,6 +36,12 @@ export const useAuthStore = create((set) => ({
         } finally {
             set({ isLoggingIn: false });
         }
+    },
+
+    verifyTwoFactor: async (twoFactorToken, pin) => {
+        const res = await axiosInstance.post("/auth/2fa/verify", { twoFactorToken, pin });
+        set({ authUser: res.data });
+        return res.data;
     },
 
     logout: async () => {
@@ -57,5 +66,13 @@ export const useAuthStore = create((set) => ({
         } finally {
             set({ isUpdating: false });
         }
+    },
+
+    setTwoFactor: async (enabled, pin) => {
+        const res = await axiosInstance.put("/auth/2fa", { enabled, pin });
+        set((state) => ({
+            authUser: { ...state.authUser, twoFactorEnabled: res.data.twoFactorEnabled },
+        }));
+        return res.data;
     },
 }));

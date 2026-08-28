@@ -31,6 +31,10 @@ const counselorSchema = new mongoose.Schema(
             type: String,
             default: "",
         },
+        twoFactorEnabled: {
+            type: Boolean,
+            default: false,
+        },
         userType: {
             type: String,
             default: "Counselor",

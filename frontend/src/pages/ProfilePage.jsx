@@ -376,7 +376,7 @@ const PreferencesCard = () => {
     { key: 'messageNotifications', title: 'Message Notifications', desc: 'Notify me when I receive new chat messages.' },
     { key: 'calmMode', title: 'Calm Mode', desc: 'Reduce animations for a calmer experience.' },
     //{ key: 'switchmode', title: 'Dark Mode', desc: 'Switch between light and dark appearance.' },
-    // Hindi ko maayos ayos tong dark mode kasi may mga components na hindi nag-aadjust sa dark mode. So for now, I will just remove it from the preferences.
+    // Hindi ko maayos ayos tong dark mode kasi may mga components na hindi nag-aadjust sa dark mode. Tanggalin ko muna.
   ];
 
   return (

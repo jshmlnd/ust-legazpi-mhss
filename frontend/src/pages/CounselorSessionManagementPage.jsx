@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, User, FileText, ClipboardList, Clock, Loader, Save, Plus } from 'lucide-react';
+import { MessageCircle, User, FileText, ClipboardList, Clock, Loader, Save, Plus, Check, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 
 const TYPE_ICONS = { Chat: MessageCircle, 'Face-To-Face': User, Review: ClipboardList };
 const TYPE_LABELS = { Chat: 'Chat', 'Face-To-Face': 'Face-To-Face', Review: 'Review' };
-const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', completed: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200' };
+const STATUS_COLORS = { active: 'text-emerald-600 bg-emerald-50 border-emerald-200', waiting: 'text-amber-600 bg-amber-50 border-amber-200', pending: 'text-amber-600 bg-amber-50 border-amber-200', completed: 'text-neutral-500 bg-neutral-100 border-neutral-200', approved: 'text-emerald-600 bg-emerald-50 border-emerald-200', confirmed: 'text-emerald-600 bg-emerald-50 border-emerald-200', declined: 'text-red-600 bg-red-50 border-red-200', cancelled: 'text-red-600 bg-red-50 border-red-200' };
 
 const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) => {
   const navigate = useNavigate();
@@ -34,7 +34,7 @@ const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) =
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className={`size-8 rounded-full flex items-center justify-center shrink-0 ${
-            item.type === 'Chat' ? 'bg-emerald-50 text-emerald-600' : item.type === 'f2f' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
+            item.type === 'Chat' ? 'bg-emerald-50 text-emerald-600' : item.type === 'Face-To-Face' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
           }`}>
             <Icon size={15} />
           </div>
@@ -42,7 +42,7 @@ const QueueCard = ({ item, isSelected, onSelect, showIdOnly, disableChatNav }) =
             {showIdOnly ? (
               <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">{item.id}</p>
             ) : (
-              <p className="text-sm font-medium text-neutral-900 truncate">{"STU-" + item.studentId}</p>
+              <p className="text-sm font-medium text-neutral-900 truncate">{"STU-" + (item.studentDynamicId || item.studentId)}</p>
             )}
             <p className="text-[11px] text-neutral-400 truncate mt-0.5">{item.concern}</p>
           </div>
@@ -193,6 +193,33 @@ const CounselorSessionManagementPage = () => {
     }
   };
 
+  const applyStatusUpdate = (updated) => {
+    setQueueItems((prev) => prev.map((item) => (item._id === updated._id ? { ...item, dbStatus: updated.status, status: updated.status } : item)));
+    setSelectedSession((prev) => (prev && prev._id === updated._id ? { ...prev, dbStatus: updated.status, status: updated.status } : prev));
+  };
+
+  const handleApprove = async (appointmentId) => {
+    try {
+      const res = await axiosInstance.patch(`/appointments/${appointmentId}`, { status: 'confirmed' });
+      applyStatusUpdate(res.data);
+      toast.success('Booking approved');
+    } catch {
+      toast.error('Failed to approve booking');
+    }
+  };
+
+  const handleDecline = async (appointmentId) => {
+    try {
+      const res = await axiosInstance.patch(`/appointments/${appointmentId}`, { status: 'declined' });
+      applyStatusUpdate(res.data);
+      setQueueItems((prev) => prev.filter((item) => item._id !== appointmentId));
+      if (selectedSession?._id === appointmentId) setSelectedSession(null);
+      toast.success('Booking declined');
+    } catch {
+      toast.error('Failed to decline booking');
+    }
+  };
+
   const fetchStudentInfo = async (studentId) => {
     if (!studentId) return;
     setLoadingInfo(true);
@@ -209,7 +236,7 @@ const CounselorSessionManagementPage = () => {
         const res = await axiosInstance.get('/appointments');
         const mapItem = (a) => ({
           _id: a._id,
-          id: `STU-${a.studentId}`,
+          id: `STU-${a.studentDynamicId || a.studentId}`,
           studentId: a.studentId,
           type: a.type,
           time: a.time,
@@ -309,6 +336,26 @@ const CounselorSessionManagementPage = () => {
                 {endingSessionId === selectedSession._id ? <Loader size={12} className="animate-spin" /> : null}
                 End Session
               </button>
+            </div>
+          )}
+          {selectedSession && selectedSession.type === 'Face-To-Face' && selectedSession.dbStatus === 'pending' && (
+            <div className="bg-white border border-neutral-200 rounded-sm px-5 py-4">
+              <p className="text-sm font-medium text-neutral-900">Booking Request</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5 mb-3">Approve or decline this Face-to-Face booking request</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleApprove(selectedSession._id)}
+                  className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-emerald-600 hover:bg-emerald-700 transition-colors rounded-sm inline-flex items-center gap-2"
+                >
+                  <Check size={12} /> Approve
+                </button>
+                <button
+                  onClick={() => handleDecline(selectedSession._id)}
+                  className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm inline-flex items-center gap-2"
+                >
+                  <X size={12} /> Decline
+                </button>
+              </div>
             </div>
           )}
           <SessionNotes key={selectedSession?._id} session={selectedSession} />

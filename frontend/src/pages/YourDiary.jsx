@@ -5,7 +5,7 @@ import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
 import EmptyState from '../components/EmptyState';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';

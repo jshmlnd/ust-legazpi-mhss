@@ -29,6 +29,10 @@ const callLogSchema = new mongoose.Schema(
             enum: ['ended', 'cancelled', 'missed'],
             default: 'ended',
         },
+        appointmentId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Appointment',
+        },
     },
     { timestamps: true }
 );

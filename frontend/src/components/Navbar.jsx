@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { NAV_ITEMS, PATHS } from '../lib/routes';
 import { getSocket } from '../lib/socket';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const useRBAC = (authUser) => {
   const role = authUser?.userType?.toLowerCase() ?? null;
@@ -156,6 +156,28 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const handleLogout = useCallback(async () => {
+    const confirmed = await new Promise((resolve) => {
+      toast(({ closeToast }) => (
+        <div className="flex flex-col gap-3">
+          <span className="text-sm text-neutral-900">Are you sure you want to log out?</span>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { closeToast(); resolve(false); }}
+              className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { closeToast(); resolve(true); }}
+              className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      ));
+    });
+    if (!confirmed) return;
     await logout();
     navigate('/login');
   }, [logout, navigate]);

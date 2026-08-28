@@ -17,7 +17,7 @@ import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 function useColumnCount() {
   const [cols, setCols] = useState(() => {

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound } from 'lucide-react';
+import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
+import { usePrefs } from '../lib/prefs';
 import PageShell from '../components/PageShell';
 import SectionDivider from '../components/SectionDivider';
 import AvatarUpload from '../components/AvatarUpload';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const StrengthBar = ({ score }) => {
   const levels = [
@@ -317,11 +318,64 @@ const SecurityCard = () => {
   );
 };
 
+const PreferencesCard = () => {
+  const { authUser } = useAuthStore();
+  const { prefs, togglePref } = usePrefs(authUser?._id);
+
+  const items = [
+    { key: 'sessionReminders', title: 'Session Reminders', desc: 'Email me before scheduled counseling sessions.' },
+    { key: 'messageNotifications', title: 'Message Notifications', desc: 'Notify me when I receive new chat messages.' },
+    { key: 'calmMode', title: 'Calm Mode', desc: 'Reduce animations for a calmer experience.' },
+    //{ key: 'switchmode', title: 'Dark Mode', desc: 'Switch between light and dark appearance.' },
+    // Hindi ko maayos ayos tong dark mode kasi may mga components na hindi nag-aadjust sa dark mode. So for now, I will just remove it from the preferences.
+  ];
+
+  return (
+    <div className="bg-white border border-neutral-200 rounded-sm p-6">
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className="size-9 rounded-sm bg-neutral-100 flex items-center justify-center text-neutral-500">
+          <Settings size={16} />
+        </div>
+        <div>
+          <h3 className="text-sm font-medium text-neutral-900">Preferences</h3>
+          <p className="text-[11px] text-neutral-400">Personalize your experience</p>
+        </div>
+      </div>
+
+      <div className="divide-y divide-neutral-100">
+        {items.map((it) => (
+          <div key={it.key} className="flex items-center justify-between gap-4 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-neutral-900">{it.title}</p>
+              <p className="text-[11px] text-neutral-400 mt-0.5">{it.desc}</p>
+            </div>
+            <input
+              type="checkbox"
+              className="toggle toggle-sm"
+              checked={prefs[it.key]}
+              onChange={() => togglePref(it.key)}
+            />
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-neutral-400 mt-4">Preferences are saved on this device.</p>
+    </div>
+  );
+};
+
 const ProfilePage = () => {
   const { authUser, updateProfile } = useAuthStore();
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState('profile');
+
+  const TABS = [
+    { key: 'profile', label: 'Profile' },
+    { key: 'security', label: 'Security' },
+    { key: 'preferences', label: 'Preferences' },
+  ];
 
   if (!authUser) return null;
 
@@ -379,9 +433,27 @@ const ProfilePage = () => {
   };
 
   return (
-    <PageShell title="My Account" subtitle="Manage your profile and security settings">
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+    <PageShell title="My Account" subtitle="Manage your profile and account settings">
+      <div className="mb-6 border-b border-neutral-200">
+        <div className="flex gap-1">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase transition-colors border-b-2 -mb-px ${
+                activeTab === t.key
+                  ? 'border-neutral-900 text-neutral-900'
+                  : 'border-transparent text-neutral-400 hover:text-neutral-700'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {activeTab === 'profile' && (
+        <div className="max-w-2xl">
           <div className="bg-white border border-neutral-200 rounded-sm p-6">
             <div className="flex items-center gap-4 mb-5">
               <AvatarUpload
@@ -450,11 +522,11 @@ const ProfilePage = () => {
             )}
           </div>
         </div>
+      )}
 
-        <div className="lg:col-span-3 space-y-6">
-          <SecurityCard />
-        </div>
-      </div>
+      {activeTab === 'security' && <SecurityCard />}
+
+      {activeTab === 'preferences' && <PreferencesCard />}
     </PageShell>
   );
 };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { axiosInstance } from '../lib/axios';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import PageShell from '../components/PageShell';
 import { UserPlus } from 'lucide-react';
 

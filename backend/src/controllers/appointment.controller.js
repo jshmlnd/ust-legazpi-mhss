@@ -2,14 +2,34 @@ import Appointment from "../models/appointment.model.js";
 import Counselor from "../models/counselor.model.js";
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
+import AvailabilitySlot from "../models/availabilitySlot.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
+import { getDailyDynamicId } from "../lib/generateId.js";
+
+const FREED_STATUSES = ['declined', 'cancelled', 'archived'];
+
+const takeSlot = async (counselorId, date, time) => {
+  const slot = await AvailabilitySlot.findOne({ counselorId, date, time });
+  if (slot && slot.isAvailable) {
+    slot.isAvailable = false;
+    await slot.save();
+  }
+};
+
+const freeSlot = async (counselorId, date, time) => {
+  const slot = await AvailabilitySlot.findOne({ counselorId, date, time });
+  if (slot && !slot.isAvailable) {
+    slot.isAvailable = true;
+    await slot.save();
+  }
+};
 
 export const getAppointments = async (req, res) => {
   try {
     const isCounselor = req.user.constructor.modelName === "Counselor";
     let appointments;
     if (isCounselor) {
-      appointments = await Appointment.find({ counselorId: req.user._id }).sort({ date: -1, time: -1 });
+      appointments = await Appointment.find({ counselorId: req.user._id, counselorArchived: { $ne: true } }).sort({ date: -1, time: -1 });
     } else {
       appointments = await Appointment.find({ studentId: req.user._id, studentArchived: { $ne: true } }).sort({ date: -1, time: -1 });
     }
@@ -19,9 +39,14 @@ export const getAppointments = async (req, res) => {
       const counselors = await Counselor.find({ _id: { $in: counselorIds } }).select("fullName _id").lean();
       const counselorMap = Object.fromEntries(counselors.map((counselor) => [String(counselor._id), counselor.fullName]));
 
+      const studentIds = [...new Set(appointments.map((appointment) => appointment.studentId))];
+      const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId").lean();
+      const dynamicMap = Object.fromEntries(students.map((s) => [String(s._id), s.dynamicId]));
+
       appointments = appointments.map((appointment) => ({
         ...appointment.toObject(),
         counselorName: counselorMap[String(appointment.counselorId)] || null,
+        studentDynamicId: getDailyDynamicId(dynamicMap[String(appointment.studentId)]) || null,
       }));
     }
 
@@ -62,6 +87,10 @@ export const createAppointment = async (req, res) => {
     });
     await appointment.save();
 
+    if (type === 'Face-To-Face') {
+      await takeSlot(counselorId, date, time);
+    }
+
     const io = getIO();
     if (io) {
       getReceiverSocketIds(String(counselorId)).forEach(socketId => {
@@ -100,6 +129,10 @@ export const updateAppointment = async (req, res) => {
 
     Object.assign(appointment, req.body);
     await appointment.save();
+
+    if (req.body.status && FREED_STATUSES.includes(req.body.status) && appointment.type === 'Face-To-Face') {
+      await freeSlot(appointment.counselorId, appointment.date, appointment.time);
+    }
 
     if (req.body.status === 'completed' && appointment.type === 'Chat') {
       await Message.deleteMany({ appointmentId: appointment._id });
@@ -146,6 +179,25 @@ export const deleteAppointment = async (req, res) => {
     res.json({ message: "Appointment deleted" });
   } catch (error) {
     console.error("Error in deleteAppointment:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const clearAllRequests = async (req, res) => {
+  try {
+    const result = await Appointment.updateMany(
+      { counselorId: req.user._id, counselorArchived: { $ne: true } },
+      { $set: { counselorArchived: true } }
+    );
+    const io = getIO();
+    if (io) {
+      getReceiverSocketIds(String(req.user._id)).forEach((socketId) => {
+        io.to(socketId).emit("appointment:updated", { cleared: true });
+      });
+    }
+    res.json({ message: `Cleared ${result.modifiedCount} request(s)` });
+  } catch (error) {
+    console.error("Error in clearAllRequests:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -6,8 +6,8 @@ const router = express.Router();
 
 router.post("/login", login);
 router.post("/logout", logout);
-router.post("/register", adminOnly, register);
-router.post("/register-counselor", adminOnly, registerCounselor);
+router.post("/register", register);
+router.post("/register-counselor", registerCounselor);
 
 router.put("/profile", protectRoute, updateProfile);
 router.put("/password", protectRoute, updatePassword);

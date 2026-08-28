@@ -11,7 +11,7 @@ import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const RESOURCE_TYPES = [
   { value: 'hotline', label: 'Emergency Hotline' },
@@ -83,7 +83,7 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
       >
         <TileLayer
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2ewm_1_565ab8c78182c1772fdc12fc"
         />
         <MapBoundsUpdater resources={resources} selectedId={selectedId} />
         {locations.map((r) => (
@@ -96,6 +96,7 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
             <Popup>
               <div className="font-sans text-[11px] leading-relaxed min-w-[180px]">
                 <p className="text-xs font-semibold text-neutral-900 mb-0.5">{r.title}</p>
+                {r.description && <p className="text-neutral-600 mt-1">{r.description}</p>}
                 {r.address && <p className="text-neutral-500 mt-1">{r.address}</p>}
                 {r.hours && <p className="text-neutral-400 mt-0.5">{r.hours}</p>}
                 {r.contact && <p className="text-neutral-500 mt-0.5">{r.contact}</p>}
@@ -201,7 +202,7 @@ const ResourceGrid = ({ resources, onSelect, selectedId, onEdit, onDelete, isCou
 );
 
 const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
-  const empty = { title: '', type: 'hotline', description: '', url: '', address: '', hours: '', contact: '', lat: '', lng: '' };
+  const empty = { title: '', type: 'hotline', description: '', url: '', address: '', hours: '', contact: '', mapUrl: '' };
   const [form, setForm] = useState(initial || empty);
   const isEdit = !!initial;
 
@@ -220,7 +221,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
     <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit Resource' : 'Add Resource'} wide>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="Title" name="title" value={form.title} onChange={handleChange} placeholder="e.g., Stress Management Guide" required />
+          <FormField label="Title" name="title" value={form.title} onChange={handleChange} placeholder="e.g., Bicol Region Mental Health Hotline" required />
           <div className="space-y-1.5">
             <label className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Type</label>
             <select name="type" value={form.type} onChange={handleChange} className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors">
@@ -229,19 +230,15 @@ const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
           </div>
         </div>
         <FormField label="Description" name="description" type="textarea" value={form.description} onChange={handleChange} placeholder="Brief summary of the resource..." rows={3} required />
-        <FormField label="URL / Link" name="url" value={form.url} onChange={handleChange} placeholder="https://..." />
-        {form.type === 'location' && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
               <FormField label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Full address" />
               <FormField label="Hours" name="hours" value={form.hours} onChange={handleChange} placeholder="e.g., Mon–Fri 8AM–5PM" />
               <FormField label="Contact" name="contact" value={form.contact} onChange={handleChange} placeholder="Phone number" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="Latitude" name="lat" value={form.lat ?? ''} onChange={handleChange} placeholder="e.g., 13.1391" />
-              <FormField label="Longitude" name="lng" value={form.lng ?? ''} onChange={handleChange} placeholder="e.g., 123.7438" />
-            </div>
-            <p className="text-[11px] text-neutral-400 -mt-1">Leave the coordinates blank to pinpoint the address automatically.</p>
+        {form.type === 'location' && (
+          <>
+            <FormField label="Google Maps Link" name="mapUrl" value={form.mapUrl ?? ''} onChange={handleChange} placeholder="https://www.google.com/maps/..." />
+            <p className="text-[11px] text-neutral-400 -mt-1">Paste a Google Maps link to drop the pin automatically, or leave it blank to locate the address.</p>
           </>
         )}
         <div className="flex items-center justify-end gap-3 pt-2">
@@ -272,6 +269,7 @@ const ResourcePage = () => {
     address: r.address || '',
     hours: r.hours || '',
     contact: r.contact || '',
+    mapUrl: r.mapUrl || '',
     date: r.date || r.createdAt?.slice(0, 10) || '',
   });
 
@@ -297,9 +295,10 @@ const ResourcePage = () => {
       // Coordinate fields only exist for physical centers; don't leak them
       // into other types' payloads.
       const payload = { ...resource };
+      delete payload.lat;
+      delete payload.lng;
       if (resource.type !== 'location') {
-        delete payload.lat;
-        delete payload.lng;
+        delete payload.mapUrl;
       }
       let saved;
       if (editing) {

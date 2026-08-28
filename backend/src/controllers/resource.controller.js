@@ -1,5 +1,6 @@
 import Resource from "../models/resource.model.js";
 import { geocodeAddress } from "../lib/geocode.js";
+import { parseGoogleMapsUrl } from "../lib/parseGoogleMapsUrl.js";
 
 const parseCoords = ({ lat, lng }) => {
   const latNum = Number.parseFloat(lat);
@@ -24,7 +25,10 @@ export const createResource = async (req, res) => {
     const data = { ...req.body, order: count };
     delete data.lat;
     delete data.lng;
-    const coords = parseCoords(req.body) ?? (await geocodeAddress(data.address));
+    const coords =
+      parseCoords(req.body) ??
+      (req.body.mapUrl ? await parseGoogleMapsUrl(req.body.mapUrl) : null) ??
+      (await geocodeAddress(data.address));
     if (coords) Object.assign(data, coords);
     const resource = new Resource(data);
     await resource.save();
@@ -48,12 +52,17 @@ export const updateResource = async (req, res) => {
 
     const address = typeof updates.address === "string" ? updates.address.trim() : "";
     const addressChanged = address !== "" && address !== existing.address;
-    // Manually entered coordinates win; otherwise re-locate when the address
-    // changed so the pin doesn't stay on the old location; otherwise empty
-    // coordinate fields mean the counselor is removing the pin.
-    if (coords) {
-      updates.lat = coords.lat;
-      updates.lng = coords.lng;
+    // Manually entered coordinates win; a Google Maps link is resolved next;
+    // otherwise re-locate when the address changed so the pin doesn't stay on
+    // the old location; otherwise empty coordinate fields mean the counselor
+    // is removing the pin.
+    const resolved =
+      coords ??
+      (updates.mapUrl ? await parseGoogleMapsUrl(updates.mapUrl) : null);
+
+    if (resolved) {
+      updates.lat = resolved.lat;
+      updates.lng = resolved.lng;
     } else if (addressChanged) {
       const geocoded = await geocodeAddress(address);
       if (geocoded) {

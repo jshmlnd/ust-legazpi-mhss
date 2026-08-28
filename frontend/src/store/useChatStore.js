@@ -3,6 +3,7 @@ import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { getSocket } from "../lib/socket";
 import { showNotification } from "../lib/notifications";
+import { loadPrefs } from "../lib/prefs";
 import { useAuthStore } from "./useAuthStore";
 
 export const analyzeCrisis = async (text) => {
@@ -33,6 +34,7 @@ export const useChatStore = create((set, get) => ({
   users: [],
   messages: [],
   selectedUser: null,
+  currentAppointmentId: null,
   isUsersLoading: false,
   isMessagesLoading: false,
   flaggedMessage: null,
@@ -61,11 +63,11 @@ export const useChatStore = create((set, get) => ({
       const params = appointmentId ? `?appointmentId=${appointmentId}` : '';
       const [msgRes, logRes] = await Promise.all([
         axiosInstance.get(`/message/${userId}${params}`),
-        axiosInstance.get(`/call-logs/${userId}`),
+        axiosInstance.get(`/call-logs/${userId}${params}`),
       ]);
       const combined = [...msgRes.data, ...logRes.data]
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-      set({ messages: combined });
+      set({ messages: combined, currentAppointmentId: appointmentId || null });
     } catch {
       toast.error("Failed to load messages");
     } finally {
@@ -110,7 +112,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   setSelectedUser: (user, appointmentId) => {
-    set({ selectedUser: user, messages: [], crisisMessageMap: {} });
+    set({ selectedUser: user, messages: [], crisisMessageMap: {}, currentAppointmentId: null });
     if (user) {
       get().markAsRead(user._id);
       get().markMessagesAsRead(user._id);
@@ -203,18 +205,26 @@ export const useChatStore = create((set, get) => ({
 
         const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
         const notifBody = message.text || 'Sent an image';
-        showNotification(senderName, notifBody);
+        const authUser = useAuthStore.getState().authUser;
+        if (loadPrefs(authUser?._id).messageNotifications) {
+          showNotification(senderName, notifBody);
+        }
       }
     });
 
     socket.off("callLog").on("callLog", (callLog) => {
-      const { selectedUser, messages } = get();
+      const { selectedUser, messages, currentAppointmentId } = get();
       const isRelevant =
         selectedUser &&
         (String(callLog.callerId) === String(selectedUser._id) ||
           String(callLog.receiverId) === String(selectedUser._id));
 
       if (isRelevant) {
+        // Only show call logs that belong to the active session; when a session is
+        // active, legacy (session-less) logs and other sessions' logs are excluded.
+        if (currentAppointmentId && String(callLog.appointmentId) !== String(currentAppointmentId)) {
+          return;
+        }
         set({ messages: [...messages, callLog] });
       }
     });

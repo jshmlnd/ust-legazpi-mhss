@@ -7,13 +7,39 @@ import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDay = (year, month) => new Date(year, month, 1).getDay();
+
+const formatLongDate = (dateStr) => {
+  if (!dateStr) return '';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+  });
+};
+
+const groupSlotsByDate = (slots) => {
+  const byDate = {};
+  slots
+    .slice()
+    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .forEach((slot) => {
+      if (!byDate[slot.date]) byDate[slot.date] = {};
+      const key = String(slot.counselorId);
+      if (!byDate[slot.date][key]) {
+        byDate[slot.date][key] = { counselorId: slot.counselorId, fullName: slot.fullName, times: [] };
+      }
+      byDate[slot.date][key].times.push({ time: slot.time, slot });
+    });
+  return Object.entries(byDate).map(([date, counselorsMap]) => ({
+    date,
+    counselors: Object.values(counselorsMap),
+  }));
+};
 
 const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDateClick }) => {
   const daysInMonth = getDaysInMonth(year, month);
@@ -65,6 +91,33 @@ const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDate
           );
         })}
       </div>
+    </div>
+  );
+};
+
+const Pagination = ({ page, totalPages, onChange }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-2 pt-1">
+      <button
+        type="button"
+        onClick={() => onChange(page - 1)}
+        disabled={page === 0}
+        className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-40"
+        aria-label="Previous page"
+      >
+        <ChevronLeft size={14} />
+      </button>
+      <span className="text-[11px] text-neutral-500">{page + 1} / {totalPages}</span>
+      <button
+        type="button"
+        onClick={() => onChange(page + 1)}
+        disabled={page >= totalPages - 1}
+        className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-40"
+        aria-label="Next page"
+      >
+        <ChevronRightIcon size={14} />
+      </button>
     </div>
   );
 };
@@ -125,6 +178,9 @@ const SessionsPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [slots, setSlots] = useState([]);
   const [archiving, setArchiving] = useState(false);
+  const [pastPage, setPastPage] = useState(0);
+  const [slotsPage, setSlotsPage] = useState(0);
+  const [slotCounselorFilter, setSlotCounselorFilter] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -148,6 +204,15 @@ const SessionsPage = () => {
     return () => socket.off("appointment:updated", fetchData);
   }, []);
 
+  const refreshSlots = async () => {
+    try {
+      const slotRes = await axiosInstance.get('/availability');
+      setSlots(slotRes.data.filter((s) => s.isAvailable !== false));
+    } catch (err) {
+      console.error('Failed to refresh slots:', err);
+    }
+  };
+
   const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active', 'on-going', 'paused'].includes(a.status));
   const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'ended', 'archived'].includes(a.status));
   const hasPast = past.length > 0;
@@ -158,6 +223,36 @@ const SessionsPage = () => {
   const dateStr = selectedDay?.dateStr || '';
   const daySlots = bookableSlots.filter((s) => s.date === dateStr);
   const dayBookings = appointments.filter((b) => b.date === dateStr);
+  const slotCounselors = (() => {
+    const map = new Map();
+    bookableSlots.forEach((s) => map.set(String(s.counselorId), s.fullName));
+    return [...map.entries()]
+      .map(([id, name]) => ({ id, name: name || `Counselor #${id}` }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
+
+  const filteredSlots = slotCounselorFilter
+    ? bookableSlots.filter((s) => String(s.counselorId) === String(slotCounselorFilter))
+    : bookableSlots;
+
+  const groupedSlots = groupSlotsByDate(filteredSlots);
+  const daySlotGroups = daySlots.length ? groupSlotsByDate(daySlots)[0].counselors : [];
+
+  const SLOTS_PER_PAGE = 3;
+  const slotsTotalPages = Math.max(1, Math.ceil(groupedSlots.length / SLOTS_PER_PAGE));
+  const safeSlotsPage = Math.min(slotsPage, slotsTotalPages - 1);
+  const visibleGroupedSlots = groupedSlots.slice(
+    safeSlotsPage * SLOTS_PER_PAGE,
+    safeSlotsPage * SLOTS_PER_PAGE + SLOTS_PER_PAGE
+  );
+
+  const PAST_PER_PAGE = 3;
+  const pastTotalPages = Math.max(1, Math.ceil(past.length / PAST_PER_PAGE));
+  const safePastPage = Math.min(pastPage, pastTotalPages - 1);
+  const visiblePast = past.slice(
+    safePastPage * PAST_PER_PAGE,
+    safePastPage * PAST_PER_PAGE + PAST_PER_PAGE
+  );
 
   const handleDateClick = (cell) => { setSelectedDay(cell); setModalOpen(true); };
   const handleBook = async (slot) => {
@@ -172,6 +267,7 @@ const SessionsPage = () => {
       toast.success(`Booked ${slot.time} — awaiting counselor confirmation`);
       const res = await axiosInstance.get('/appointments');
       setAppointments(res.data);
+      await refreshSlots();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to book slot');
     }
@@ -179,18 +275,18 @@ const SessionsPage = () => {
 
   const handleClearPast = async () => {
     const confirmed = await new Promise((resolve) => {
-      toast((t) => (
-        <div className="flex items-center gap-3">
+      toast(({ closeToast }) => (
+        <div className="flex items-center gap-3 py-3">
           <span className="text-sm text-neutral-700">Clear all past sessions?</span>
           <button
-            onClick={() => { toast.dismiss(t.id); resolve(true); }}
-            className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+            onClick={() => { closeToast(); resolve(true); }}
+            className="px-3 py-1 text-[8px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
           >
             Clear
           </button>
           <button
-            onClick={() => { toast.dismiss(t.id); resolve(false); }}
-            className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
+            onClick={() => { closeToast(); resolve(false); }}
+            className="px-3 py-1 text-[8px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
           >
             Cancel
           </button>
@@ -245,29 +341,60 @@ const SessionsPage = () => {
           </div>
 
           <div>
-            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Available Slots</h3>
-            {bookableSlots.length === 0 ? (
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Slots</h3>
+              {slotCounselors.length > 0 && (
+                <select
+                  value={slotCounselorFilter}
+                  onChange={(e) => setSlotCounselorFilter(e.target.value)}
+                  className="bg-transparent border border-neutral-200 text-xs rounded-sm px-2.5 py-1.5 text-neutral-700 focus:border-neutral-900 outline-none transition-colors"
+                >
+                  <option value="">All Counselors</option>
+                  {slotCounselors.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {groupedSlots.length === 0 ? (
               <div className="bg-white border border-neutral-200 rounded-sm p-6 text-center">
                 <p className="text-xs text-neutral-400">No available slots at this time.</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {bookableSlots.map((slot) => (
-                  <div key={slot._id} className="bg-white border border-neutral-200 rounded-sm p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-neutral-900">{slot.fullName || `Counselor #${slot.counselorId}`}</p>
-                      <p className="text-xs text-neutral-400 mt-0.5">{slot.date} · {slot.time}</p>
+              <div className="space-y-3">
+                {visibleGroupedSlots.map(({ date, counselors }) => {
+                  const totalTimes = counselors.reduce((n, c) => n + c.times.length, 0);
+                  return (
+                    <div key={date} className="bg-white border border-neutral-200 rounded-sm overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-neutral-100 flex items-center gap-2">
+                        <CalendarDays size={13} className="text-neutral-400 shrink-0" />
+                        <span className="text-xs font-medium text-neutral-900">{formatLongDate(date)}</span>
+                        <span className="text-[10px] text-neutral-400 ml-auto">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="divide-y divide-neutral-100">
+                        {counselors.map((c) => (
+                          <div key={c.counselorId} className="px-4 py-3">
+                            <p className="text-xs font-medium text-neutral-700 mb-2">{c.fullName || `Counselor #${c.counselorId}`}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {c.times.map(({ time, slot }) => (
+                                <button
+                                  key={slot._id}
+                                  onClick={() => handleBook(slot)}
+                                  className="px-3 py-1.5 text-xs rounded-sm border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+                                >
+                                  {time}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <button
-                      onClick={() => handleBook(slot)}
-                      className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
-                    >
-                      Book
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
+            <Pagination page={safeSlotsPage} totalPages={slotsTotalPages} onChange={setSlotsPage} />
           </div>
         </div>
 
@@ -293,7 +420,8 @@ const SessionsPage = () => {
             </div>
           ) : (
             <div className="space-y-2">
-              {past.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
+              {visiblePast.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
+              <Pagination page={safePastPage} totalPages={pastTotalPages} onChange={setPastPage} />
             </div>
           )}
         </div>
@@ -315,11 +443,21 @@ const SessionsPage = () => {
         {daySlots.length > 0 ? (
           <div>
             <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Available Slots</span>
-            <div className="space-y-1.5">
-              {daySlots.map((s) => (
-                <div key={s._id} className="flex items-center justify-between py-2 px-3 bg-neutral-50 rounded-sm">
-                  <span className="text-sm text-neutral-700">{s.time}</span>
-                  <button onClick={() => { handleBook(s); setModalOpen(false); }} className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">Book</button>
+            <div className="space-y-3">
+              {daySlotGroups.map((c) => (
+                <div key={c.counselorId}>
+                  <p className="text-xs font-medium text-neutral-700 mb-1.5">{c.fullName || `Counselor #${c.counselorId}`}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {c.times.map(({ time, slot }) => (
+                      <button
+                        key={slot._id}
+                        onClick={() => { handleBook(slot); setModalOpen(false); }}
+                        className="px-3 py-1.5 text-xs rounded-sm border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

@@ -8,7 +8,7 @@ import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../components/EmptyState';
 import TextWithLinks from '../components/TextWithLinks';
 import Modal from '../components/Modal';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const getTotalReactions = (reactions) => {
   if (!reactions || typeof reactions !== 'object') return 0;
@@ -201,14 +201,14 @@ const CounselorAnnouncementManagerPage = () => {
       setAnnouncements((prev) => prev.filter((a) => a._id !== id));
 
       toast(
-        (t) => (
+        ({ closeToast }) => (
           <div className="flex items-center gap-3">
-            <span className="text-sm">Deleted "{title}"</span>
+            <span className="text-sm text-neutral-900">Deleted "{title}"</span>
             <button
               onClick={async () => {
                 try {
                   await axiosInstance.patch(`/announcements/${id}/restore`);
-                  toast.dismiss(t.id);
+                  closeToast();
                   toast.success('Announcement restored');
                   fetchAnnouncements();
                 } catch {
@@ -221,7 +221,7 @@ const CounselorAnnouncementManagerPage = () => {
             </button>
           </div>
         ),
-        { duration: 5000 }
+        { autoClose: 5000 }
       );
     } catch {
       toast.error('Failed to delete announcement');

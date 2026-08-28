@@ -1,10 +1,15 @@
 import mongoose from "mongoose";
-import { generateUniqueId } from "../lib/generateId.js";
+import { generateUniqueId, generateUniqueDynamicId } from "../lib/generateId.js";
 
 const userSchema = new mongoose.Schema(
     {
         _id: {
             type: Number,
+        },
+        dynamicId: {
+            type: String,
+            unique: true,
+            sparse: true,
         },
         studentId: {
             type: String,
@@ -83,6 +88,9 @@ const userSchema = new mongoose.Schema(
 userSchema.pre("save", async function () {
   if (!this._id) {
     this._id = await generateUniqueId(mongoose.model("User"));
+  }
+  if (!this.dynamicId) {
+    this.dynamicId = await generateUniqueDynamicId(mongoose.model("User"));
   }
 });
 

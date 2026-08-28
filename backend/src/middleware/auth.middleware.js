@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
+import { generateUniqueDynamicId } from "../lib/generateId.js";
 
 export const protectRoute = async (req, res, next) => {
     try {
@@ -20,6 +21,9 @@ export const protectRoute = async (req, res, next) => {
 
         if (!user) {
             user = await Counselor.findById(decoded.userId).select("-password");
+        } else if (!user.dynamicId) {
+            user.dynamicId = await generateUniqueDynamicId(User);
+            await user.save();
         }
 
         if (!user) {

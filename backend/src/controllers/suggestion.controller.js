@@ -1,4 +1,6 @@
 import Suggestion from "../models/suggestion.model.js";
+import User from "../models/user.model.js";
+import { getDailyDynamicId } from "../lib/generateId.js";
 
 export const getSuggestions = async (req, res) => {
   try {
@@ -6,7 +8,19 @@ export const getSuggestions = async (req, res) => {
       ? { isDeleted: { $ne: true } }
       : { studentId: req.user._id, isDeleted: { $ne: true } };
     const suggestions = await Suggestion.find(filter).sort({ createdAt: -1 });
-    res.json(suggestions);
+
+    let result = suggestions;
+    if (req.user.constructor.modelName === "Counselor") {
+      const studentIds = [...new Set(suggestions.map((s) => s.studentId))];
+      const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId").lean();
+      const dynamicMap = Object.fromEntries(students.map((s) => [String(s._id), s.dynamicId]));
+      result = suggestions.map((s) => ({
+        ...s.toObject(),
+        studentDynamicId: getDailyDynamicId(dynamicMap[String(s.studentId)]) || null,
+      }));
+    }
+
+    res.json(result);
   } catch (error) {
     console.error("Error in getSuggestions:", error.message);
     res.status(500).json({ error: "Internal server error" });

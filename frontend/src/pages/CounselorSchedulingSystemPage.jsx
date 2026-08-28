@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check, X, Loader } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
 import PageShell from '../components/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import Modal from '../components/Modal';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -63,7 +63,7 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates,
                 <div key={b._id} className={`text-[9px] font-medium px-1 py-0.5 rounded-sm truncate ${
                   b.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-700'
                 }`}>
-                  {b.time} STU-{b.studentId}
+                  {b.time} STU-{b.studentDynamicId || b.studentId}
                 </div>
               ))}
               {cell.bookings.length > 3 && <span className="text-[9px] text-neutral-400 pl-1">+{cell.bookings.length - 3} more</span>}
@@ -147,7 +147,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                   <User size={14} className="text-neutral-500" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-neutral-900">STU-{b.studentId}</p>
+                  <p className="text-sm font-medium text-neutral-900">STU-{b.studentDynamicId || b.studentId}</p>
                   <p className="text-[11px] text-neutral-400">{b.time} · {b.type === 'Chat' ? 'Chat Session' : 'Face-to-Face'}</p>
                 </div>
               </div>
@@ -169,6 +169,34 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                 <span className={`px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] uppercase rounded-sm border ${status.style}`}>
                   {status.label}
                 </span>
+                {b.type === 'Face-To-Face' && b.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await axiosInstance.patch(`/appointments/${b._id}`, { status: 'confirmed' });
+                          toast.success('Booking approved');
+                          onRefresh();
+                        } catch { toast.error('Failed to approve booking'); }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-emerald-600 hover:bg-emerald-700 transition-colors rounded-sm"
+                    >
+                      <Check size={12} /> Approve
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await axiosInstance.patch(`/appointments/${b._id}`, { status: 'declined' });
+                          toast.success('Booking declined');
+                          onRefresh();
+                        } catch { toast.error('Failed to decline booking'); }
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+                    >
+                      <X size={12} /> Decline
+                    </button>
+                  </>
+                )}
                 {(b.type === 'Face-To-Face' && b.status === 'on-going') && (
                   <>
                     <button
@@ -308,7 +336,9 @@ const CounselorSchedulingSystemPage = () => {
     try {
       const res = await axiosInstance.get('/appointments');
       setBookings(res.data);
-    } catch {}
+    } catch (err) {
+      console.error('Failed to refresh bookings:', err);
+    }
   };
 
   const handleToggleSlot = async (time) => {

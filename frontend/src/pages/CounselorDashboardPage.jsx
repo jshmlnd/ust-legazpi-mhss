@@ -10,7 +10,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
 } from 'recharts';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
@@ -99,17 +99,29 @@ const AnalyticsSummary = ({ data }) => (
   </div>
 );
 
-const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId }) => {
+const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onClearAll, clearingAll }) => {
   const navigate = useNavigate();
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm">
-      <div className="px-6 pt-6 pb-3 flex items-center justify-between">
+      <div className="px-6 pt-6 pb-3 flex items-center justify-between gap-3">
         <div>
           <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Upcoming Sessions</span>
           <h3 className="mt-1 text-sm font-medium text-neutral-900">All Requests</h3>
         </div>
-        <span className="text-[11px] font-medium text-neutral-400">{sessions.length} total</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] font-medium text-neutral-400">{sessions.length} total</span>
+          {sessions.length > 0 && (
+            <button
+              onClick={onClearAll}
+              disabled={clearingAll}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-red-600 hover:border-red-300 transition-colors rounded-sm disabled:opacity-50"
+            >
+              {clearingAll ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              Clear All
+            </button>
+          )}
+        </div>
       </div>
       {sessions.length === 0 ? (
         <div className="px-6 py-8 text-center text-xs text-neutral-400">No upcoming sessions.</div>
@@ -315,6 +327,7 @@ const CounselorDashboardPage = () => {
   const [upcomingSessions, setUpcomingSessions] = useState([]);
   const [summaryData, setSummaryData] = useState({ peakHours: '—', topResources: '—', avgDuration: '—', accessPct: 0 });
   const [acceptingId, setAcceptingId] = useState(null);
+  const [clearingAll, setClearingAll] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [announcementForm, setAnnouncementForm] = useState({ title: '', body: '' });
@@ -438,6 +451,41 @@ const CounselorDashboardPage = () => {
       toast.success(`Declined Chat with ${session.id}`);
     } catch { toast.error('Failed to decline request.'); }
     finally { setAcceptingId(null); }
+  };
+
+  const handleClearAll = async () => {
+    const confirmed = await new Promise((resolve) => {
+      toast(({ closeToast }) => (
+        <div className="flex flex-col gap-3">
+          <span className="text-sm text-neutral-900">Clear all requests from your dashboard? This will hide them for you but keep student records intact.</span>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => { closeToast(); resolve(false); }}
+              className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { closeToast(); resolve(true); }}
+              className="px-3 py-1 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      ));
+    });
+    if (!confirmed) return;
+    setClearingAll(true);
+    try {
+      await axiosInstance.post('/appointments/clear-all');
+      setUpcomingSessions([]);
+      toast.success('All requests cleared');
+    } catch {
+      toast.error('Failed to clear requests.');
+    } finally {
+      setClearingAll(false);
+    }
   };
 
   useEffect(() => {
@@ -586,7 +634,7 @@ const CounselorDashboardPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-neutral-200 rounded-sm overflow-hidden">
           <div className="lg:col-span-2">
-            <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} />
+            <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} onClearAll={handleClearAll} clearingAll={clearingAll} />
           </div>
           <div className="lg:col-span-1">
             <ResourceTracking />
@@ -618,7 +666,7 @@ const CounselorDashboardPage = () => {
                         <div className="min-w-0">
                           <p className="text-xs text-neutral-900">{s.message}</p>
                           <p className="text-[10px] text-neutral-400 mt-1">
-                            STU-{s.studentId} · {new Date(s.createdAt).toLocaleDateString()}
+                            STU-{s.studentDynamicId || s.studentId} · {new Date(s.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">

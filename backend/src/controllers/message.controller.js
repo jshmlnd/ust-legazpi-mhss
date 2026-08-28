@@ -4,6 +4,7 @@ import Appointment from "../models/appointment.model.js";
 import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
+import { generateUniqueDynamicId, getDailyDynamicId } from "../lib/generateId.js";
 
 const MALWARE_EXTENSIONS = ['.exe', '.bat', '.cmd', '.com', '.msi', '.scr', '.pif', '.vbs', '.js', '.ws', '.wsh'];
 const DLP_PATTERNS = [
@@ -32,12 +33,26 @@ export const getUsersForSidebar = async (req, res) => {
         if (isStudent) {
             filteredUsers = await Counselor.find({ _id: { $ne: loggedInUserId } }).select("-password");
         } else {
-            const appointments = await Appointment.find({ counselorId: loggedInUserId }).select("studentId");
+            const appointments = await Appointment.find({
+                counselorId: loggedInUserId,
+                type: 'Chat',
+                status: { $nin: ['ended', 'completed', 'cancelled', 'declined', 'archived'] },
+            }).select("studentId");
             const studentIds = [...new Set(appointments.map((a) => a.studentId))];
             filteredUsers = await User.find({ _id: { $in: studentIds } }).select("-password");
         }
 
-        res.status(200).json(filteredUsers);
+        for (const u of filteredUsers) {
+            if (!u.dynamicId) {
+                u.dynamicId = await generateUniqueDynamicId(User);
+                await u.save();
+            }
+        }
+
+        res.status(200).json(filteredUsers.map((u) => ({
+            ...u.toObject(),
+            dynamicId: getDailyDynamicId(u.dynamicId),
+        })));
     } catch (error) {
         console.error("Error in getUsersForSidebar:", error);
         res.status(500).json({ error: "Internal server error" });

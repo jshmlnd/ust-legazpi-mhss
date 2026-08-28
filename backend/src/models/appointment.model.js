@@ -17,6 +17,7 @@ const appointmentSchema = new mongoose.Schema({
   startedAt: { type: Date },
   endedAt: { type: Date },
   studentArchived: { type: Boolean, default: false },
+  counselorArchived: { type: Boolean, default: false },
 }, { timestamps: true });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

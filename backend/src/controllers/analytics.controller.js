@@ -4,6 +4,7 @@ import Appointment from "../models/appointment.model.js";
 import JournalEntry from "../models/journalEntry.model.js";
 import SelfCareModule from "../models/selfCareModule.model.js";
 import Resource from "../models/resource.model.js";
+import { getDailyDynamicId } from "../lib/generateId.js";
 
 const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
 
@@ -78,14 +79,19 @@ export const getUpcomingSessions = async (req, res) => {
   try {
     const sessions = await Appointment.find({
       counselorId: req.user._id,
+      counselorArchived: { $ne: true },
       status: { $in: ["pending", "active", "declined", "completed", "cancelled", "on-going", "paused", "ended"] },
     })
       .sort({ createdAt: -1 })
       .limit(20);
 
+    const studentIds = [...new Set(sessions.map((s) => s.studentId))];
+    const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId").lean();
+    const dynamicMap = Object.fromEntries(students.map((s) => [String(s._id), s.dynamicId]));
+
     const result = sessions.map((s) => ({
       _id: s._id,
-      id: `STU-${s.studentId}`,
+      id: `STU-${getDailyDynamicId(dynamicMap[String(s.studentId)]) || s.studentId}`,
       studentId: s.studentId,
       type: s.type,
       time: s.time,
@@ -192,6 +198,7 @@ export const getStudentInfo = async (req, res) => {
     res.json({
       _id: student._id,
       studentId: student.studentId,
+      dynamicId: getDailyDynamicId(student.dynamicId),
       fullName: student.fullName,
       department: student.department,
       program: student.program,

@@ -3,7 +3,7 @@ import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 
 export const createCallLog = async (req, res) => {
     try {
-        const { receiverId, duration, status } = req.body;
+        const { receiverId, duration, status, appointmentId } = req.body;
         const callerId = req.user._id;
         const callerModel = req.user.constructor.modelName;
         const receiverModel = callerModel === "User" ? "Counselor" : "User";
@@ -15,6 +15,7 @@ export const createCallLog = async (req, res) => {
             receiverModel,
             duration: duration || 0,
             status: status || 'ended',
+            ...(appointmentId ? { appointmentId } : {}),
         });
 
         await callLog.save();
@@ -35,13 +36,17 @@ export const getCallLogs = async (req, res) => {
     try {
         const { userId } = req.params;
         const myId = req.user._id;
+        const { appointmentId } = req.query;
 
-        const logs = await CallLog.find({
+        const match = {
             $or: [
                 { callerId: myId, receiverId: Number(userId) },
                 { callerId: Number(userId), receiverId: myId },
             ],
-        }).sort({ createdAt: -1 });
+        };
+        if (appointmentId) match.appointmentId = appointmentId;
+
+        const logs = await CallLog.find(match).sort({ createdAt: -1 });
 
         res.status(200).json(logs);
     } catch (error) {

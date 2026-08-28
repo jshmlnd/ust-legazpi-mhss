@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
+import { generateUniqueDynamicId, getDailyDynamicId, toPublicUser } from "../lib/generateId.js";
 
 export const updateProfileDetails = async (req, res) => {
     try {
@@ -23,7 +24,7 @@ export const updateProfileDetails = async (req, res) => {
         await account.save();
 
         const updated = await Model.findById(userId).select("-password");
-        res.status(200).json(updated);
+        res.status(200).json(toPublicUser(updated));
     } catch (error) {
         console.log("Error in updateProfileDetails controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
@@ -57,6 +58,11 @@ export const login = async (req , res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
+        if (role === "student" && !account.dynamicId) {
+            account.dynamicId = await generateUniqueDynamicId(User);
+            await account.save();
+        }
+
         const isPasswordCorrect = await bcrypt.compare(password, account.password);
 
         if (!isPasswordCorrect) {
@@ -67,6 +73,7 @@ export const login = async (req , res) => {
 
         return res.status(200).json({ 
             _id: account._id, 
+            dynamicId: getDailyDynamicId(account.dynamicId),
             fullName: account.fullName, 
             email: account.email, 
             phone: account.phone || null,
@@ -126,6 +133,7 @@ export const register = async (req, res) => {
 
             res.status(201).json({
                 _id:newUser._id,
+                dynamicId: getDailyDynamicId(newUser.dynamicId),
                 fullName: newUser.fullName,
                 email: newUser.email,
                 phone: newUser.phone,
@@ -232,15 +240,15 @@ export const updateProfile = async (req, res) => {
         }
 
         if(profilePic === '') {
-            const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
-            return res.status(200).json(updatedUser);
+        const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
+        return res.status(200).json(toPublicUser(updatedUser));
         }
 
         const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
 
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
 
-        res.status(200).json(updatedUser);
+        res.status(200).json(toPublicUser(updatedUser));
 
     } catch (error) {
         console.log("Error in updateProfile controller: ", error.message);

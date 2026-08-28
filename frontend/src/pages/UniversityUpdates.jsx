@@ -8,7 +8,7 @@ import { PageShellSkeleton } from '../components/skeleton';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../components/EmptyState';
 import TextWithLinks from '../components/TextWithLinks';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const REACTIONS = [
   { emoji: '👍', key: 'like', label: 'Like' },

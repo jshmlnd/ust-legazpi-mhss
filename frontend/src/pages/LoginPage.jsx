@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const LoginPage = () => {
   const [studentId, setStudentId] = useState('');
@@ -37,8 +37,9 @@ const LoginPage = () => {
 
   return (
     <main>
-      <div className="absolute inset-0 -z-10 scale-100 bg-center bg-cover bg-no-repeat blur-[20px]"
+      <div className="login-bg-image absolute inset-0 -z-10 scale-100 bg-center bg-cover bg-no-repeat blur-[20px]"
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }} />
+      <div className="login-bg-overlay absolute inset-0 -z-10" />
       <div className="min-h-full pt-32 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">
           <div className="mb-12 text-center">

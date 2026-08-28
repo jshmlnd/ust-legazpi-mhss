@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Toaster } from 'react-hot-toast';
+import { ToastContainer } from 'react-toastify';
 
 import Navbar from "./components/Navbar";
 
@@ -32,6 +32,7 @@ import { Loader } from "lucide-react";
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
+import { loadPrefs, usePrefs } from './lib/prefs';
 import VoiceCallModal from './components/VoiceCallModal';
 
 
@@ -41,6 +42,7 @@ const App = () => {
   const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
 
   const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
+  const { prefs } = usePrefs(authUser?._id);
   const peerDisplayName = (() => {
     if (incomingCall?.callerName) {
       return isCounselor ? `STU-${incomingCall.callerId}` : incomingCall.callerName;
@@ -52,6 +54,14 @@ const App = () => {
   })();
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
+
+  useEffect(() => {
+    const prefs = loadPrefs(authUser?._id);
+    const root = document.documentElement;
+    root.classList.toggle('calm-mode', !!prefs.calmMode);
+    root.classList.toggle('dark', !!prefs.switchmode);
+    root.setAttribute('data-theme', prefs.switchmode ? 'emerald-dark' : 'emerald');
+  }, [authUser?._id]);
 
   useEffect(() => {
     registerServiceWorker();
@@ -81,7 +91,7 @@ if(isCheckingAuth && !authUser) return (
   <div>
 
     <Navbar />
-    <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
+    <ToastContainer position="top-center" autoClose={3000} hideProgressBar newestOnTop closeOnClick pauseOnHover rtl={false} theme={prefs.switchmode ? 'dark' : 'light'} />
     <VoiceCallModal
       peerName={peerDisplayName}
     />

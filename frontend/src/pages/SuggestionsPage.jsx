@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Lightbulb, Send, Trash2, Loader, Clock } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const SuggestionsPage = () => {
   const { authUser } = useAuthStore();

@@ -6,7 +6,7 @@ import { useChatStore } from '../store/useChatStore';
 import { useCallStore } from '../store/useCallStore';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 
 const CRISIS_DISPLAY_TERMS = [
@@ -568,11 +568,12 @@ const CounselorChatView = () => {
         String(appointment.studentId) === String(selectedUser._id) &&
         appointment.type === 'Chat'
       ) {
-        if (appointment.status === 'completed') {
+        if (appointment.status === 'completed' || appointment.status === 'ended' || appointment.status === 'cancelled' || appointment.status === 'declined' || appointment.status === 'archived') {
           const st = useCallStore.getState();
           if (st.callState !== 'idle') st.endCall(false);
           setActiveAppointment(null);
           setSessionEndedBanner(true);
+          getUsers();
         } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
           setActiveAppointment(appointment);
           setSessionEndedBanner(false);
@@ -582,7 +583,7 @@ const CounselorChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [selectedUser]);
+  }, [selectedUser, getUsers]);
 
   const handleSend = useCallback(async (data) => {
     try {
@@ -666,7 +667,7 @@ const CounselorChatView = () => {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight truncate">
-                      STU-{user._id}
+                      STU-{user.dynamicId || user._id}
                     </p>
                     {unreadCounts[String(user._id)] > 0 && (
                       <span className="shrink-0 size-5 rounded-sm bg-red-600 text-white text-[10px] font-bold flex items-center justify-center">
@@ -709,7 +710,7 @@ const CounselorChatView = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-neutral-900 font-mono tracking-tight">
-                      STU-{selectedUser._id}
+                      STU-{selectedUser.dynamicId || selectedUser._id}
                     </p>
                     {sessionEndedBanner ? (
                       <p className="text-[11px] text-red-500 font-medium">Session has ended</p>
@@ -763,7 +764,7 @@ const CounselorChatView = () => {
             {/* Emergency Banner */}
             {flaggedMessage && flaggedMessage.userId === selectedUser._id && (
               <EmergencyBanner
-                studentName={`STU-${selectedUser._id}`}
+                studentName={`STU-${selectedUser.dynamicId || selectedUser._id}`}
                 onReveal={handleReveal}
                 onDismiss={clearFlaggedMessage}
                 severity={crisisAnalysis?.severity?.level}
@@ -776,7 +777,11 @@ const CounselorChatView = () => {
                 <div className="flex items-center justify-center h-full">
                   <Loader size={20} className="animate-spin text-neutral-400" />
                 </div>
-              ) : messages.length === 0 && !sessionEndedBanner ? (
+              ) : sessionEndedBanner ? (
+                <div className="flex items-center justify-center h-full px-6 text-center">
+                  <p className="text-xs text-neutral-400">This session has ended. The conversation is no longer available.</p>
+                </div>
+              ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-xs text-neutral-400">No messages yet with this student.</p>
                 </div>

@@ -1,6 +1,6 @@
 import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader, CalendarDays, Clock, User, MoveRight, Pencil } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
@@ -8,7 +8,7 @@ import { getSocket } from "../lib/socket";
 import { PATHS } from '../lib/routes';
 import Modal from '../components/Modal';
 import RoleGate from '../components/RoleGate';
-import toast from 'react-hot-toast';
+import { toast } from 'react-toastify';
 
 const DEFAULT_NOTICE = {
   tag: "NOTICE",
@@ -73,7 +73,7 @@ const HomePage = () => {
   const navigate = useNavigate();
 
   const firstName = authUser?.fullName?.split(" ")[0] ?? "Student";
-  const genid = authUser?._id;
+  const genid = authUser?.dynamicId;
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(null);
   const [requestOpen, setRequestOpen] = useState(false);
@@ -144,11 +144,11 @@ const HomePage = () => {
       );
       if (pending) setPendingRequest(pending);
       const f2f = appRes.data.find(
-        (a) => a.type === "f2f" && ["pending", "confirmed", "active"].includes(a.status)
+        (a) => a.type === "Face-To-Face" && ["pending", "confirmed", "active"].includes(a.status)
       );
       setUpcomingF2f(f2f || null);
       const declined = appRes.data.find(
-        (a) => a.type === "f2f" && a.status === "declined"
+        (a) => a.type === "Face-To-Face" && a.status === "declined"
       );
       setDeclinedF2f(declined || null);
       const map = {};
@@ -175,11 +175,11 @@ const HomePage = () => {
         );
         if (pending) setPendingRequest(pending);
         const f2f = appRes.data.find(
-          (a) => a.type === "f2f" && ["pending", "confirmed", "active"].includes(a.status)
+          (a) => a.type === "Face-To-Face" && ["pending", "confirmed", "active"].includes(a.status)
         );
         setUpcomingF2f(f2f || null);
         const declined = appRes.data.find(
-          (a) => a.type === "f2f" && a.status === "declined"
+          (a) => a.type === "Face-To-Face" && a.status === "declined"
         );
         setDeclinedF2f(declined || null);
         const map = {};
@@ -324,21 +324,31 @@ const HomePage = () => {
       toast.error(msg);
     } finally { setF2fSubmitting(false); }
   };
+
+  const availableDates = useMemo(() => {
+    const counts = {};
+    f2fAllSlots
+      .filter((s) => s.isAvailable)
+      .forEach((s) => { counts[s.date] = (counts[s.date] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [f2fAllSlots]);
 //
   return (
     <main className="relative min-h-screen overflow-hidden">
       <div
-        className="absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[15px]"
+        className="home-bg-image absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[15px]"
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
       />
-      <div className="absolute inset-0 -z-10 bg-white/70" />
+      <div className="home-bg-overlay absolute inset-0 -z-10 bg-white/70" />
       <div className="mx-auto max-w-[1200px] pt-[calc(68px+3rem)] pb-28 px-6 lg:px-10">
         {/* ──────── SECTION 1: HERO ──────── */}
         <section className="relative min-h-screen">
           <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
             {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
             <span className="font-medium">{firstName}</span><br />
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Static ID: STU-{genid}</span>
+            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Dynamic ID: STU-{genid}</span>
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-500">Note: counselor can only see your static id</span>
           </h1>
           <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-neutral-600 tracking-[-0.01em]">
@@ -353,7 +363,7 @@ const HomePage = () => {
             <span className="text-sm leading-none"><MoveRight className="size-3" /></span>
           </Link>
           {/* Announcement Card */}
-          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 glass rounded-sm relative group">
+          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 backdrop-blur-xl rounded-sm relative group">
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">
               {notice.tag}
             </span>
@@ -391,7 +401,7 @@ const HomePage = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-neutral-200 overflow-hidden rounded-sm">
             {/* Card 1 — Active Chat / Pending Request / Request */}
-            <div className={`group relative bg-white/20 glass p-8 transition-all duration-300 ${hasActiveChat || pendingRequest ? 'hover:bg-neutral-50' : ''}`}>
+            <div className={`group relative bg-neutral-50 backdrop-blur-md p-8 transition-all duration-300 ${hasActiveChat || pendingRequest ? 'hover:bg-neutral-50' : ''}`}>
               {pendingRequest ? (
                 <>
                   <div className="flex items-center gap-2.5 mb-5">
@@ -472,11 +482,11 @@ const HomePage = () => {
             </div>
 
             {/* Card 2 — Scheduled Session / Declined / Book F2F */}
-            <div className="group relative bg-white/20 glass p-8 transition-all duration-300">
+            <div className="group relative bg-neutral-50 backdrop-blur-md p-8 transition-all duration-300">
               {upcomingF2f ? (
                 <>
                   <div className="flex items-center justify-between mb-5">
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">
+                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-900">
                       Upcoming
                     </span>
                     <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${upcomingF2f.status === 'active' || upcomingF2f.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
@@ -568,12 +578,12 @@ const HomePage = () => {
 
             {/* Card 3 — Diary */}
             <div
-              className="group relative bg-white/20 glass p-8"
+              className="group relative bg-neutral-50 backdrop-blur-md p-8"
             >
-              <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">
+              <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-900">
                 Personal
               </span>
-              <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-500 mb-2">
+              <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
                 {QUICK_ACTIONS[2].title}
               </h3>
               <p className="text-xs leading-[1.6] text-neutral-500 mb-4">{QUICK_ACTIONS[2].description}</p>
@@ -590,7 +600,7 @@ const HomePage = () => {
         </section>
 
         {/* ──────── SECTION 3: UNIVERSITY GUIDANCE & COUNSELING SERVICES ──────── */}
-        <section>
+        <section >
           <div className="mb-12">
             <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-600">
               University Services
@@ -608,7 +618,7 @@ const HomePage = () => {
             {SERVICE_CARDS.map((card) => (
               <article
                 key={card.number}
-                className="group relative bg-neutral-50 glass p-8 cursor-default"
+                className="group relative bg-neutral-50 backdrop-blur-md p-8 cursor-default"
               >
                 <span className="text-[13px] font-mono font-semibold text-neutral-500">
                   {card.number}
@@ -711,45 +721,55 @@ const HomePage = () => {
             </select>
           </div>
 
-          {f2fCounselorId && f2fAllSlots.length > 0 && (
-            <div className="space-y-1.5">
+          {f2fCounselorId && availableDates.length > 0 && (
+            <div className="space-y-2">
               <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Dates</label>
               <div className="flex flex-wrap gap-2">
-                {[...new Set(f2fAllSlots.filter(s => s.isAvailable).map(s => s.date))].sort().map((date) => (
+                {availableDates.map(({ date, count }) => (
                   <button
                     key={date}
                     type="button"
                     onClick={() => handleF2fDateChange(date)}
-                    className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                    className={`flex flex-col items-center px-3 py-1.5 text-xs rounded-sm border transition-colors ${
                       f2fDate === date
                         ? 'bg-neutral-900 text-white border-neutral-900'
                         : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
                     }`}
                   >
-                    {new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    <span>{new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                    <span className={`text-[9px] ${f2fDate === date ? 'text-neutral-300' : 'text-neutral-400'}`}>
+                      {count} slot{count !== 1 ? 's' : ''}
+                    </span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-{f2fCounselorId && f2fAllSlots.length > 0 && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Time</label>
+          {f2fCounselorId && f2fDate && (
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Times</label>
               {f2fLoadingSlots ? (
                 <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading available times...</div>
-              ) : (
-                <select
-                  value={f2fTime}
-                  onChange={(e) => setF2fTime(e.target.value)}
-                  disabled={!f2fCounselorId || !f2fDate}
-                  className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors disabled:opacity-40"
-                >
-                  <option value="">Select a time slot</option>
+              ) : f2fAvailableTimes.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
                   {f2fAvailableTimes.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setF2fTime(t)}
+                      className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
+                        f2fTime === t
+                          ? 'bg-neutral-900 text-white border-neutral-900'
+                          : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                      }`}
+                    >
+                      {t}
+                    </button>
                   ))}
-                </select>
+                </div>
+              ) : (
+                <p className="text-xs text-neutral-400 py-1">No available times for this date.</p>
               )}
             </div>
           )}
@@ -783,26 +803,6 @@ const HomePage = () => {
           </div>
         </form>
       </Modal>
-
-      {noticeEditOpen && (
-        <Modal isOpen onClose={() => setNoticeEditOpen(false)} title="Edit Notice">
-          <div className="space-y-3">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-1.5">Notice Text</label>
-            <textarea
-              value={noticeForm.text}
-              onChange={(e) => setNoticeForm({ ...noticeForm, text: e.target.value })}
-              rows={3}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
-            />
-            <div className="flex items-center justify-end gap-3 pt-1">
-              <button onClick={() => setNoticeEditOpen(false)} className="px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-              <button onClick={handleSaveNotice} disabled={savingNotice || !noticeForm.text.trim()} className="px-4 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50">
-                {savingNotice ? 'Saving...' : 'Save'}
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </main>
   );
 };

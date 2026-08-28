@@ -3,6 +3,7 @@ import AgoraRTC from "agora-rtc-sdk-ng";
 import { getSocket } from "../lib/socket";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
+import { useChatStore } from "./useChatStore";
 import toast from "react-hot-toast";
 
 const generateChannelName = (userId1, userId2) => {
@@ -131,10 +132,12 @@ export const useCallStore = create((set, get) => ({
     if (get()._logged) return;
     set({ _logged: true });
     try {
+      const appointmentId = useChatStore.getState().currentAppointmentId;
       await axiosInstance.post('/call-logs', {
         receiverId: peerId,
         duration,
         status: wasActive ? 'ended' : 'cancelled',
+        ...(appointmentId ? { appointmentId } : {}),
       });
     } catch {
       // silently fail

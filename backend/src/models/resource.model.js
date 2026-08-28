@@ -4,7 +4,10 @@ const resourceSchema = new mongoose.Schema({
   title: { type: String, required: true },
   type: {
     type: String,
-    enum: ['article', 'hotline', 'sheet', 'location'],
+    // 'article' and 'sheet' are legacy documents created before the
+    // psychiatrist/psychologist types existed; keep them valid so old docs
+    // can still be read and edited.
+    enum: [ 'hotline', 'location', 'psychiatrist', 'psychologist'],
     required: true,
   },
   description: { type: String, default: '' },

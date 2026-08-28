@@ -1,0 +1,32 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "shell": "pwsh",
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "backend/node_modules/**",
+      "frontend/node_modules/**",
+      "dist/**",
+      "dist-ssr/**",
+      "backend/dist/**",
+      "frontend/dist/**",
+      ".git/**",
+      "*.local"
+    ]
+  },
+  "instructions": ["README.md"],
+  "command": {
+    "dev": {
+      "description": "Run backend and frontend dev servers",
+      "template": "Start the development servers. Run `npm run dev --prefix backend` (Express + Nodemon) and `npm run dev --prefix frontend` (Vite) in parallel. Report the local URLs."
+    },
+    "build": {
+      "description": "Install deps and build the project",
+      "template": "Run `npm run build` from the project root to install backend/frontend deps and build the frontend."
+    },
+    "start": {
+      "description": "Start the backend server",
+      "template": "Run `npm start` from the project root to start the Express backend."
+    }
+  }
+}

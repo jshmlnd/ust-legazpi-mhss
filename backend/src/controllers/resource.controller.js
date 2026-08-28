@@ -1,4 +1,12 @@
 import Resource from "../models/resource.model.js";
+import { geocodeAddress } from "../lib/geocode.js";
+
+const parseCoords = ({ lat, lng }) => {
+  const latNum = Number.parseFloat(lat);
+  const lngNum = Number.parseFloat(lng);
+  if (Number.isFinite(latNum) && Number.isFinite(lngNum)) return { lat: latNum, lng: lngNum };
+  return null;
+};
 
 export const getResources = async (req, res) => {
   try {
@@ -13,7 +21,12 @@ export const getResources = async (req, res) => {
 export const createResource = async (req, res) => {
   try {
     const count = await Resource.countDocuments();
-    const resource = new Resource({ ...req.body, order: count });
+    const data = { ...req.body, order: count };
+    delete data.lat;
+    delete data.lng;
+    const coords = parseCoords(req.body) ?? (await geocodeAddress(data.address));
+    if (coords) Object.assign(data, coords);
+    const resource = new Resource(data);
     await resource.save();
     res.status(201).json(resource);
   } catch (error) {
@@ -24,8 +37,38 @@ export const createResource = async (req, res) => {
 
 export const updateResource = async (req, res) => {
   try {
-    const resource = await Resource.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!resource) return res.status(404).json({ error: "Resource not found" });
+    const existing = await Resource.findById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Resource not found" });
+
+    const updates = { ...req.body };
+    const coords = parseCoords(updates);
+    const sentCoordFields = 'lat' in updates || 'lng' in updates;
+    delete updates.lat;
+    delete updates.lng;
+
+    const address = typeof updates.address === "string" ? updates.address.trim() : "";
+    const addressChanged = address !== "" && address !== existing.address;
+    // Manually entered coordinates win; otherwise re-locate when the address
+    // changed so the pin doesn't stay on the old location; otherwise empty
+    // coordinate fields mean the counselor is removing the pin.
+    if (coords) {
+      updates.lat = coords.lat;
+      updates.lng = coords.lng;
+    } else if (addressChanged) {
+      const geocoded = await geocodeAddress(address);
+      if (geocoded) {
+        updates.lat = geocoded.lat;
+        updates.lng = geocoded.lng;
+      } else if (sentCoordFields) {
+        updates.lat = null;
+        updates.lng = null;
+      }
+    } else if (sentCoordFields) {
+      updates.lat = null;
+      updates.lng = null;
+    }
+
+    const resource = await Resource.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
     res.json(resource);
   } catch (error) {
     console.error("Error in updateResource:", error.message);

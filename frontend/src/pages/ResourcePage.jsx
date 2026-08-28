@@ -58,7 +58,7 @@ const MapBoundsUpdater = ({ resources, selectedId }) => {
     if (!selectedId || selectedId === prevSelected.current) return;
     prevSelected.current = selectedId;
     const res = resources.find((r) => r._id === selectedId);
-    if (res?.lat && res?.lng) {
+    if (res?.lat != null && res?.lng != null) {
       map.flyTo([res.lat, res.lng], 15, { duration: 0.6 });
     }
   }, [selectedId, resources, map]);
@@ -67,7 +67,7 @@ const MapBoundsUpdater = ({ resources, selectedId }) => {
 };
 
 const ResourceMap = ({ resources, selectedId, onSelect }) => {
-  const locations = resources.filter((r) => r.lat && r.lng && r.type !== 'article' && r.type !== 'sheet');
+  const locations = resources.filter((r) => r.lat != null && r.lng != null);
 
   return (
     <div className="h-full w-full rounded-sm overflow-hidden border border-neutral-200 relative z-0">
@@ -201,7 +201,7 @@ const ResourceGrid = ({ resources, onSelect, selectedId, onEdit, onDelete, isCou
 );
 
 const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
-  const empty = { title: '', type: 'article', description: '', url: '', address: '', hours: '', contact: '' };
+  const empty = { title: '', type: 'hotline', description: '', url: '', address: '', hours: '', contact: '', lat: '', lng: '' };
   const [form, setForm] = useState(initial || empty);
   const isEdit = !!initial;
 
@@ -231,11 +231,18 @@ const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
         <FormField label="Description" name="description" type="textarea" value={form.description} onChange={handleChange} placeholder="Brief summary of the resource..." rows={3} required />
         <FormField label="URL / Link" name="url" value={form.url} onChange={handleChange} placeholder="https://..." />
         {form.type === 'location' && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-            <FormField label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Full address" />
-            <FormField label="Hours" name="hours" value={form.hours} onChange={handleChange} placeholder="e.g., Mon–Fri 8AM–5PM" />
-            <FormField label="Contact" name="contact" value={form.contact} onChange={handleChange} placeholder="Phone number" />
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              <FormField label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Full address" />
+              <FormField label="Hours" name="hours" value={form.hours} onChange={handleChange} placeholder="e.g., Mon–Fri 8AM–5PM" />
+              <FormField label="Contact" name="contact" value={form.contact} onChange={handleChange} placeholder="Phone number" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="Latitude" name="lat" value={form.lat ?? ''} onChange={handleChange} placeholder="e.g., 13.1391" />
+              <FormField label="Longitude" name="lng" value={form.lng ?? ''} onChange={handleChange} placeholder="e.g., 123.7438" />
+            </div>
+            <p className="text-[11px] text-neutral-400 -mt-1">Leave the coordinates blank to pinpoint the address automatically.</p>
+          </>
         )}
         <div className="flex items-center justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
@@ -287,16 +294,30 @@ const ResourcePage = () => {
 
   const handleSubmit = useCallback(async (resource) => {
     try {
+      // Coordinate fields only exist for physical centers; don't leak them
+      // into other types' payloads.
+      const payload = { ...resource };
+      if (resource.type !== 'location') {
+        delete payload.lat;
+        delete payload.lng;
+      }
+      let saved;
       if (editing) {
-        const res = await axiosInstance.patch(`/resources/${editing._id}`, resource);
-        setResources((prev) => prev.map((r) => (r._id === editing._id ? normalizeResource(res.data) : r)));
+        const res = await axiosInstance.patch(`/resources/${editing._id}`, payload);
+        saved = res.data;
+        setResources((prev) => prev.map((r) => (r._id === editing._id ? normalizeResource(saved) : r)));
       } else {
-        const res = await axiosInstance.post('/resources', resource);
-        setResources((prev) => [normalizeResource(res.data), ...prev]);
+        const res = await axiosInstance.post('/resources', payload);
+        saved = res.data;
+        setResources((prev) => [normalizeResource(saved), ...prev]);
       }
       setModalOpen(false);
       setEditing(null);
-      toast.success(editing ? 'Resource updated' : 'Resource added');
+      if (saved.type === 'location' && (saved.lat == null || saved.lng == null)) {
+        toast.error('Saved, but the address could not be located — edit it to add coordinates');
+      } else {
+        toast.success(editing ? 'Resource updated' : 'Resource added');
+      }
     } catch {
       toast.error('Failed to save resource');
     }

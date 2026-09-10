@@ -24,6 +24,7 @@ import RegisterCounselorPage from './pages/RegisterCounselorPage';
 import Administrator from './pages/Administrator';
 
 import { Routes, Route, Navigate } from "react-router-dom";
+import { RoleRoute } from './components/RoleRoute';
 import { useAuthStore } from './store/useAuthStore';
 import { useChatStore } from './store/useChatStore';
 import { useCallStore } from './store/useCallStore';
@@ -113,20 +114,20 @@ if(isCheckingAuth && !authUser) return (
       <Route path={PATHS.UNIVERSITY_UPDATES} element={authUser ? < UniversityUpdates/> : <Navigate to={PATHS.LOGIN} /> } />
 
       {/* Counselor Routes */}
-      <Route path={PATHS.DASHBOARD} element={authUser ? < CounselorDashboard/> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.MANAGE_SESSIONS} element={authUser ? < CounselorSessionManagement/> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.COUNSELOR_SCHEDULE} element={authUser ? < CounselorSchedulingPage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.MANAGE_ANNOUNCEMENT} element={authUser ? < CounselorAnnouncementManagerPage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.MANAGE_SELF_CARE} element={authUser ? <SelfCarePage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.MANAGE_RESOURCES} element={authUser ? <ResourcePage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.STUDENT_IDENTITY} element={authUser ? <StudentIdentityPage /> : <Navigate to={PATHS.LOGIN}/> } />
-      <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={authUser ? <StudentIdentityPage /> : <Navigate to={PATHS.LOGIN}/> } />
-      <Route path={PATHS.PROFILE} element={authUser ? <Navigate to={PATHS.MY_ACCOUNT} /> : <Navigate to={PATHS.LOGIN}/> } />
+      <Route path={PATHS.DASHBOARD} element={<RoleRoute allow={['counselor']}>< CounselorDashboard/></RoleRoute>} />
+      <Route path={PATHS.MANAGE_SESSIONS} element={<RoleRoute allow={['counselor']}>< CounselorSessionManagement/></RoleRoute>} />
+      <Route path={PATHS.COUNSELOR_SCHEDULE} element={<RoleRoute allow={['counselor']}>< CounselorSchedulingPage /></RoleRoute>} />
+      <Route path={PATHS.MANAGE_ANNOUNCEMENT} element={<RoleRoute allow={['counselor']}>< CounselorAnnouncementManagerPage /></RoleRoute>} />
+      <Route path={PATHS.MANAGE_SELF_CARE} element={<RoleRoute allow={['counselor']}><SelfCarePage /></RoleRoute>} />
+      <Route path={PATHS.MANAGE_RESOURCES} element={<RoleRoute allow={['counselor']}><ResourcePage /></RoleRoute>} />
+      <Route path={PATHS.STUDENT_IDENTITY} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
+      <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
+      <Route path={PATHS.PROFILE} element={<RoleRoute allow={['student', 'counselor', 'administrator']}><Navigate to={PATHS.MY_ACCOUNT} /></RoleRoute>} />
 
       {/* Admin Routes */}
-      <Route path={PATHS.ADMIN} element={authUser?.userType?.toLowerCase() === 'administrator' ? <Administrator /> : <Navigate to={PATHS.LOGIN} />} />
-      <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterStudentPage /> : <Navigate to={PATHS.LOGIN} />} />
-      <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={authUser?.userType?.toLowerCase() === 'administrator' ? <RegisterCounselorPage /> : <Navigate to={PATHS.LOGIN} />} />
+      <Route path={PATHS.ADMIN} element={<RoleRoute allow={['administrator']}><Administrator /></RoleRoute>} />
+      <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={<RoleRoute allow={['administrator']}><RegisterStudentPage /></RoleRoute>} />
+      <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={<RoleRoute allow={['administrator']}><RegisterCounselorPage /></RoleRoute>} />
     </Routes>
 
   </div>);

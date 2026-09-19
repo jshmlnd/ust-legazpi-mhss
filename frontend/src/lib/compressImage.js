@@ -22,7 +22,3 @@ export function compressImage(dataUrl, maxWidth = MAX_WIDTH, maxHeight = MAX_HEI
     img.src = dataUrl;
   });
 }
-
-export function compressImages(dataUrls, opts) {
-  return Promise.all(dataUrls.map((d) => compressImage(d, opts?.maxWidth, opts?.maxHeight, opts?.quality)));
-}

@@ -1,7 +1,6 @@
 import SkeletonCard from './SkeletonCard';
-import SkeletonText from './SkeletonText';
 
-const PageShellSkeleton = ({ columns, count, showCalendar = false, showSidebar = false, className = '' }) => (
+const PageShellSkeleton = ({ count, showCalendar = false, showSidebar = false, className = '' }) => (
   <main className={`min-h-screen bg-neutral-50 pt-12 pb-20 px-6 lg:px-10 ${className}`}>
     <div className="mx-auto max-w-[1440px]">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-10" aria-hidden="true">

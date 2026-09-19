@@ -39,15 +39,6 @@ export const protectRoute = async (req, res, next) => {
     }
 };
 
-export const adminOnly = async (req, res, next) => {
-    await protectRoute(req, res, () => {
-        if (!req.user || req.user.userType?.toLowerCase() !== 'administrator') {
-            return res.status(403).json({ message: "Forbidden - Administrator access only" });
-        }
-        next();
-    });
-};
-
 export const counselorOnly = async (req, res, next) => {
     await protectRoute(req, res, () => {
         if (!req.user || req.user.userType?.toLowerCase() !== 'counselor') {

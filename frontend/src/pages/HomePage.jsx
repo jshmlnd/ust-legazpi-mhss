@@ -32,13 +32,6 @@ const QUICK_ACTIONS = [
     cta: "Open Chat",
   },
   {
-    title: "Scheduled Face-To-Face Session",
-    description: "Your next on-campus appointment.",
-    metaLines: ["Date: Thursday, July 10, 2026", "Time: 10:00 AM – 11:00 AM", "Location: Student Welfare Office, Room 204"],
-    href: PATHS.SESSIONS,
-    cta: "View Details",
-  },
-  {
     title: "Your Diary",
     description: "A private space for your thoughts and reflections.",
     meta: "Last entry: 3 days ago",
@@ -584,16 +577,15 @@ const HomePage = () => {
                 Personal
               </span>
               <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
-                {QUICK_ACTIONS[2].title}
+                {QUICK_ACTIONS[1].title}
               </h3>
-              <p className="text-xs leading-[1.6] text-neutral-500 mb-4">{QUICK_ACTIONS[2].description}</p>
-              <p className="text-[11px] text-neutral-500 mb-6">{QUICK_ACTIONS[2].meta}</p>
+              <p className="text-xs leading-[1.6] text-neutral-500 mb-4">{QUICK_ACTIONS[1].description}</p>
+              <p className="text-[11px] text-neutral-500 mb-6">{QUICK_ACTIONS[1].meta}</p>
               <Link
-                to={typeof QUICK_ACTIONS[2].href === 'function' ? QUICK_ACTIONS[2].href(authUser?._id) : QUICK_ACTIONS[2].href}
-                className={`inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm  text-white bg-neutral-900 hover:bg-neutral-800 transition-colors
-                  }`}
+                to={typeof QUICK_ACTIONS[1].href === 'function' ? QUICK_ACTIONS[1].href(authUser?._id) : QUICK_ACTIONS[1].href}
+                className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm text-white bg-neutral-900 hover:bg-neutral-800 transition-colors"
               >
-                {QUICK_ACTIONS[2].cta}
+                {QUICK_ACTIONS[1].cta}
               </Link>
             </div>
           </div>

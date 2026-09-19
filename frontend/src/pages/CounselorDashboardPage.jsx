@@ -294,30 +294,6 @@ const UpcomingSessions = ({ sessions, onAccept, onDecline, acceptingId, onClearA
   );
 };
 
-const ResourceTracking = () => (
-  <div className="bg-white border border-neutral-200 rounded-sm p-6">
-    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Client Progress</span>
-    <h3 className="mt-1 text-sm font-medium text-neutral-900">Resource &amp; Self-Care Completion</h3>
-    <div className="mt-5 space-y-5">
-      {[{ label: 'Wellness Articles', completed: 0, total: 0 }].map((item) => {
-        const pct = Math.round((item.completed / item.total) * 100);
-        return (
-          <div key={item.label}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-neutral-600">{item.label}</span>
-              <span className="text-[11px] font-medium text-neutral-400">{item.completed}/{item.total}</span>
-            </div>
-            <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
-            </div>
-            <p className="mt-1 text-[11px] text-neutral-500">{pct}% completion rate</p>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-);
-
 const CounselorDashboardPage = () => {
   const { authUser } = useAuthStore();
   const name = authUser?.fullName ?? 'Counselor';
@@ -605,7 +581,7 @@ const CounselorDashboardPage = () => {
           <div className="bg-white border border-neutral-200 rounded-sm p-5">
             <div className="flex items-center gap-2 mb-3">
               <Pencil size={14} className="text-neutral-400" />
-              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Edit Student Homepage Notice</span>
+              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Edit Homepage Notice</span>
             </div>
             {notice ? (
               <div className="space-y-3">
@@ -633,11 +609,8 @@ const CounselorDashboardPage = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-px bg-neutral-200 rounded-sm overflow-hidden">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <UpcomingSessions sessions={upcomingSessions} onAccept={handleAccept} onDecline={handleDecline} acceptingId={acceptingId} onClearAll={handleClearAll} clearingAll={clearingAll} />
-          </div>
-          <div className="lg:col-span-1">
-            <ResourceTracking />
           </div>
         </div>
 

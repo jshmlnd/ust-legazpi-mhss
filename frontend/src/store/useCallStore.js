@@ -4,7 +4,7 @@ import { getSocket } from "../lib/socket";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
 import { useChatStore } from "./useChatStore";
-import toast from "react-hot-toast";
+import { toast } from "react-toastify";
 
 const generateChannelName = (userId1, userId2) => {
   const sorted = [String(userId1), String(userId2)].sort();

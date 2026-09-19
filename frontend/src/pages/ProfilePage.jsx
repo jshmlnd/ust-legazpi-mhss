@@ -250,8 +250,11 @@ const SecurityCard = () => {
                 {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
                 Verify PIN
               </button>
-              <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+              <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] pl-5 font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
                 Change PIN
+              </button>
+              <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] pl-5 font-medium text-red-500 hover:text-red-900 transition-colors">
+                Remove PIN
               </button>
             </div>
           </form>

@@ -33,7 +33,7 @@ import { Loader } from "lucide-react";
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
-import { loadPrefs, usePrefs } from './lib/prefs';
+import { usePrefs } from './lib/prefs';
 import VoiceCallModal from './components/VoiceCallModal';
 
 
@@ -55,14 +55,6 @@ const App = () => {
   })();
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
-
-  useEffect(() => {
-    const prefs = loadPrefs(authUser?._id);
-    const root = document.documentElement;
-    root.classList.toggle('calm-mode', !!prefs.calmMode);
-    root.classList.toggle('dark', !!prefs.switchmode);
-    root.setAttribute('data-theme', prefs.switchmode ? 'emerald-dark' : 'emerald');
-  }, [authUser?._id]);
 
   useEffect(() => {
     registerServiceWorker();

@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
-import toast from "react-hot-toast";
+import { toast } from "react-toastify";
 import { getSocket } from "../lib/socket";
 import { showNotification } from "../lib/notifications";
-import { loadPrefs } from "../lib/prefs";
+import { getPrefs } from "../lib/prefs";
 import { useAuthStore } from "./useAuthStore";
 
 export const analyzeCrisis = async (text) => {
@@ -206,7 +206,7 @@ export const useChatStore = create((set, get) => ({
         const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
         const notifBody = message.text || 'Sent an image';
         const authUser = useAuthStore.getState().authUser;
-        if (loadPrefs(authUser?._id).messageNotifications) {
+        if (getPrefs(authUser?._id).messageNotifications) {
           showNotification(senderName, notifBody);
         }
       }

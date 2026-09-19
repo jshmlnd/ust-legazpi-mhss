@@ -1,10 +1,40 @@
-import { generateToken, generateTwoFactorToken } from "../lib/utils.js";
 import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
-import { generateUniqueDynamicId, getDailyDynamicId, toPublicUser } from "../lib/generateId.js";
+import { generateUniqueDynamicId, getDailyDynamicId } from "../lib/generateId.js";
+
+const generateToken = (userId, res) => {
+    const token = jwt.sign({userId}, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.cookie("jwt", token, {
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        sameSite: "strict",
+        secure: process.env.NODE_ENV !== "development",
+    });
+    return token;
+};
+
+const generateTwoFactorToken = (userId) => {
+    return jwt.sign({ userId, twoFactor: true }, process.env.JWT_SECRET, { expiresIn: "10m" });
+};
+
+const serializeUser = (user, role) => ({
+    _id: user._id,
+    dynamicId: getDailyDynamicId(user.dynamicId),
+    fullName: user.fullName,
+    email: user.email,
+    phone: user.phone || null,
+    studentId: user.studentId,
+    department: user.department,
+    program: user.program,
+    yearLevel: user.yearLevel,
+    profilePic: user.profilePic || '',
+    userType: user.userType || role,
+    pin: user.pin,
+    twoFactorEnabled: user.twoFactorEnabled,
+});
 
 export const updateProfileDetails = async (req, res) => {
     try {
@@ -25,7 +55,7 @@ export const updateProfileDetails = async (req, res) => {
         await account.save();
 
         const updated = await Model.findById(userId).select("-password");
-        res.status(200).json(toPublicUser(updated));
+        res.status(200).json(serializeUser(updated));
     } catch (error) {
         console.log("Error in updateProfileDetails controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
@@ -77,21 +107,7 @@ export const login = async (req , res) => {
 
         generateToken(account._id, res);
 
-        return res.status(200).json({ 
-            _id: account._id, 
-            dynamicId: getDailyDynamicId(account.dynamicId),
-            fullName: account.fullName, 
-            email: account.email, 
-            phone: account.phone || null,
-            studentId: account.studentId,
-            department: account.department,
-            program: account.program,
-            yearLevel: account.yearLevel,
-            profilePic: account.profilePic || '',
-            userType: account.userType || role, 
-            pin: account.pin,
-            twoFactorEnabled: account.twoFactorEnabled,
-         });
+        return res.status(200).json(serializeUser(account, role));
 
     } catch (error) {
         console.log("Error in login controller: ", error.message);
@@ -130,21 +146,7 @@ export const verifyTwoFactor = async (req, res) => {
 
         generateToken(account._id, res);
 
-        return res.status(200).json({
-            _id: account._id,
-            dynamicId: getDailyDynamicId(account.dynamicId),
-            fullName: account.fullName,
-            email: account.email,
-            phone: account.phone || null,
-            studentId: account.studentId,
-            department: account.department,
-            program: account.program,
-            yearLevel: account.yearLevel,
-            profilePic: account.profilePic || '',
-            userType: account.userType,
-            pin: account.pin,
-            twoFactorEnabled: account.twoFactorEnabled,
-        });
+        return res.status(200).json(serializeUser(account));
     } catch (error) {
         console.log("Error in verifyTwoFactor controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
@@ -191,19 +193,7 @@ export const register = async (req, res) => {
             generateToken(newUser._id, res);
             await newUser.save();
 
-            res.status(201).json({
-                _id:newUser._id,
-                dynamicId: getDailyDynamicId(newUser.dynamicId),
-                fullName: newUser.fullName,
-                email: newUser.email,
-                phone: newUser.phone,
-                studentId: newUser.studentId,
-                department: newUser.department,
-                program: newUser.program,
-                yearLevel: newUser.yearLevel,
-                profilePic: newUser.profilePic || '',
-                userType: newUser.userType,
-            })
+            res.status(201).json(serializeUser(newUser));
         } else {
             return res.status(400).json({ message: "Invalid user data" });
         }
@@ -301,14 +291,14 @@ export const updateProfile = async (req, res) => {
 
         if(profilePic === '') {
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
-        return res.status(200).json(toPublicUser(updatedUser));
+        return res.status(200).json(serializeUser(updatedUser));
         }
 
         const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
 
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
 
-        res.status(200).json(toPublicUser(updatedUser));
+        res.status(200).json(serializeUser(updatedUser));
 
     } catch (error) {
         console.log("Error in updateProfile controller: ", error.message);

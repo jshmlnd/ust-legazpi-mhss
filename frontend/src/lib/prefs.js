@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useEffect } from 'react';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 export const DEFAULT_PREFS = {
   sessionReminders: true,
@@ -7,15 +9,7 @@ export const DEFAULT_PREFS = {
   switchmode: false,
 };
 
-const keyFor = (userId) => `mhss_prefs_${userId || 'guest'}`;
-
-export const loadPrefs = (userId) => {
-  try {
-    return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(keyFor(userId)) || '{}') };
-  } catch {
-    return { ...DEFAULT_PREFS };
-  }
-};
+const keyFor = (userId) => String(userId || 'guest');
 
 export const LIGHT_THEME = 'emerald';
 export const DARK_THEME = 'emerald-dark';
@@ -32,26 +26,41 @@ const applySideEffects = (next) => {
   }
 };
 
+const usePrefsStore = create(persist((set) => ({
+  prefsByUser: {},
+  setPref: (userId, key, value) => set(({ prefsByUser }) => ({
+    prefsByUser: {
+      ...prefsByUser,
+      [keyFor(userId)]: { ...DEFAULT_PREFS, ...prefsByUser[keyFor(userId)], [key]: value },
+    },
+  })),
+  togglePref: (userId, key) => set(({ prefsByUser }) => {
+    const prefs = { ...DEFAULT_PREFS, ...prefsByUser[keyFor(userId)] };
+    return {
+      prefsByUser: {
+        ...prefsByUser,
+        [keyFor(userId)]: { ...prefs, [key]: !prefs[key] },
+      },
+    };
+  }),
+}), { name: 'mhss-prefs' }));
+
+export const getPrefs = (userId) => ({
+  ...DEFAULT_PREFS,
+  ...usePrefsStore.getState().prefsByUser[keyFor(userId)],
+});
+
 export const usePrefs = (userId) => {
-  const [prefs, setPrefs] = useState(() => loadPrefs(userId));
+  const key = keyFor(userId);
+  const prefs = usePrefsStore((state) => state.prefsByUser[key] || DEFAULT_PREFS);
+  const setPref = usePrefsStore((state) => state.setPref);
+  const togglePref = usePrefsStore((state) => state.togglePref);
 
-  const update = useCallback((key, value) => {
-    setPrefs((prev) => {
-      const next = { ...prev, [key]: value };
-      localStorage.setItem(keyFor(userId), JSON.stringify(next));
-      applySideEffects(next);
-      return next;
-    });
-  }, [userId]);
+  useEffect(() => applySideEffects(prefs), [prefs]);
 
-  const togglePref = useCallback((key) => {
-    setPrefs((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      localStorage.setItem(keyFor(userId), JSON.stringify(next));
-      applySideEffects(next);
-      return next;
-    });
-  }, [userId]);
-
-  return { prefs, togglePref, setPref: update };
+  return {
+    prefs,
+    setPref: (prefKey, value) => setPref(userId, prefKey, value),
+    togglePref: (prefKey) => togglePref(userId, prefKey),
+  };
 };

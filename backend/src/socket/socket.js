@@ -7,11 +7,6 @@ import Message from "../models/message.model.js";
 const userSocketMap = {};
 let io;
 
-export const getReceiverSocketId = (receiverId) => {
-  const socketIds = userSocketMap[receiverId];
-  return socketIds ? [...socketIds][0] : undefined;
-};
-
 export const getReceiverSocketIds = (receiverId) => {
   const socketIds = userSocketMap[receiverId];
   return socketIds ? [...socketIds] : [];
@@ -28,7 +23,7 @@ const findUserById = async (userId) => {
 export const setupSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: "http://localhost:5173",
+      origin: process.env.CORS_ORIGIN,
       credentials: true,
     },
   });

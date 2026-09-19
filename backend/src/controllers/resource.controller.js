@@ -1,6 +1,30 @@
 import Resource from "../models/resource.model.js";
-import { geocodeAddress } from "../lib/geocode.js";
 import { parseGoogleMapsUrl } from "../lib/parseGoogleMapsUrl.js";
+import { reorder } from "../lib/reorder.js";
+
+const geocodeAddress = async (address) => {
+  const query = typeof address === "string" ? address.trim() : "";
+  if (!query) return null;
+
+  try {
+    const params = new URLSearchParams({ q: query, format: "json", limit: "1", countrycodes: "ph" });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params}`, {
+      headers: {
+        "User-Agent": "ust-legazpi-mhss/1.0 (resource map geocoding)",
+        "Accept-Language": "en",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+
+    const [hit] = await res.json();
+    const lat = Number(hit?.lat);
+    const lng = Number(hit?.lon);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+  } catch {
+    return null;
+  }
+};
 
 const parseCoords = ({ lat, lng }) => {
   const latNum = Number.parseFloat(lat);
@@ -96,15 +120,5 @@ export const deleteResource = async (req, res) => {
 };
 
 export const reorderResources = async (req, res) => {
-  try {
-    const { orderedIds } = req.body;
-    for (let i = 0; i < orderedIds.length; i++) {
-      await Resource.findByIdAndUpdate(orderedIds[i], { order: i });
-    }
-    const resources = await Resource.find().sort({ order: 1 });
-    res.json(resources);
-  } catch (error) {
-    console.error("Error in reorderResources:", error.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
+  return reorder(Resource, "Resource", req, res);
 };

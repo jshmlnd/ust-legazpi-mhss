@@ -159,3 +159,25 @@ export const sendMessage = async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 };
+
+export const uploadFile = async (req, res) => {
+    try {
+        const { file } = req.body;
+        if (!file) return res.status(400).json({ error: "No file provided" });
+
+        const uploadResponse = await cloudinary.uploader.upload(file, {
+            resource_type: "auto",
+            chunk_size: 6000000,
+        });
+
+        res.status(200).json({
+            url: uploadResponse.secure_url,
+            name: uploadResponse.original_filename || 'file',
+            size: uploadResponse.bytes,
+            type: uploadResponse.format,
+        });
+    } catch (error) {
+        console.log("Error in file upload: ", error.message);
+        res.status(500).json({ error: "File upload failed" });
+    }
+};

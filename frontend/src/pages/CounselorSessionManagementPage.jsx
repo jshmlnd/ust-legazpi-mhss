@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageCircle, User, FileText, ClipboardList, Clock, Loader, Save, Plus, Check, X } from 'lucide-react';
+import { MessageCircle, User, FileText, ClipboardList, Clock, Loader, Save, Check, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
@@ -105,22 +105,6 @@ const SessionNotes = ({ session }) => {
   );
 };
 
-const TaskAssignment = () => {
-  return (
-    <div className="bg-white border border-neutral-200 rounded-sm">
-      <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between">
-        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Self-Care Task Assignment</span>
-        <button className="text-[10px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors inline-flex items-center gap-1">
-          <Plus size={12} /> Add
-        </button>
-      </div>
-      <div className="p-5 space-y-2">
-        <p className="text-xs text-neutral-400">No tasks assigned yet.</p>
-      </div>
-    </div>
-  );
-};
-
 const ClientFile = ({ session, studentInfo, loadingInfo }) => {
   const navigate = useNavigate();
   return (
@@ -220,16 +204,6 @@ const CounselorSessionManagementPage = () => {
     }
   };
 
-  const fetchStudentInfo = async (studentId) => {
-    if (!studentId) return;
-    setLoadingInfo(true);
-    try {
-      const res = await axiosInstance.get(`/analytics/student/${studentId}`);
-      setStudentInfo(res.data);
-    } catch { setStudentInfo(null); }
-    finally { setLoadingInfo(false); }
-  };
-
   useEffect(() => {
     const fetchQueue = async () => {
       try {
@@ -252,7 +226,6 @@ const CounselorSessionManagementPage = () => {
         setPastChatItems(past);
         if (active.length > 0) {
           setSelectedSession(active[0]);
-          fetchStudentInfo(active[0].studentId);
         }
       } catch (err) {
         console.error('Failed to fetch queue:', err);
@@ -359,7 +332,6 @@ const CounselorSessionManagementPage = () => {
             </div>
           )}
           <SessionNotes key={selectedSession?._id} session={selectedSession} />
-          <TaskAssignment />
           <ClientFile session={selectedSession} studentInfo={studentInfo} loadingInfo={loadingInfo} />
         </div>
       </div>

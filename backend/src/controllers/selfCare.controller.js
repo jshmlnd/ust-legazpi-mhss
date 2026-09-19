@@ -1,4 +1,5 @@
 import SelfCareModule from "../models/selfCareModule.model.js";
+import { reorder } from "../lib/reorder.js";
 
 export const getModules = async (req, res) => {
   try {
@@ -44,15 +45,5 @@ export const deleteModule = async (req, res) => {
 };
 
 export const reorderModules = async (req, res) => {
-  try {
-    const { orderedIds } = req.body;
-    for (let i = 0; i < orderedIds.length; i++) {
-      await SelfCareModule.findByIdAndUpdate(orderedIds[i], { order: i });
-    }
-    const modules = await SelfCareModule.find().sort({ order: 1 });
-    res.json(modules);
-  } catch (error) {
-    console.error("Error in reorderModules:", error.message);
-    res.status(500).json({ error: "Internal server error" });
-  }
+  return reorder(SelfCareModule, "Module", req, res);
 };

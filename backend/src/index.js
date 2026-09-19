@@ -1,5 +1,6 @@
 import express from "express";
 import http from "http";
+import mongoose from "mongoose";
 
 import path from "path";
 
@@ -20,7 +21,6 @@ import auditTrailRoutes from "./routes/auditTrail.route.js";
 import noticeRoutes from "./routes/notice.route.js";
 
 import dotenv from "dotenv";
-import { connectDB } from "./lib/db.js";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { setupSocket } from "./socket/socket.js";
@@ -31,6 +31,15 @@ const server = http.createServer(app);
 dotenv.config();
 const PORT = process.env.PORT;
 const __dirname = path.resolve();
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI);
+    console.log(`MongoDB connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`Error connecting to MongoDB: ${error.message}`);
+  }
+};
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());

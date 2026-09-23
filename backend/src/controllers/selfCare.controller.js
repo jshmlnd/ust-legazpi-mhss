@@ -45,5 +45,5 @@ export const deleteModule = async (req, res) => {
 };
 
 export const reorderModules = async (req, res) => {
-  return reorder(SelfCareModule, "Module", req, res);
+  return reorder(SelfCareModule, req, res);
 };

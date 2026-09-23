@@ -366,6 +366,38 @@ export const verifyPin = async (req, res) => {
     }
 }
 
+export const removePin = async (req, res) => {
+    try {
+        const { pin } = req.body;
+        const userId = req.user._id;
+
+        if (!pin) {
+            return res.status(400).json({ message: "PIN is required to remove PIN" });
+        }
+
+        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.pin) {
+            return res.status(400).json({ message: "No PIN set." });
+        }
+
+        if (account.pin !== pin) {
+            return res.status(401).json({ message: "Incorrect PIN" });
+        }
+
+        account.pin = "";
+        account.twoFactorEnabled = false;
+        await account.save();
+
+        res.status(200).json({ message: "PIN removed successfully", twoFactorEnabled: account.twoFactorEnabled });
+    } catch (error) {
+        console.log("Error in removePin controller: ", error.message);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
 export const setTwoFactor = async (req, res) => {
     try {
         const { enabled, pin } = req.body;

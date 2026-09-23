@@ -68,6 +68,22 @@ export const useChatStore = create((set, get) => ({
       const combined = [...msgRes.data, ...logRes.data]
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       set({ messages: combined, currentAppointmentId: appointmentId || null });
+
+      // Backfill crisis flags for historical peer messages (Jev, batched server-side).
+      // Non-blocking: bubbles restyle when results arrive.
+      const authUser = useAuthStore.getState().authUser;
+      const peerTexts = combined.filter((m) => m.text && String(m.senderId) !== String(authUser?._id));
+      if (peerTexts.length) {
+        axiosInstance.post("/crisis/analyze", { texts: peerTexts.map((m) => m.text) })
+          .then(({ data }) => {
+            const map = {};
+            data.forEach((a, i) => { if (a?.isCrisis) map[peerTexts[i]._id] = a.severity.level; });
+            if (Object.keys(map).length) {
+              set((s) => ({ crisisMessageMap: { ...s.crisisMessageMap, ...map } }));
+            }
+          })
+          .catch(() => { /* styling-only; live flagging path still covers new messages */ });
+      }
     } catch {
       toast.error("Failed to load messages");
     } finally {

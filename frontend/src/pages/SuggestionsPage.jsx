@@ -53,7 +53,7 @@ const SuggestionsPage = () => {
   };
 
   return (
-    <main className="min-h-screen bg-white pt-[calc(68px+3rem)] pb-28 px-6 lg:px-10">
+    <main className="min-h-screen bg-white pt-[calc(68px+3rem)] pb-28 px-4 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-[800px]">
         <div className="mb-10">
           <h1 className="text-[clamp(1.75rem,4vw,2.75rem)] font-light tracking-[-0.03em] text-neutral-900">

@@ -20,9 +20,11 @@ const applySideEffects = (next) => {
   if ('calmMode' in next) {
     root.classList.toggle('calm-mode', !!next.calmMode);
   }
-  if ('switchmode' in next) {
-    root.classList.toggle('dark', !!next.switchmode);
-    root.setAttribute('data-theme', next.switchmode ? DARK_THEME : LIGHT_THEME);
+  if ('switchmode' in next || 'calmMode' in next) {
+    // Calm mode implies the dark theme; the standalone dark toggle (switchmode) is additive.
+    const dark = !!(next.calmMode || next.switchmode);
+    root.classList.toggle('dark', dark);
+    root.setAttribute('data-theme', dark ? DARK_THEME : LIGHT_THEME);
   }
 };
 

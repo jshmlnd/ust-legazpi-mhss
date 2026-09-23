@@ -524,7 +524,7 @@ const CounselorDashboardPage = () => {
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <main className="min-h-screen bg-neutral-50 pt-[calc(68px+2rem)] pb-20 px-6 lg:px-10">
+    <main className="min-h-screen bg-neutral-50 pt-[calc(68px+2rem)] pb-20 px-4 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-[1440px]">
 
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-10">
@@ -689,7 +689,7 @@ const CounselorDashboardPage = () => {
                         <img src={img} alt="" className="w-full h-16 object-cover" />
                         <button
                           onClick={() => setAnnouncementImages((prev) => prev.filter((_, j) => j !== i))}
-                          className="absolute top-1 right-1 size-4 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute top-1 right-1 size-4 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"
                         >
                           <XIcon size={8} />
                         </button>

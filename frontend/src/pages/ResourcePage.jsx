@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, FileText, Phone, Download, ExternalLink, MapPin, Grid3X3, Trash2, Pencil, Map, ArrowUpToLine, ArrowDownToLine } from 'lucide-react';
+import { Plus, FileText, Phone, Download, ExternalLink, MapPin, Grid3X3, Trash2, Pencil, Map, ArrowUpToLine, ArrowDownToLine, CalendarDays } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -165,17 +165,42 @@ const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCoun
         </div>
         <h3 className="text-sm font-medium text-neutral-900 mb-1.5">{resource.title}</h3>
         <p className="text-xs text-neutral-500 leading-relaxed flex-1">{resource.description}</p>
+        {(resource.contact || resource.address || resource.hours) && (
+          <div className="mt-3 space-y-1.5">
+            {resource.contact && (
+              <a
+                href={`tel:${resource.contact.replace(/\s/g, '')}`}
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 text-xs font-medium text-neutral-700 hover:text-neutral-900 transition-colors"
+              >
+                <Phone size={12} className="text-neutral-400 shrink-0" /> {resource.contact}
+              </a>
+            )}
+            {resource.address && (
+              <p className="flex items-center gap-1.5 text-xs text-neutral-500">
+                <MapPin size={12} className="text-neutral-400 shrink-0" /> {resource.address}
+              </p>
+            )}
+            {resource.hours && (
+              <p className="flex items-center gap-1.5 text-xs text-neutral-500">
+                <CalendarDays size={12} className="text-neutral-400 shrink-0" /> {resource.hours}
+              </p>
+            )}
+          </div>
+        )}
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
           <span className="text-[10px] text-neutral-400">{resource.date}</span>
           <div className="flex items-center gap-2">
             {resource.lat && <MapPin size={10} className="text-neutral-300" />}
-            <a
-              href={resource.url}
-              onClick={(e) => e.stopPropagation()}
-              className="text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-900 hover:text-neutral-600 transition-colors inline-flex items-center gap-1"
-            >
-              {resource.type === 'sheet' ? 'Download' : 'Open'} <ExternalLink size={10} />
-            </a>
+            {resource.url && (
+              <a
+                href={resource.url}
+                onClick={(e) => e.stopPropagation()}
+                className="text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-900 hover:text-neutral-600 transition-colors inline-flex items-center gap-1"
+              >
+                Open <ExternalLink size={10} />
+              </a>
+            )}
           </div>
         </div>
       </div>
@@ -235,7 +260,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
               <FormField label="Hours" name="hours" value={form.hours} onChange={handleChange} placeholder="e.g., Mon–Fri 8AM–5PM" />
               <FormField label="Contact" name="contact" value={form.contact} onChange={handleChange} placeholder="Phone number" />
             </div>
-        {form.type === 'location' && (
+        {form.type !== 'hotline' && (
           <>
             <FormField label="Google Maps Link" name="mapUrl" value={form.mapUrl ?? ''} onChange={handleChange} placeholder="https://www.google.com/maps/..." />
             <p className="text-[11px] text-neutral-400 -mt-1">Paste a Google Maps link to drop the pin automatically, or leave it blank to locate the address.</p>
@@ -292,12 +317,12 @@ const ResourcePage = () => {
 
   const handleSubmit = useCallback(async (resource) => {
     try {
-      // Coordinate fields only exist for physical centers; don't leak them
-      // into other types' payloads.
+      // Coordinate fields only exist for mappable types; don't leak them
+      // into hotlines' payloads.
       const payload = { ...resource };
       delete payload.lat;
       delete payload.lng;
-      if (resource.type !== 'location') {
+      if (resource.type === 'hotline') {
         delete payload.mapUrl;
       }
       let saved;
@@ -312,7 +337,7 @@ const ResourcePage = () => {
       }
       setModalOpen(false);
       setEditing(null);
-      if (saved.type === 'location' && (saved.lat == null || saved.lng == null)) {
+      if (saved.type !== 'hotline' && (saved.lat == null || saved.lng == null)) {
         toast.error('Saved, but the address could not be located — edit it to add coordinates');
       } else {
         toast.success(editing ? 'Resource updated' : 'Resource added');
@@ -357,7 +382,7 @@ const ResourcePage = () => {
     setSelectedId((prev) => (prev === r._id ? null : r._id));
   }, []);
 
-  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><PageShellSkeleton columns={3} count={6} /></PageShell>;
+  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><PageShellSkeleton count={6} /></PageShell>;
 
   return (
     <PageShell

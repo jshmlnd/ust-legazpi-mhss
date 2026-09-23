@@ -10,15 +10,8 @@ const useRBAC = (authUser) => {
 
   const visibleLinks = useMemo(
     () =>
-      NAV_ITEMS
-        .filter((item) => item.allowedRoles.includes(role))
-        .map((item) => ({
-          ...item,
-          resolvedPath: item.buildPath && authUser?._id
-            ? item.buildPath(authUser._id)
-            : item.path,
-        })),
-    [role, authUser],
+      NAV_ITEMS.filter((item) => item.allowedRoles.includes(role)),
+    [role],
   );
 
   const homeTarget = role === 'counselor' ? PATHS.DASHBOARD : role === 'administrator' ? PATHS.ADMIN : PATHS.HOME;
@@ -38,13 +31,9 @@ const useMobileMenu = () => {
   return { isOpen, toggle: () => setIsOpen((prev) => !prev), close: () => setIsOpen(false) };
 };
 
-const useActiveState = (pathname, resolvedPath) =>
-  useMemo(() => pathname === resolvedPath, [pathname, resolvedPath]);
-
 const NavLink = ({ link, isMobile }) => {
   const { pathname } = useLocation();
-  const isActive = useActiveState(pathname, link.resolvedPath);
-
+  const isActive = pathname === link.path;
   const base = 'font-medium uppercase transition-all duration-300';
   const mobile = 'text-lg tracking-[0.2em]';
   const desktop = 'relative text-xs tracking-[0.15em] group';
@@ -52,7 +41,7 @@ const NavLink = ({ link, isMobile }) => {
   return (
     <Link
       key={link.label}
-      to={link.resolvedPath}
+      to={link.path}
       className={`${base} ${isMobile ? mobile : desktop} ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'}`}
     >
       {link.label}
@@ -67,14 +56,14 @@ const NavLink = ({ link, isMobile }) => {
 
 const MobileNavLink = ({ link, index, isOpen, onClose }) => {
   const { pathname } = useLocation();
-  const isActive = useActiveState(pathname, link.resolvedPath);
+  const isActive = pathname === link.path;
 
   return (
     <Link
       key={link.label}
-      to={link.resolvedPath}
+      to={link.path}
       onClick={onClose}
-      className={`text-lg tracking-[0.2em] font-medium uppercase transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+      className={`py-3 text-lg tracking-[0.2em] font-medium uppercase transition-all duration-300 ${isActive ? 'text-white' : 'text-gray-400 hover:text-white'} ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
       style={{ transitionDelay: isOpen ? `${index * 60}ms` : '0ms' }}
     >
       {link.label}
@@ -107,13 +96,13 @@ const AuthButton = ({ isAuthenticated, onLogout }) => {
     );
   }
 
-  return ('');
+  return null;
 };
 
 const HamburgerButton = ({ isOpen, onClick }) => (
   <button
     onClick={onClick}
-    className="md:hidden relative size-8 flex items-center justify-center text-white"
+    className="md:hidden relative size-12 flex items-center justify-center text-white"
     aria-label={isOpen ? 'Close menu' : 'Open menu'}
   >
     <div className="flex flex-col items-center justify-center gap-[5px]">
@@ -139,12 +128,12 @@ const MobileOverlay = ({ visibleLinks, isAuthenticated, onLogout, isOpen, onClos
       {isAuthenticated ? (
         <button
           onClick={onLogout}
-          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-white/20 text-white bg-white/10 hover:bg-white hover:text-black transition-all duration-300 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
+          className={`mt-2 px-8 py-3 text-sm tracking-[0.1em] font-medium uppercase rounded-full border border-white/20 text-white bg-white/10 hover:bg-white hover:text-black           transition-all duration-300 ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
           style={{ transitionDelay: isOpen ? `${visibleLinks.length * 60}ms` : '0ms' }}
         >
           Logout
         </button>
-      ) : ('')}
+      ) : null}
     </nav>
   </div>
 );
@@ -175,7 +164,7 @@ const Navbar = () => {
             </button>
           </div>
         </div>
-      ));
+      ), { autoClose: false, closeOnClick: false, draggable: false, closeButton: false });
     });
     if (!confirmed) return;
     await logout();

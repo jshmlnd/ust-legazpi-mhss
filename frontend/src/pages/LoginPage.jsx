@@ -83,10 +83,10 @@ const LoginPage = () => {
       <div className="min-h-full pt-32 flex items-center justify-center px-6">
         <div className="w-full max-w-sm">
           <div className="mb-12 text-center">
-            <h1 className="text-xl tracking-[0.2em] font-medium text-gray-900 uppercase mb-3">
+            <h1 className="text-xl tracking-[0.2em] font-black text-black uppercase mb-3">
               UST-Legazpi
             </h1>
-            <p className="text-xs tracking-[0.1em] font-medium uppercase text-gray-400">
+            <p className="text-xs tracking-[0.1em] font-semibold uppercase text-black">
               Mental Health Support System
             </p>
           </div>
@@ -94,7 +94,7 @@ const LoginPage = () => {
           {step === 'credentials' ? (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div className="flex flex-col gap-2">
-                <label className="text-xs tracking-[0.1em] font-medium uppercase text-gray-500">
+                <label className="text-xs tracking-[0.1em] font-bold uppercase text-black">
                   Student / Counselor ID
                 </label>
                 <input
@@ -108,7 +108,7 @@ const LoginPage = () => {
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs tracking-[0.1em] font-medium uppercase text-gray-500">
+                <label className="text-xs tracking-[0.1em] font-bold uppercase text-black">
                   Password
                 </label>
                 <input
@@ -132,7 +132,7 @@ const LoginPage = () => {
           ) : (
             <form onSubmit={handleVerifyPin} className="flex flex-col gap-5">
               <div className="flex flex-col gap-2">
-                <label className="text-xs tracking-[0.1em] font-medium uppercase text-gray-500">
+                <label className="text-xs tracking-[0.1em] font-medium uppercase text-black">
                   PIN (Two-Factor Authentication)
                 </label>
                 <input
@@ -161,7 +161,7 @@ const LoginPage = () => {
               <button
                 type="button"
                 onClick={backToCredentials}
-                className="text-xs tracking-[0.1em] font-medium uppercase text-gray-400 hover:text-gray-700 transition-colors"
+                className="text-xs tracking-[0.1em] font-medium uppercase text-gray-500 hover:text-gray-700 transition-colors"
               >
                 Back
               </button>

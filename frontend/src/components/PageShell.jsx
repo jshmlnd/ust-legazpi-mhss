@@ -1,5 +1,5 @@
 const PageShell = ({ children, title, subtitle, actions }) => (
-  <main className="min-h-screen bg-neutral-50 pt-12 pb-20 px-6 lg:px-10">
+  <main className="min-h-screen bg-neutral-50 pt-8 sm:pt-12 pb-20 px-4 sm:px-6 lg:px-10">
     <div className="mx-auto max-w-[1440px]">
       {(title || subtitle) && (
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-10">

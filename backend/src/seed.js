@@ -3907,7 +3907,7 @@ const DATA = {
         "$oid": "6a91008ad0dc262193db8961"
       },
       "title": "Dr. Anna Liza Catalina I. Del Rosario, MD",
-      "type": "location",
+      "type": "psychiatrist",
       "description": "A Fellow of the Philippine Psychiatric Association.",
       "url": "",
       "address": "",
@@ -3942,7 +3942,7 @@ const DATA = {
         "$oid": "6a9100e2d0dc262193db8962"
       },
       "title": "Dr. Gregorio S. Tan, MD, FPPA",
-      "type": "location",
+      "type": "psychiatrist",
       "description": "An established adult psychiatrist based at Room 104, Tanchuling General Hospital.",
       "url": "",
       "address": "",
@@ -3977,7 +3977,7 @@ const DATA = {
         "$oid": "6a91018dd0dc262193db8963"
       },
       "title": "Dr. Ma. Angelli Lorbes-Morico, MD, FPPA",
-      "type": "location",
+      "type": "psychiatrist",
       "description": "",
       "url": "",
       "address": "",
@@ -4012,7 +4012,7 @@ const DATA = {
         "$oid": "6a910277d0dc262193db8964"
       },
       "title": "Ronald John Recio, MA, RPsy",
-      "type": "location",
+      "type": "psychologist",
       "description": "an experienced clinical psychologist specializing in trauma, anxiety, and depression.",
       "url": "",
       "address": "",
@@ -4097,7 +4097,7 @@ const DATA = {
       "_id": {
         "$oid": "6a66d72f876a1ace0c2627af"
       },
-      "title": "Journaling Prompts",
+      "title": "Journaling",
       "icon": "BookOpen",
       "activities": [
         {
@@ -4211,7 +4211,7 @@ const DATA = {
       "_id": {
         "$oid": "6a66d72f876a1ace0c2627b9"
       },
-      "title": "Sleep Hygiene",
+      "title": "Sleeping Habits",
       "icon": "Moon",
       "activities": [
         {

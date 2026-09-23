@@ -30,7 +30,7 @@ const Modal = ({ isOpen, onClose, title, children, wide }) => {
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
           <h2 className="text-sm font-medium tracking-[-0.01em] text-neutral-900">{title}</h2>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-900 transition-colors">
+          <button onClick={onClose} aria-label="Close" className="size-12 -mr-3 flex items-center justify-center text-neutral-400 hover:text-neutral-900 transition-colors">
             <X size={16} />
           </button>
         </div>

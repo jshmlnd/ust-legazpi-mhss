@@ -1,7 +1,7 @@
 import SkeletonCard from './SkeletonCard';
 
 const PageShellSkeleton = ({ count, showCalendar = false, showSidebar = false, className = '' }) => (
-  <main className={`min-h-screen bg-neutral-50 pt-12 pb-20 px-6 lg:px-10 ${className}`}>
+  <main className={`min-h-screen bg-neutral-50 pt-8 sm:pt-12 pb-20 px-4 sm:px-6 lg:px-10 ${className}`}>
     <div className="mx-auto max-w-[1440px]">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-10" aria-hidden="true">
         <div className="space-y-2">
@@ -30,20 +30,20 @@ const PageShellSkeleton = ({ count, showCalendar = false, showSidebar = false, c
           <div className="space-y-4" aria-hidden="true">
             <div className="skeleton h-4 w-32" />
             {Array.from({ length: count || 3 }).map((_, i) => (
-              <SkeletonCard key={i} variant="content" />
+              <SkeletonCard key={i} />
             ))}
           </div>
           <div className="space-y-4" aria-hidden="true">
             <div className="skeleton h-4 w-28" />
             {Array.from({ length: 3 }).map((_, i) => (
-              <SkeletonCard key={i} variant="content" />
+              <SkeletonCard key={i} />
             ))}
           </div>
         </div>
       ) : (
         <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden" aria-hidden="true">
           {Array.from({ length: count || 4 }).map((_, i) => (
-            <SkeletonCard key={i} variant="content" />
+            <SkeletonCard key={i} />
           ))}
         </div>
       )}

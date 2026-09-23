@@ -84,7 +84,7 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
                   <button
                     type="button"
                     onClick={() => removeImage(i)}
-                    className="absolute top-1.5 right-1.5 size-5 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1.5 right-1.5 size-5 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity"
                   >
                     <X size={10} />
                   </button>
@@ -290,7 +290,7 @@ const CounselorAnnouncementManagerPage = () => {
     { label: 'Most Reactions', value: mostReacted },
   ];
 
-  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><PageShellSkeleton columns={4} count={4} /></PageShell>;
+  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><PageShellSkeleton count={4} /></PageShell>;
 
   return (
     <PageShell

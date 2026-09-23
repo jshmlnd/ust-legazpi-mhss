@@ -57,6 +57,7 @@ const CRISIS_DICT = [
   { phrase: 'kill myself', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'end my life', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'want to die', weight: 10, category: 'suicidal_ideation' },
+  { phrase: 'dont want to live anymore', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'going to die', weight: 9, category: 'suicidal_ideation' },
   { phrase: 'wish i was dead', weight: 10, category: 'suicidal_ideation' },
   { phrase: 'better off dead', weight: 9, category: 'suicidal_ideation' },
@@ -136,27 +137,26 @@ const INTENT_PATTERNS = [
 ];
 
 // ── Text normalization ──
+const CONTRACTIONS = {
+  "i'm": 'i am', "i've": 'i have', "i'll": 'i will', "i'd": 'i would',
+  "can't": 'cannot', "won't": 'will not', "don't": 'do not', "doesn't": 'does not',
+  "didn't": 'did not', "wasn't": 'was not', "weren't": 'were not', "isn't": 'is not', "aren't": 'are not',
+};
+
 function normalize(text) {
   return text
     .toLowerCase()
     .replace(/['']/g, "'")
-    .replace(/(?:i'm|i am|i've|i have|i'll|i will|i'd|i would)/g, (m) => {
-      const map = { "i'm": 'i am', "i've": 'i have', "i'll": 'i will', "i'd": 'i would' };
-      return map[m] || m;
-    })
-    .replace(/(?:can't|cannot|won't|don't|doesn't|didn't|wasn't|weren't|isn't|aren't)/g, (m) => {
-      const map = { "can't": 'cannot', "won't": 'will not', "don't": 'do not', "doesn't": 'does not', "didn't": 'did not', "wasn't": 'was not', "weren't": 'were not', "isn't": 'is not', "aren't": 'are not' };
-      return map[m] || m;
-    })
+    .replace(/\w+'\w+/g, (m) => CONTRACTIONS[m] || m)
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 // ── Language detection (simple heuristic) ──
-const TAGALOG_MARKERS = /\b(?:ako|ikaw|siya|kami|kayo|sila|ito|iyan|iyan|ang|ng|sa|na|pa|ba|po|ho|opo|kung|dahil|pero|at|o|mga|ni|ko|mo|niya|namin|ninyo|nila|ko|mo|niya|para|kasi|kaya|dahil|habang|pag|kapag|bago|pagkatapos|malapit|malayo|malaki|maliit|bagong|luma|mabuti|masama|maganda|mahirap|madali|mabilis|mabagal|masaya|malungkot|galit|takot|pagod|gutom|uhaw|lamig|init|sakit|ganda|pangit|tao|bata|matanda|lalaki|babae|asawa|anak|magulang|kapatid|kaibigan|kapitbahay|guro|doktor|nurse|pulis| sundalo|gobyerno|paaralan|ospital|bahay|simbahan|palengke|tindahan|opisina|pabrika|bukid|dagat|bundok|ilog|lawa|lupa|langit|araw|buwan|bituin|ulap|ulan|hangin|apoy|tubig|lupa|ginto|pilak|bakal|kahoy|bato|lupa|damo|punso|halaman|hayop|pagong|manok|baboy|baka|karne|isda|bigas|kanin|tinapay|gatas|kape|tsaa|tubig|juice|soda|beer|wine|bago|luma|bago|bata|matanda|bago|malaki|maliit|bago|mabuti|masama|bago|maganda|mahirap|bago|madali|mabilis|bago|mabagal|bago|masaya|malungkot|bago|galit|takot|bago|pagod|gutom|bago|uhaw|lamig|init|bago|sakit|ganda|pangit|bago|bigti)\b/i;
+const TAGALOG_MARKERS = /\b(?:ako|ikaw|siya|kami|kayo|sila|ito|iyan|ang|ng|sa|na|pa|ba|po|ho|opo|kung|dahil|pero|at|o|mga|ni|ko|mo|niya|namin|ninyo|nila|para|kasi|kaya|habang|pag|kapag|bago|pagkatapos|malapit|malayo|malaki|maliit|bagong|luma|mabuti|masama|maganda|mahirap|madali|mabilis|mabagal|masaya|malungkot|galit|takot|pagod|gutom|uhaw|lamig|init|sakit|ganda|pangit|tao|bata|matanda|lalaki|babae|asawa|anak|magulang|kapatid|kaibigan|kapitbahay|guro|doktor|nurse|pulis|sundalo|gobyerno|paaralan|ospital|bahay|simbahan|palengke|tindahan|opisina|pabrika|bukid|dagat|bundok|ilog|lawa|lupa|langit|araw|buwan|bituin|ulap|ulan|hangin|apoy|tubig|ginto|pilak|bakal|kahoy|bato|damo|punso|halaman|hayop|pagong|manok|baboy|baka|karne|isda|bigas|kanin|tinapay|gatas|kape|tsaa|juice|soda|beer|wine|bigti)\b/i;
 
-function detectLanguage(text) {
+export function detectLanguage(text) {
   const lower = text.toLowerCase();
   const tagalogMatches = (lower.match(TAGALOG_MARKERS) || []).length;
   const words = lower.split(/\s+/).filter(Boolean);
@@ -165,7 +165,7 @@ function detectLanguage(text) {
 }
 
 // ── Filipino → English translation ──
-function translateToEnglish(text) {
+export function translateToEnglish(text) {
   const lower = text.toLowerCase();
   let result = lower;
   for (const [filipino, english] of Object.entries(FILIPINO_MAP)) {
@@ -181,7 +181,8 @@ function calculateSeverity(score) {
   if (score >= 80) return { level: 'critical', label: 'Critical', color: 'red' };
   if (score >= 60) return { level: 'high', label: 'High', color: 'red' };
   if (score >= 40) return { level: 'medium', label: 'Medium', color: 'amber' };
-  if (score >= 20) return { level: 'low', label: 'Low', color: 'yellow' };
+  // ponytail: >=10 matches the isCrisis gate so a flagged message always has a real severity
+  if (score >= 10) return { level: 'low', label: 'Low', color: 'yellow' };
   return { level: 'none', label: 'None', color: 'green' };
 }
 

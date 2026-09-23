@@ -372,7 +372,7 @@ const SelfCarePage = () => {
   const colCount = useColumnCount();
   const columns = useMemo(() => transposeToColumns(modules, colCount), [modules, colCount]);
 
-  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><PageShellSkeleton columns={3} count={6} /></PageShell>;
+  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><PageShellSkeleton count={6} /></PageShell>;
 
   return (
     <PageShell

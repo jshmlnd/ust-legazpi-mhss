@@ -335,14 +335,14 @@ const HomePage = () => {
         style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
       />
       <div className="home-bg-overlay absolute inset-0 -z-10 bg-white/70" />
-      <div className="mx-auto max-w-[1200px] pt-[calc(68px+3rem)] pb-28 px-6 lg:px-10">
+      <div className="mx-auto max-w-[1200px] pt-[calc(68px+3rem)] pb-28 px-4 sm:px-6 lg:px-10">
         {/* ──────── SECTION 1: HERO ──────── */}
         <section className="relative min-h-screen">
           <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
             {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
             <span className="font-medium">{firstName}</span><br />
             <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Dynamic ID: STU-{genid}</span>
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-500">Note: counselor can only see your static id</span>
+            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-500">Note: counselor can only see your dynamic id</span>
           </h1>
           <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-neutral-600 tracking-[-0.01em]">
             Welcome to the UST-Legazpi Mental Health Support System. Your well-being is our priority — access counseling
@@ -375,7 +375,7 @@ const HomePage = () => {
             <RoleGate roles={['counselor']}>
               <button
                 onClick={openNoticeEdit}
-                className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors opacity-0 group-hover:opacity-100"
+                className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors opacity-0 group-hover:opacity-100 max-md:opacity-100"
                 title="Edit notice"
               >
                 <Pencil size={12} />

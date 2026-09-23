@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
@@ -51,12 +51,22 @@ const SecurityCard = () => {
   const [loading, setLoading] = useState(false);
 
   const [hasPin, setHasPin] = useState(!!authUser?.pin);
-  // Modes: 'setup' | 'verify' | 'change-verify' | 'change-set'
+  // Modes: 'setup' | 'verify' | 'change-verify' | 'change-set' | 'remove-verify'
   const [pinMode, setPinMode] = useState(hasPin ? 'verify' : 'setup');
   const [pinValue, setPinValue] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
   const [pinVerified, setPinVerified] = useState(false);
+
+  useEffect(() => {
+    const pinExists = !!authUser?.pin;
+    setHasPin(pinExists);
+    setPinMode((m) => {
+      if (pinExists && m === 'setup') return 'verify';
+      if (!pinExists && m !== 'setup') return 'setup';
+      return m;
+    });
+  }, [authUser?.pin]);
 
   const twoFAEnabled = !!authUser?.twoFactorEnabled;
   const pinSatisfied = !twoFAEnabled || pinVerified;
@@ -84,6 +94,7 @@ const SecurityCard = () => {
     try {
       await axiosInstance.post('/auth/pin', { pin: pinValue });
       setHasPin(true);
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, pin: pinValue } : s.authUser }));
       setPinMode('verify');
       resetPinInputs();
       setStatus({ type: 'success', message: 'PIN set successfully.' });
@@ -116,6 +127,23 @@ const SecurityCard = () => {
       setPinMode('change-set');
       resetPinInputs();
       setStatus({ type: 'success', message: 'Current PIN verified. Enter your new PIN below.' });
+    } catch (err) {
+      setStatus({ type: 'error', message: err.response?.data?.message || 'Incorrect PIN.' });
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handleRemovePin = async () => {
+    setPinLoading(true);
+    setStatus(null);
+    try {
+      await axiosInstance.delete('/auth/pin', { data: { pin: pinValue } });
+      setHasPin(false);
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, pin: '', twoFactorEnabled: false } : s.authUser }));
+      setPinMode('setup');
+      resetPinInputs();
+      setStatus({ type: 'success', message: 'PIN removed successfully.' });
     } catch (err) {
       setStatus({ type: 'error', message: err.response?.data?.message || 'Incorrect PIN.' });
     } finally {
@@ -156,7 +184,9 @@ const SecurityCard = () => {
       ? 'Enter your PIN to unlock password change'
       : pinMode === 'change-verify'
         ? 'Enter current PIN to authorize change'
-        : 'Set your new PIN';
+        : pinMode === 'remove-verify'
+          ? 'Enter current PIN to remove PIN'
+          : 'Set your new PIN';
 
   return (
     <div className="bg-white border border-neutral-200 rounded-sm p-6">
@@ -179,7 +209,7 @@ const SecurityCard = () => {
       )}
 
       {/* PIN Section */}
-      {(twoFAEnabled && !pinVerified) && (
+      {((twoFAEnabled || hasPin) && !pinVerified) && (
       <div className="mb-5 pb-5 border-b border-neutral-100">
         <div className="flex items-center gap-2 mb-3">
           <KeyRound size={14} className="text-neutral-400" />
@@ -239,6 +269,22 @@ const SecurityCard = () => {
               </button>
             </div>
           </form>
+        ) : pinMode === 'remove-verify' ? (
+          <form onSubmit={(e) => { e.preventDefault(); handleRemovePin(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current PIN</label>
+              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter current PIN" maxLength={6} className={inputClass} />
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+                {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                Confirm Remove PIN
+              </button>
+              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
         ) : (
           <form onSubmit={(e) => { e.preventDefault(); handleVerifyPin(); }} className="space-y-3">
             <div className="space-y-1.5">
@@ -253,9 +299,11 @@ const SecurityCard = () => {
               <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] pl-5 font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
                 Change PIN
               </button>
-              <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] pl-5 font-medium text-red-500 hover:text-red-900 transition-colors">
-                Remove PIN
-              </button>
+              {hasPin && (
+                <button type="button" onClick={() => { setPinMode('remove-verify'); resetPinInputs(); }} className="text-[11px] pl-5 font-medium text-red-500 hover:text-red-900 transition-colors">
+                  Remove PIN
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -377,7 +425,7 @@ const PreferencesCard = () => {
   const items = [
     { key: 'sessionReminders', title: 'Session Reminders', desc: 'Email me before scheduled counseling sessions.' },
     { key: 'messageNotifications', title: 'Message Notifications', desc: 'Notify me when I receive new chat messages.' },
-    { key: 'calmMode', title: 'Calm Mode', desc: 'Reduce animations for a calmer experience.' },
+    { key: 'calmMode', title: 'Calm Mode', desc: 'Reduce animations and switch to a dark theme for a calmer experience.' },
     //{ key: 'switchmode', title: 'Dark Mode', desc: 'Switch between light and dark appearance.' },
     // Hindi ko maayos ayos tong dark mode kasi may mga components na hindi nag-aadjust sa dark mode. Tanggalin ko muna.
   ];

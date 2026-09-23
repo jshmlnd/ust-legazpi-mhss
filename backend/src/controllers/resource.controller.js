@@ -120,5 +120,5 @@ export const deleteResource = async (req, res) => {
 };
 
 export const reorderResources = async (req, res) => {
-  return reorder(Resource, "Resource", req, res);
+  return reorder(Resource, req, res);
 };

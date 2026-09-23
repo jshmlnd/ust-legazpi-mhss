@@ -9,15 +9,7 @@ import { getSocket } from '../lib/socket';
 import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 
-const CRISIS_DISPLAY_TERMS = [
-  'kill myself', 'end my life', 'want to die', 'hurt myself', 'self harm', 'suicide',
-  'no hope', 'not safe', 'help me', 'crisis', 'emergency', 'can\'t go on',
-];
-
-const hasCrisisKeywords = (text) =>
-  CRISIS_DISPLAY_TERMS.some((kw) => text?.toLowerCase().includes(kw));
-
-const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerPic }) => {
+const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerPic, ownName, peerName }) => {
   if (message.callerId !== undefined) {
     const mins = Math.floor((message.duration || 0) / 60);
     const secs = (message.duration || 0) % 60;
@@ -26,7 +18,7 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerP
       : `Voice call ended (${mins}m ${secs}s)`;
     return (
       <div className="flex justify-center mb-3">
-        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-100 text-neutral-500 text-xs">
+        <div className="inline-flex items-center gap-2 px-4 rounded-full bg-neutral-100 text-neutral-500 text-xs">
           <Phone size={12} />
           <span>{statusText}</span>
           <span className="text-neutral-400">
@@ -44,34 +36,34 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerP
     return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
   };
 
-  const crisisStyles = {
-    critical: 'bg-red-50 text-red-800 border border-red-300',
-    high: 'bg-red-50 text-red-800 border border-red-200',
-    medium: 'bg-amber-50 text-amber-800 border border-amber-200',
-    low: 'bg-yellow-50 text-yellow-800 border border-yellow-200',
-    none: 'bg-neutral-100 text-neutral-900',
-  };
-
   const avatarPic = isOwn ? ownPic : peerPic;
+  const senderName = isOwn ? ownName : peerName;
 
+  /* daisyUI: Chat with image, header and footer */
   return (
     <div className={`chat ${isOwn ? 'chat-end' : 'chat-start'} mb-3`}>
-      <div className="chat-image avatar avatar-placeholder">
-        <div className="size-10 rounded-full bg-neutral-100">
+      {/* chat-image: avatar beside the bubble */}
+      <div className="chat-image avatar">
+        <figure className="size-10 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
           {avatarPic ? (
-            <img src={avatarPic} alt="avatar" />
+            <img src={avatarPic} alt={senderName || 'avatar'} className="w-full h-full object-cover" />
           ) : (
-            <span className="text-neutral-400"><User size={22} className="translate-y-2 translate-x-2" /></span>
+            <User size={20} className="text-neutral-400" />
           )}
-        </div>
+        </figure>
       </div>
+
+      {/* chat-header: sender name + timestamp */}
+      <div className="chat-header text-xs font-medium text-neutral-600">
+        {senderName}
+        <time className="ml-1.5 text-xs opacity-50">
+          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </time>
+      </div>
+
       <div
-        className={`chat-bubble max-w-[25%] text-sm leading-relaxed ${
-          isOwn
-            ? 'bg-neutral-900 text-white'
-            : isCrisis
-              ? crisisStyles[crisisSeverity] || crisisStyles.none
-              : 'bg-neutral-100 text-neutral-900'
+        className={`chat-bubble max-w-[85%] sm:max-w-[60%] text-sm leading-relaxed ${
+          isOwn ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-900'
         }`}
       >
         {message.image && (
@@ -92,30 +84,36 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerP
         )}
         {message.text && <p>{message.text}</p>}
       </div>
-      <div className="chat-footer flex items-center gap-1 text-[10px] text-neutral-400">
-        <span>{new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        {isOwn && (
-          message.read ? (
+
+      {/* chat-footer: delivery status / crisis flag (monochrome — severity as text, not color) */}
+      {isOwn ? (
+        <div className="chat-footer flex items-center gap-1 text-[10px] text-neutral-400 opacity-50">
+          {message.read ? (
             <span className="inline-flex items-center gap-0.5 text-blue-400"><CheckCheck size={12} />Read</span>
           ) : (
             <span className="inline-flex items-center gap-0.5"><Check size={12} />Sent</span>
-          )
-        )}
-      </div>
+          )}
+        </div>
+      ) : isCrisis ? (
+        <div className="chat-footer flex items-center gap-1 text-[10px] text-neutral-500 opacity-70">
+          <AlertTriangle size={10} />
+          <span className="uppercase tracking-wider">Flagged · {crisisSeverity || 'review'}</span>
+        </div>
+      ) : null}
     </div>
   );
 };
 
 const TypingBubble = ({ pic }) => (
   <div className="chat chat-start mb-3">
-    <div className="chat-image avatar avatar-placeholder">
-      <div className="size-10 rounded-full bg-neutral-100">
+    <div className="chat-image avatar">
+      <figure className="size-10 rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center">
         {pic ? (
-          <img src={pic} alt="avatar" />
+          <img src={pic} alt="avatar" className="w-full h-full object-cover" />
         ) : (
-          <span className="text-neutral-400"><User size={22} className="translate-y-2 translate-x-2" /></span>
+          <User size={20} className="text-neutral-400" />
         )}
-      </div>
+      </figure>
     </div>
     <div className="chat-bubble bg-neutral-100">
       <p className="text-xs text-neutral-500 animate-pulse">typing...</p>
@@ -373,7 +371,7 @@ const StudentChatView = () => {
   const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-68px)]">
+    <div className="flex flex-col h-[calc(100dvh-68px)]">
       <div className="border-b border-neutral-200 px-6 py-4 bg-white shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -441,7 +439,9 @@ const StudentChatView = () => {
               isOwn={msg.senderId === authUser._id}
               ownPic={authUser.profilePic}
               peerPic={counselor?.profilePic}
-              isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+              ownName={`STU-${authUser.dynamicId || authUser._id}`}
+              peerName={counselor?.fullName}
+              isCrisis={msg.senderId !== authUser._id && !!crisisMessageMap[msg._id]}
               crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
             />
           ))
@@ -635,7 +635,7 @@ const CounselorChatView = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-68px)] bg-white">
+    <div className="flex h-[calc(100dvh-68px)] bg-white">
       {/* ─── Sidebar ─── */}
       <div className={`w-full lg:w-80 border-r border-neutral-200 flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'
@@ -793,7 +793,9 @@ const CounselorChatView = () => {
                     isOwn={msg.senderId === authUser._id}
                     ownPic={authUser.profilePic}
                     peerPic={selectedUser?.profilePic}
-                    isCrisis={msg.senderId !== authUser._id && (hasCrisisKeywords(msg.text) || crisisMessageMap[msg._id])}
+                    ownName={authUser.fullName}
+                    peerName={`STU-${selectedUser.dynamicId || selectedUser._id}`}
+                    isCrisis={msg.senderId !== authUser._id && !!crisisMessageMap[msg._id]}
                     crisisSeverity={msg.senderId !== authUser._id ? crisisMessageMap[msg._id] : undefined}
                   />
                 ))

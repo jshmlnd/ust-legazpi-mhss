@@ -84,7 +84,7 @@ if(isCheckingAuth && !authUser) return (
   <div>
 
     <Navbar />
-    <ToastContainer position="top-center" autoClose={3000} hideProgressBar newestOnTop closeOnClick pauseOnHover rtl={false} theme={prefs.switchmode ? 'dark' : 'light'} />
+    <ToastContainer position="top-center" autoClose={3000} hideProgressBar newestOnTop closeOnClick pauseOnHover rtl={false} theme={(prefs.calmMode || prefs.switchmode) ? 'dark' : 'light'} />
     <VoiceCallModal
       peerName={peerDisplayName}
     />

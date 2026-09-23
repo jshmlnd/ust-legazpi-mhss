@@ -67,10 +67,10 @@ const DATA = {
         "contact": "09465820327"
       },
       "yearLevel": {
-        "$numberInt": "1"
+        "$numberInt": "4"
       },
-      "pin": "0511",
-      "dynamicId": "VWWXXYYZ",
+      "pin": "",
+      "dynamicId": "",
       "twoFactorEnabled": false
     },
     {
@@ -120,7 +120,7 @@ const DATA = {
         "occupation": "",
         "contact": "09123456789"
       },
-      "dynamicId": "MYZW6REH",
+      "dynamicId": "",
       "pin": "",
       "twoFactorEnabled": false,
       "yearLevel": {

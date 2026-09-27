@@ -621,7 +621,7 @@ const ResourcePage = () => {
 
   return (
     <PageShell
-      title="Resource Management"
+      title="Resource Map"
       description="Discover Clinic Centers, Psychiatrists, and Psychologists"
       actions={
         <div className="flex flex-wrap items-center gap-2.5">

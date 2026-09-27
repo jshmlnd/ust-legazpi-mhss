@@ -4,6 +4,10 @@ import mongoose from "mongoose";
 
 import path from "path";
 
+// dotenv must load before ANY module that reads process.env at import time
+// (e.g. lib/cloudinary.js calls cloudinary.config() during module evaluation).
+import "dotenv/config";
+
 import authRoutes from "./routes/auth.route.js";
 import messageRoutes from "./routes/message.route.js";
 import appointmentRoutes from "./routes/appointment.route.js";
@@ -19,16 +23,17 @@ import callLogRoutes from "./routes/callLog.route.js";
 import crisisRoutes from "./routes/crisis.route.js";
 import auditTrailRoutes from "./routes/auditTrail.route.js";
 import noticeRoutes from "./routes/notice.route.js";
+import pushRoutes from "./routes/push.route.js";
+import { startReminderScheduler } from "./lib/reminders.js";
 
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import { setupSocket } from "./socket/socket.js";
+import { setupSocket, ALLOWED_ORIGINS } from "./socket/socket.js";
 
 const app = express();
 const server = http.createServer(app);
 
-dotenv.config();
 const PORT = process.env.PORT;
 const __dirname = path.resolve();
 
@@ -38,12 +43,13 @@ const connectDB = async () => {
     console.log(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
     console.error(`Error connecting to MongoDB: ${error.message}`);
+    process.exit(1);
   }
 };
 
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
-app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }));
+app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/message", messageRoutes);
@@ -60,6 +66,7 @@ app.use("/api/call-logs", callLogRoutes);
 app.use("/api/crisis", crisisRoutes);
 app.use("/api/audit-trails", auditTrailRoutes);
 app.use("/api/notice", noticeRoutes);
+app.use("/api/push", pushRoutes);
 
 if(process.env.NODE_ENV==="production"){
     app.use(express.static(path.join(__dirname, "../frontend/dist")));
@@ -71,7 +78,8 @@ if(process.env.NODE_ENV==="production"){
 
 setupSocket(server);
 
+await connectDB();
+startReminderScheduler();
 server.listen(PORT, () => {
-    connectDB();
     console.log(`Server is running on port: ${PORT}`);
 });

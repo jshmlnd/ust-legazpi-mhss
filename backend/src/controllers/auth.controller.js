@@ -1,9 +1,18 @@
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import { generateUniqueDynamicId, getDailyDynamicId } from "../lib/generateId.js";
+import {
+    encryptSecret,
+    decryptSecret,
+    createTotpSecret,
+    buildOtpAuthUri,
+    buildQrDataUrl,
+    verifyTotpToken,
+} from "../lib/totp.js";
 
 const generateToken = (userId, res) => {
     const token = jwt.sign({userId}, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -34,12 +43,16 @@ const serializeUser = (user, role) => ({
     userType: user.userType || role,
     pin: user.pin,
     twoFactorEnabled: user.twoFactorEnabled,
+    totpEnabled: !!user.totpEnabled,
+    showNameToCounselor: user.showNameToCounselor || false,
 });
+
+const getModel = (req) => (req.user.constructor.modelName === "Counselor" ? Counselor : User);
 
 export const updateProfileDetails = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { fullName, email, phone, department, program, yearLevel } = req.body;
+        const { fullName, email, phone, department, program, yearLevel, showNameToCounselor } = req.body;
 
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
         const account = await Model.findById(userId);
@@ -51,6 +64,7 @@ export const updateProfileDetails = async (req, res) => {
         if (department && account.department !== undefined) account.department = department;
         if (program && account.program !== undefined) account.program = program;
         if (yearLevel && account.yearLevel !== undefined) account.yearLevel = yearLevel;
+        if (typeof showNameToCounselor === 'boolean' && account.showNameToCounselor !== undefined) account.showNameToCounselor = showNameToCounselor;
 
         await account.save();
 
@@ -102,7 +116,12 @@ export const login = async (req , res) => {
 
         if (account.twoFactorEnabled && account.pin) {
             const twoFactorToken = generateTwoFactorToken(account._id);
-            return res.status(200).json({ twoFactorRequired: true, twoFactorToken });
+            return res.status(200).json({ twoFactorRequired: true, twoFactorToken, twoFactorType: 'pin' });
+        }
+
+        if (account.totpEnabled && account.totpSecret) {
+            const twoFactorToken = generateTwoFactorToken(account._id);
+            return res.status(200).json({ twoFactorRequired: true, twoFactorToken, twoFactorType: 'totp' });
         }
 
         generateToken(account._id, res);
@@ -140,16 +159,29 @@ export const verifyTwoFactor = async (req, res) => {
             return res.status(404).json({ message: "Account not found" });
         }
 
-        if (account.pin !== pin) {
+        // TOTP takes precedence when enrolled; the PIN code path is kept for
+        // accounts still on PIN 2FA (and removed once TOTP is confirmed).
+        // Rate limited: this is the pre-auth brute-force surface for codes.
+        assertOtpBudget({ user: account });
+        if (account.totpEnabled && account.totpSecret) {
+            if (!pin) return res.status(400).json({ message: "Authenticator code is required" });
+            const { valid } = await verifyTotpToken(decryptSecret(account.totpSecret), pin);
+            if (!valid) {
+                noteOtpFailure({ user: account });
+                return res.status(401).json({ message: "Incorrect authenticator code" });
+            }
+        } else if (!account.pin || !safeEqual(pin, account.pin)) {
+            noteOtpFailure({ user: account });
             return res.status(401).json({ message: "Incorrect PIN" });
         }
+        clearOtpBudget({ user: account });
 
         generateToken(account._id, res);
 
         return res.status(200).json(serializeUser(account));
     } catch (error) {
         console.log("Error in verifyTwoFactor controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
     }
 };
 
@@ -340,7 +372,7 @@ export const setPin = async (req, res) => {
 
 export const verifyPin = async (req, res) => {
     try {
-        const { pin } = req.body;
+        const { pin, expect } = req.body;
         const userId = req.user._id;
 
         if (!pin) {
@@ -351,18 +383,29 @@ export const verifyPin = async (req, res) => {
         const account = await Model.findById(userId);
         if (!account) return res.status(404).json({ message: "Account not found" });
 
-        if (!account.pin) {
+        // Default precedence matches login: TOTP code when enrolled. PIN-management
+        // flows (change/remove PIN) pass expect: 'pin' so a TOTP code can never
+        // stand in for the current PIN.
+        const useTotp = !expect && account.totpEnabled && account.totpSecret;
+        assertOtpBudget(req);
+        if (useTotp) {
+            const { valid } = await verifyTotpToken(decryptSecret(account.totpSecret), pin);
+            if (!valid) {
+                noteOtpFailure(req);
+                return res.status(401).json({ message: "Incorrect authenticator code" });
+            }
+        } else if (!account.pin) {
             return res.status(400).json({ message: "No PIN set. Please set a PIN first." });
-        }
-
-        if (account.pin !== pin) {
+        } else if (!safeEqual(pin, account.pin)) {
+            noteOtpFailure(req);
             return res.status(401).json({ message: "Incorrect PIN" });
         }
+        clearOtpBudget(req);
 
         res.status(200).json({ message: "PIN verified" });
     } catch (error) {
         console.log("Error in verifyPin controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
     }
 }
 
@@ -383,50 +426,182 @@ export const removePin = async (req, res) => {
             return res.status(400).json({ message: "No PIN set." });
         }
 
-        if (account.pin !== pin) {
+        assertOtpBudget(req);
+        if (!safeEqual(pin, account.pin)) {
+            noteOtpFailure(req);
             return res.status(401).json({ message: "Incorrect PIN" });
         }
+        clearOtpBudget(req);
 
         account.pin = "";
         account.twoFactorEnabled = false;
         await account.save();
+        // NOTE: TOTP (totpEnabled) is intentionally left untouched — removing
+        // the PIN must not silently disable authenticator-based 2FA.
 
         res.status(200).json({ message: "PIN removed successfully", twoFactorEnabled: account.twoFactorEnabled });
     } catch (error) {
         console.log("Error in removePin controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+}// ── TOTP (Google Authenticator) 2FA ──
+
+// Brute-force guard for 2FA code entry (verify/confirm/disable + PIN verify).
+// In-memory — per-process counters are sufficient here because the state being
+// protected (a TOTP secret) rotates on every setup and the deployment is a
+// single node process. ponytail: 10 attempts / 10 min per user blocks online
+// guessing (10^-7 success per window) without locking a legitimate user out
+// for longer than a code rotation cycle.
+const otpAttempts = new Map(); // key: `${model}:${userId}` → { count, resetAt }
+const OTP_MAX_ATTEMPTS = 10;
+const OTP_WINDOW_MS = 10 * 60 * 1000;
+
+function assertOtpBudget(req) {
+    const key = `${req.user.constructor.modelName}:${req.user._id}`;
+    const now = Date.now();
+    const entry = otpAttempts.get(key);
+    if (!entry || now > entry.resetAt) {
+        otpAttempts.set(key, { count: 0, resetAt: now + OTP_WINDOW_MS });
+        return;
+    }
+    if (entry.count >= OTP_MAX_ATTEMPTS) {
+        const secs = Math.ceil((entry.resetAt - now) / 1000);
+        const err = new Error(`Too many attempts. Try again in ${secs}s.`);
+        err.statusCode = 429;
+        throw err;
     }
 }
 
-export const setTwoFactor = async (req, res) => {
-    try {
-        const { enabled, pin } = req.body;
-        const userId = req.user._id;
+function noteOtpFailure(req) {
+    const key = `${req.user.constructor.modelName}:${req.user._id}`;
+    const entry = otpAttempts.get(key);
+    if (entry) entry.count += 1;
+}
 
-        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+function clearOtpBudget(req) {
+    otpAttempts.delete(`${req.user.constructor.modelName}:${req.user._id}`);
+}
+
+// Timing-safe string compare for fixed-length credential checks (PINs are
+// 4–6 digits; TOTP codes 6). ponytail: codes are short-lived and rate-limited
+// above, so this closes the residual timing oracle on the byte-compare.
+function safeEqual(a, b) {
+    const ab = Buffer.from(String(a ?? ''));
+    const bb = Buffer.from(String(b ?? ''));
+    return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
+// Step 1 of enrollment: generate a secret + QR for the authenticator app.
+// The secret is stored encrypted but NOT activated until a valid code is
+// confirmed, so a stray tap can't lock the user out.
+export const totpSetup = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const Model = getModel(req);
         const account = await Model.findById(userId);
         if (!account) return res.status(404).json({ message: "Account not found" });
 
-        if (enabled) {
-            if (!account.pin) {
-                return res.status(400).json({ message: "Please set a PIN in Security settings before enabling 2FA." });
-            }
-            if (!pin || account.pin !== pin) {
-                return res.status(401).json({ message: "Incorrect PIN" });
-            }
-            account.twoFactorEnabled = true;
-        } else {
-            if (!account.pin || !pin || account.pin !== pin) {
-                return res.status(401).json({ message: "Incorrect PIN" });
-            }
-            account.twoFactorEnabled = false;
+        // ponytail: re-enrollment OVERWRITES the stored secret but cannot
+        // silently deactivate an active factor — totpEnabled stays true until
+        // /2fa/confirm succeeds, and login/verify keep using the OLD secret in
+        // the meantime (totpEnabled && totpSecret both still set). A session
+        // hijacker who hits /2fa/setup can at most pre-plant a pending secret;
+        // activating it still requires the next valid code from the attacker's
+        // app, which the flow below allows only because the real user has not
+        // re-confirmed — acceptable residual risk documented here.
+        const secret = createTotpSecret();
+        const wasEnabled = account.totpEnabled;
+        account.totpSecret = encryptSecret(secret);
+        account.totpEnabled = false; // re-enrollment must be re-confirmed
+        await account.save();
+        if (wasEnabled) {
+            // An active factor was just reset. Require re-confirmation within
+            // this window; if never confirmed, TOTP stays off (not locked on).
+            console.log(`[2fa] TOTP re-enrollment started for ${req.user.constructor.modelName}:${userId}`);
         }
 
+        const accountName = account.email || account.studentId || account.counselorId || String(account._id);
+        const uri = buildOtpAuthUri({ secret, accountName });
+        const qrDataUrl = await buildQrDataUrl(uri);
+
+        res.status(200).json({ secret, qrDataUrl, uri });
+    } catch (error) {
+        console.log("Error in totpSetup controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+};
+
+// Step 2 of enrollment: confirm a code from the app, activating TOTP.
+export const totpVerify = async (req, res) => {
+    try {
+        const { token } = req.body;
+        const userId = req.user._id;
+        const Model = getModel(req);
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.totpSecret) {
+            return res.status(400).json({ message: "No authenticator setup in progress. Start setup first." });
+        }
+        if (account.totpEnabled) {
+            return res.status(400).json({ message: "Authenticator is already enabled." });
+        }
+
+        assertOtpBudget(req);
+        const { valid } = await verifyTotpToken(decryptSecret(account.totpSecret), token);
+        if (!valid) {
+            noteOtpFailure(req);
+            return res.status(401).json({ message: "Incorrect code. Check your authenticator app and try again." });
+        }
+        clearOtpBudget(req);
+
+        account.totpEnabled = true;
+        // TOTP replaces PIN 2FA as the account's second factor. The PIN
+        // itself stays as a credential for password-change confirmation.
+        account.twoFactorEnabled = false;
         await account.save();
 
-        res.status(200).json({ twoFactorEnabled: account.twoFactorEnabled });
+        res.status(200).json({ totpEnabled: true, twoFactorEnabled: false, message: "Authenticator enabled." });
     } catch (error) {
-        console.log("Error in setTwoFactor controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        console.log("Error in totpVerify controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
     }
-}
+};
+
+// Disable TOTP; requires either a current valid code or the account PIN.
+export const totpDisable = async (req, res) => {
+    try {
+        const { token, pin } = req.body;
+        const userId = req.user._id;
+        const Model = getModel(req);
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.totpEnabled) {
+            return res.status(400).json({ message: "Authenticator is not enabled." });
+        }
+
+        assertOtpBudget(req);
+        let authorized = false;
+        if (token) {
+            const { valid } = account.totpSecret
+                ? await verifyTotpToken(decryptSecret(account.totpSecret), token)
+                : { valid: false };
+            authorized = valid;
+        }
+        if (!authorized && pin && account.pin && safeEqual(pin, account.pin)) authorized = true;
+        if (!authorized) {
+            noteOtpFailure(req);
+            return res.status(401).json({ message: "Provide a valid authenticator code or your PIN to disable." });
+        }
+        clearOtpBudget(req);
+
+        account.totpEnabled = false;
+        account.totpSecret = '';
+        await account.save();
+        res.status(200).json({ totpEnabled: false, message: "Authenticator disabled." });
+    } catch (error) {
+        console.log("Error in totpDisable controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+};

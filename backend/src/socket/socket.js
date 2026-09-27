@@ -7,6 +7,19 @@ import Message from "../models/message.model.js";
 const userSocketMap = {};
 let io;
 
+/**
+ * Origins allowed for both the express API and the socket.io server.
+ * Keep these identical — a mismatch (e.g. vite falling back to :5174)
+ * silently breaks every real-time event while REST still works.
+ */
+export const ALLOWED_ORIGINS = [
+  process.env.CORS_ORIGIN,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+].filter(Boolean);
+
 export const getReceiverSocketIds = (receiverId) => {
   const socketIds = userSocketMap[receiverId];
   return socketIds ? [...socketIds] : [];
@@ -29,7 +42,7 @@ const findUserById = async (userId) => {
 export const setupSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN,
+      origin: ALLOWED_ORIGINS,
       credentials: true,
     },
   });

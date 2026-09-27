@@ -1,7 +1,7 @@
 import SkeletonAvatar from './SkeletonAvatar';
 
 const SkeletonCard = ({ className = '' }) => (
-  <div className={`bg-white border border-neutral-200 rounded-sm p-5 space-y-4 ${className}`} aria-hidden="true">
+  <div className={`bg-surface border border-line rounded-lg p-5 space-y-4 ${className}`} aria-hidden="true">
     <div className="flex items-start gap-3">
       <SkeletonAvatar size="sm" />
       <div className="flex-1 space-y-2">

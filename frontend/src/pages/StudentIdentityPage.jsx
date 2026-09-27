@@ -3,14 +3,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Mail, Hash, Building2, BookOpen, Phone, Shield, AlertTriangle } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import SectionDivider from '../components/SectionDivider';
 
 const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-center gap-3 py-3 border-b border-neutral-100 last:border-b-0">
-    <Icon size={14} className="text-neutral-400 shrink-0" />
-    <span className="text-xs text-neutral-500 w-28 shrink-0">{label}</span>
-    <span className="text-sm text-neutral-900 font-medium break-all">{value || '—'}</span>
+  <div className="flex items-center gap-3 py-3 border-b border-line last:border-b-0">
+    <Icon size={14} className="text-ink-muted shrink-0" />
+    <span className="text-xs text-ink-muted w-28 shrink-0">{label}</span>
+    <span className="text-sm text-ink font-medium break-all">{value || '—'}</span>
   </div>
 );
 
@@ -60,7 +60,7 @@ const StudentIdentityPage = () => {
   if (!isCounselor) {
     return (
       <div className="min-h-screen flex items-center justify-center px-6">
-        <p className="text-xs tracking-[0.1em] font-medium uppercase text-neutral-400">Access restricted to counselors</p>
+        <p className="text-xs font-medium text-ink-muted">Access restricted to counselors</p>
       </div>
     );
   }
@@ -68,11 +68,11 @@ const StudentIdentityPage = () => {
   return (
     <PageShell
       title="Student Identity"
-      subtitle="Secured profile view — crisis intervention protocol"
+      description="Secured profile view — crisis intervention protocol"
       actions={
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
         >
           <ArrowLeft size={14} /> Back
         </button>
@@ -80,25 +80,25 @@ const StudentIdentityPage = () => {
     >
       <div className="max-w-2xl mx-auto -mt-6">
         {loading ? (
-          <div className="bg-white border border-neutral-200 rounded-sm p-12 flex items-center justify-center">
-            <p className="text-sm text-neutral-400">Loading student data...</p>
+          <div className="bg-surface border border-line rounded-lg p-12 flex items-center justify-center">
+            <p className="text-sm text-ink-muted">Loading student data...</p>
           </div>
         ) : error ? (
-          <div className="bg-white border border-red-200 rounded-sm p-8 text-center">
-            <AlertTriangle size={24} className="text-red-400 mx-auto mb-3" />
-            <p className="text-sm font-medium text-red-700">{error}</p>
-            <button onClick={() => navigate(-1)} className="mt-4 text-xs text-neutral-500 hover:text-neutral-900 underline">
+          <div className="bg-surface border border-danger/30 rounded-lg p-8 text-center">
+            <AlertTriangle size={24} className="text-danger mx-auto mb-3" />
+            <p className="text-sm font-medium text-danger-ink">{error}</p>
+            <button onClick={() => navigate(-1)} className="mt-4 text-xs text-ink-muted hover:text-ink underline">
               Go back
             </button>
           </div>
         ) : student ? (
           <div className="space-y-6">
             {/* Crisis Warning */}
-            <div className="bg-amber-50 border border-amber-200 rounded-sm px-5 py-4 flex items-start gap-3">
-              <Shield size={18} className="text-amber-600 shrink-0 mt-0.5" />
+            <div className="bg-warning-soft border border-warning/30 rounded-lg px-5 py-4 flex items-start gap-3">
+              <Shield size={18} className="text-warning-ink shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-amber-800">Crisis Intervention Record</p>
-                <p className="text-xs text-amber-700 mt-0.5">
+                <p className="text-sm font-medium text-warning-ink">Crisis Intervention Record</p>
+                <p className="text-xs text-warning-ink mt-0.5">
                   Identity accessed via emergency protocol at{' '}
                   {new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })}
                 </p>
@@ -106,14 +106,14 @@ const StudentIdentityPage = () => {
             </div>
 
             {/* Profile Card */}
-            <div className="bg-white border border-neutral-200 rounded-sm p-6">
+            <div className="bg-surface border border-line rounded-lg p-6">
               <div className="flex items-center gap-4 mb-6">
-                <div className="size-14 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500">
+                <div className="size-14 rounded-full bg-line flex items-center justify-center text-ink-muted">
                   <User size={26} />
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium text-neutral-900">{student.fullName}</h2>
-                  <span className="text-xs text-neutral-400 font-mono">STU-{student._id}</span>
+                  <h2 className="text-lg font-medium text-ink">{student.fullName}</h2>
+                  <span className="text-xs text-ink-muted font-mono">STU-{student._id}</span>
                 </div>
               </div>
 
@@ -134,7 +134,7 @@ const StudentIdentityPage = () => {
             </div>
 
             {/* Mother's Information */}
-            <div className="bg-white border border-neutral-200 rounded-sm p-6">
+            <div className="bg-surface border border-line rounded-lg p-6">
               <SectionDivider label="Mother's Information" />
               <div>
                 <InfoRow icon={User} label="Name" value={student.mother?.name} />
@@ -144,7 +144,7 @@ const StudentIdentityPage = () => {
             </div>
 
             {/* Father's Information */}
-            <div className="bg-white border border-neutral-200 rounded-sm p-6">
+            <div className="bg-surface border border-line rounded-lg p-6">
               <SectionDivider label="Father's Information" />
               <div>
                 <InfoRow icon={User} label="Name" value={student.father?.name} />
@@ -154,7 +154,7 @@ const StudentIdentityPage = () => {
             </div>
 
             {/* Guardian & Emergency Contact */}
-            <div className="bg-white border border-neutral-200 rounded-sm p-6">
+            <div className="bg-surface border border-line rounded-lg p-6">
               <SectionDivider label="Guardian Information" />
               <div>
                 <InfoRow icon={User} label="Name" value={student.guardian?.name} />

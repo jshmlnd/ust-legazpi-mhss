@@ -2,6 +2,7 @@ import Appointment from "../models/appointment.model.js";
 import Counselor from "../models/counselor.model.js";
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
+import CallLog from "../models/callLog.model.js";
 import AvailabilitySlot from "../models/availabilitySlot.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
@@ -40,13 +41,17 @@ export const getAppointments = async (req, res) => {
       const counselorMap = Object.fromEntries(counselors.map((counselor) => [String(counselor._id), counselor.fullName]));
 
       const studentIds = [...new Set(appointments.map((appointment) => appointment.studentId))];
-      const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId").lean();
+      const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName showNameToCounselor").lean();
       const dynamicMap = Object.fromEntries(students.map((s) => [String(s._id), s.dynamicId]));
+      const studentMap = Object.fromEntries(students.map((s) => [String(s._id), s]));
 
       appointments = appointments.map((appointment) => ({
         ...appointment.toObject(),
         counselorName: counselorMap[String(appointment.counselorId)] || null,
         studentDynamicId: getDailyDynamicId(dynamicMap[String(appointment.studentId)]) || null,
+        studentName: studentMap[String(appointment.studentId)]?.showNameToCounselor
+          ? studentMap[String(appointment.studentId)].fullName
+          : null,
       }));
     }
 
@@ -135,7 +140,32 @@ export const updateAppointment = async (req, res) => {
     }
 
     if (req.body.status === 'completed' && appointment.type === 'Chat') {
+      // Session content is per-session: purge chat messages and voice-call
+      // logs together when the session completes.
       await Message.deleteMany({ appointmentId: appointment._id });
+      await CallLog.deleteMany({ appointmentId: appointment._id });
+      // Sweep stray unscoped call logs between this pair (e.g. logged before
+      // the appointmentId stamping existed) so they can't leak into the next
+      // session's fresh chat view.
+      await CallLog.deleteMany({
+        appointmentId: { $exists: false },
+        $or: [
+          { callerId: appointment.studentId, receiverId: appointment.counselorId },
+          { callerId: appointment.counselorId, receiverId: appointment.studentId },
+        ],
+      });
+    }
+
+    if (req.body.status === 'active' && appointment.type === 'Chat') {
+      // A new session is starting: clear any pre-session stray call logs
+      // between this pair so the fresh chat view starts empty.
+      await CallLog.deleteMany({
+        appointmentId: { $exists: false },
+        $or: [
+          { callerId: appointment.studentId, receiverId: appointment.counselorId },
+          { callerId: appointment.counselorId, receiverId: appointment.studentId },
+        ],
+      });
     }
 
     const io = getIO();
@@ -158,9 +188,12 @@ export const updateAppointment = async (req, res) => {
 export const getActiveAppointment = async (req, res) => {
   try {
     const { studentId } = req.params;
+    // The peer's id is in the URL regardless of who is asking: students pass
+    // their counselor's id, counselors pass the student's id.
+    const isStudent = req.user.constructor.modelName === "User";
     const appointment = await Appointment.findOne({
-      studentId,
-      counselorId: req.user._id,
+      [isStudent ? "studentId" : "counselorId"]: req.user._id,
+      [isStudent ? "counselorId" : "studentId"]: Number(studentId),
       type: "Chat",
       status: { $in: ["active", "confirmed", "on-going"] },
     });
@@ -176,6 +209,8 @@ export const deleteAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findByIdAndDelete(req.params.id);
     if (!appointment) return res.status(404).json({ error: "Appointment not found" });
+    // Session-scoped content would be orphaned by the hard delete.
+    await CallLog.deleteMany({ appointmentId: appointment._id });
     res.json({ message: "Appointment deleted" });
   } catch (error) {
     console.error("Error in deleteAppointment:", error.message);

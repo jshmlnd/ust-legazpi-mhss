@@ -7,6 +7,7 @@ export const DEFAULT_PREFS = {
   messageNotifications: true,
   calmMode: false,
   switchmode: false,
+  sidebarCollapsed: false,
 };
 
 const keyFor = (userId) => String(userId || 'guest');
@@ -30,6 +31,7 @@ const applySideEffects = (next) => {
 
 const usePrefsStore = create(persist((set) => ({
   prefsByUser: {},
+  activeKey: 'guest',
   setPref: (userId, key, value) => set(({ prefsByUser }) => ({
     prefsByUser: {
       ...prefsByUser,
@@ -52,13 +54,31 @@ export const getPrefs = (userId) => ({
   ...usePrefsStore.getState().prefsByUser[keyFor(userId)],
 });
 
+/**
+ * Apply the persisted theme synchronously at startup (before React renders)
+ * so a saved dark mode paints immediately instead of flashing light until
+ * AppLayout mounts. persist rehydrates synchronously from localStorage.
+ */
+export const applyStartupTheme = () => {
+  if (typeof document === 'undefined') return;
+  const { activeKey, prefsByUser } = usePrefsStore.getState();
+  applySideEffects({ ...DEFAULT_PREFS, ...prefsByUser[activeKey] });
+};
+
 export const usePrefs = (userId) => {
   const key = keyFor(userId);
   const prefs = usePrefsStore((state) => state.prefsByUser[key] || DEFAULT_PREFS);
   const setPref = usePrefsStore((state) => state.setPref);
   const togglePref = usePrefsStore((state) => state.togglePref);
 
-  useEffect(() => applySideEffects(prefs), [prefs]);
+  useEffect(() => {
+    // Remember whose prefs are active so the next cold start can restore
+    // the theme before first paint (see applyStartupTheme).
+    if (usePrefsStore.getState().activeKey !== key) {
+      usePrefsStore.setState({ activeKey: key });
+    }
+    applySideEffects(prefs);
+  }, [prefs, key]);
 
   return {
     prefs,

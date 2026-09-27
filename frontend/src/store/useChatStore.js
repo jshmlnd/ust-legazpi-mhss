@@ -69,8 +69,6 @@ export const useChatStore = create((set, get) => ({
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       set({ messages: combined, currentAppointmentId: appointmentId || null });
 
-      // Backfill crisis flags for historical peer messages (Jev, batched server-side).
-      // Non-blocking: bubbles restyle when results arrive.
       const authUser = useAuthStore.getState().authUser;
       const peerTexts = combined.filter((m) => m.text && String(m.senderId) !== String(authUser?._id));
       if (peerTexts.length) {
@@ -82,7 +80,7 @@ export const useChatStore = create((set, get) => ({
               set((s) => ({ crisisMessageMap: { ...s.crisisMessageMap, ...map } }));
             }
           })
-          .catch(() => { /* styling-only; live flagging path still covers new messages */ });
+          .catch(() => { });
       }
     } catch {
       toast.error("Failed to load messages");
@@ -235,14 +233,20 @@ export const useChatStore = create((set, get) => ({
         (String(callLog.callerId) === String(selectedUser._id) ||
           String(callLog.receiverId) === String(selectedUser._id));
 
-      if (isRelevant) {
-        // Only show call logs that belong to the active session; when a session is
-        // active, legacy (session-less) logs and other sessions' logs are excluded.
-        if (currentAppointmentId && String(callLog.appointmentId) !== String(currentAppointmentId)) {
-          return;
-        }
-        set({ messages: [...messages, callLog] });
-      }
+      if (!isRelevant) return;
+
+      // Session gating mirrors getCallLogs on the server: a log may only
+      // append when its session matches the one open in this thread. Logs
+      // from other sessions (or from a session-less call while a session is
+      // open) are dropped, so ended sessions never bleed into new ones.
+      const logSession = callLog.appointmentId ? String(callLog.appointmentId) : null;
+      const openSession = currentAppointmentId ? String(currentAppointmentId) : null;
+      if (logSession !== openSession) return;
+
+      // Socket retries or double-emits must not render the same log twice.
+      if (messages.some((m) => m._id === callLog._id)) return;
+
+      set({ messages: [...messages, callLog] });
     });
 
     socket.off("typing").on("typing", ({ userId }) => {

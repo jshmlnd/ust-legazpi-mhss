@@ -1,7 +1,14 @@
 import { analyzeCrisis, detectLanguage, translateToEnglish } from "./crisisDetector.js";
 
-const JEV_MODEL = "typesafe/jev";
+// Jev 1.3 hosted Decisions API (https://www.jevai.org/docs) — native
+// /api/v1/decisions endpoint: our own state plus choice/noul/score questions.
+// Replaces the Cloudflare Workers AI passthrough; the personal key comes from
+// jevai.org/agent/keys and lives in JEV_API_KEY.
+const JEV_API_URL = "https://www.jevai.org/api/v1/decisions";
 const TIMEOUT_MS = 8000;
+// The API rejects bodies over 32 KiB; cap the state text well under that so
+// long diary entries get judged instead of erroring into the keyword fallback.
+const MAX_STATE_CHARS = 24_000;
 
 const LEVELS = [
   { level: "none", label: "None", color: "green" },
@@ -46,25 +53,35 @@ const QUESTIONS = {
   },
 };
 
-async function callJev(text) {
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-  const apiKey = process.env.AI_GATEWAY_API_KEY;
-  if (!accountId || !apiKey) throw new Error("CLOUDFLARE_ACCOUNT_ID / AI_GATEWAY_API_KEY not set");
+async function callJev(text, { translatedFromFilipino = false } = {}) {
+  const apiKey = process.env.JEV_API_KEY;
+  if (!apiKey) throw new Error("JEV_API_KEY not set");
+
+  // Tagalog/Filipino messages are pre-translated by our dictionary so Jev can
+  // judge them; tell it the text is machine-translated so "awkward phrasing"
+  // is not read as low-stakes and Tagalog idioms already carried across.
+  const state = { message: text.slice(0, MAX_STATE_CHARS) };
+  if (translatedFromFilipino) {
+    state.language = "filipino";
+    state.note =
+      "This message was originally in Tagalog/Filipino and was machine-translated to English with a crisis-phrase dictionary. Judge the translated text as the student's own words; phrasing may be literal or awkward. Negation (ayaw/hindi/huwag = not/dont) has been preserved in translation.";
+  }
 
   const res = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run`,
+    JEV_API_URL,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: JEV_MODEL, input: { state: text, questions: QUESTIONS } }),
+      body: JSON.stringify({ state, questions: QUESTIONS }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     },
   );
   if (!res.ok) throw new Error(`Jev HTTP ${res.status}`);
 
   const data = await res.json();
+  if (data?.code !== 0) throw new Error(`Jev error ${data?.code ?? "unknown"}: ${data?.message ?? "no message"}`);
 
-  const answers = data?.result?.answers ?? data?.answers;
+  const answers = data?.data?.answers;
   if (!answers?.is_crisis || !answers?.severity) throw new Error("Unexpected Jev response shape");
   return answers;
 }
@@ -76,10 +93,14 @@ export async function analyzeCrisisAI(text) {
     // Filipino pass: Jev is strongest in English — detect and translate before judging
     // (same dictionary the keyword fallback uses, so both paths see the same text).
     const language = detectLanguage(text);
-    const a = await callJev(language === "filipino" ? translateToEnglish(text) : text);
+    const isFilipino = language === "filipino";
+    const a = await callJev(isFilipino ? translateToEnglish(text) : text, { translatedFromFilipino: isFilipino });
     const sevIdx = Math.max(0, Math.min(4, Math.round(a.severity.score ?? 0)));
-    // ponytail: OR gate + floor at "low" — a safety feature must err toward flagging,
-    // the counselor reviews every flag. The old AND gate missed high-noul/rounded-severity cases.
+    // ponytail: OR gate + floor at "low" — a safety feature must err toward
+    // flagging: the counselor reviews every flag, so a false positive costs
+    // one dismissal while a false negative costs a missed intervention. The
+    // old AND gate silently dropped cases where one signal was strong but the
+    // other rounded low (e.g. noul 0.9 + severity 0.2).
     const isCrisis = (a.is_crisis.noul ?? 0) >= 0.5 || sevIdx > 0;
     const effIdx = isCrisis ? Math.max(sevIdx, 1) : 0;
     const category = a.category?.choice && a.category.choice !== "none" ? a.category.choice : "crisis";
@@ -93,7 +114,7 @@ export async function analyzeCrisisAI(text) {
         : [],
       language,
       ai: {
-        model: "jev-1.13",
+        model: "jev-1.3",
         probability: a.is_crisis.noul ?? null,
         confidence: a.severity.confidence ?? null,
       },

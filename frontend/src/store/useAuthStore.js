@@ -38,12 +38,6 @@ export const useAuthStore = create((set) => ({
         }
     },
 
-    verifyTwoFactor: async (twoFactorToken, pin) => {
-        const res = await axiosInstance.post("/auth/2fa/verify", { twoFactorToken, pin });
-        set({ authUser: res.data });
-        return res.data;
-    },
-
     logout: async () => {
         try {
             await axiosInstance.post("/auth/logout");
@@ -68,10 +62,35 @@ export const useAuthStore = create((set) => ({
         }
     },
 
-    setTwoFactor: async (enabled, pin) => {
-        const res = await axiosInstance.put("/auth/2fa", { enabled, pin });
+    verifyTwoFactor: async (twoFactorToken, code, twoFactorType) => {
+        const res = await axiosInstance.post("/auth/2fa/verify", { twoFactorToken, pin: code });
+        set({ authUser: res.data });
+        return { ...res.data, twoFactorType };
+    },
+
+    // Google Authenticator (TOTP) enrollment: get secret + QR, then confirm
+    // with a code from the app to activate.
+    totpSetup: async () => {
+        const res = await axiosInstance.post("/auth/2fa/setup");
+        return res.data; // { secret, qrDataUrl, uri }
+    },
+
+    totpConfirm: async (token) => {
+        const res = await axiosInstance.post("/auth/2fa/confirm", { token });
         set((state) => ({
-            authUser: { ...state.authUser, twoFactorEnabled: res.data.twoFactorEnabled },
+            authUser: state.authUser
+                ? { ...state.authUser, totpEnabled: true, twoFactorEnabled: false }
+                : state.authUser,
+        }));
+        return res.data;
+    },
+
+    totpDisable: async (payload) => {
+        const res = await axiosInstance.put("/auth/2fa", payload); // { token } or { pin }
+        set((state) => ({
+            authUser: state.authUser
+                ? { ...state.authUser, totpEnabled: false }
+                : state.authUser,
         }));
         return res.data;
     },

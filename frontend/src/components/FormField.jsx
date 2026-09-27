@@ -1,14 +1,14 @@
 const FormField = ({ label, name, type = 'text', value, onChange, error, placeholder, rows, required }) => {
-  const base = 'w-full bg-transparent border text-sm outline-none transition-colors rounded-sm px-3 py-2.5';
-  const normal = 'border-neutral-200 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900';
-  const errorStyle = 'border-red-400 text-red-700 focus:border-red-500';
+  const base = 'w-full bg-transparent border text-sm outline-none transition-colors rounded-lg px-3 py-2.5';
+  const normal = 'border-line text-ink placeholder:text-ink-muted focus:border-brand-600';
+  const errorStyle = 'border-danger text-danger-ink focus:border-danger';
   const inputClass = `${base} ${error ? errorStyle : normal}`;
 
   return (
     <div className="space-y-1.5">
       {label && (
-        <label htmlFor={name} className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">
-          {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+        <label htmlFor={name} className="block text-xs font-medium text-ink">
+          {label}{required && <span className="text-danger ml-0.5">*</span>}
         </label>
       )}
       {type === 'textarea' ? (
@@ -39,7 +39,7 @@ const FormField = ({ label, name, type = 'text', value, onChange, error, placeho
           className={inputClass}
         />
       )}
-      {error && <p className="text-[11px] text-red-500 mt-0.5">{error}</p>}
+      {error && <p className="text-xs text-danger mt-0.5">{error}</p>}
     </div>
   );
 };

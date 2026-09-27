@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import EmptyState from '../components/EmptyState';
-import Modal from '../components/Modal';
+import EmptyState from '../ui/EmptyState';
+import Modal from '../ui/Modal';
+import StatusBadge from '../ui/StatusBadge';
 import { toast } from 'react-toastify';
+import { confirmAction } from '../lib/confirm';
 import { PATHS } from '../lib/routes';
+import { useNavigate } from 'react-router-dom';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -60,33 +63,33 @@ const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDate
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <button onClick={onPrev} className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors">
+        <button onClick={onPrev} className="size-7 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors">
           <ChevronLeft size={14} />
         </button>
-        <span className="text-sm font-medium text-neutral-900">{monthLabel}</span>
-        <button onClick={onNext} className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors">
+        <span className="text-sm font-medium text-ink">{monthLabel}</span>
+        <button onClick={onNext} className="size-7 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors">
           <ChevronRightIcon size={14} />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-px bg-neutral-200 rounded-sm overflow-hidden">
+      <div className="grid grid-cols-7 gap-px bg-line rounded-lg overflow-hidden">
         {WEEKDAYS.map((wd) => (
-          <div key={wd} className="bg-neutral-50 px-2 py-1.5 text-[9px] font-semibold tracking-[0.1em] uppercase text-neutral-400 text-center">{wd}</div>
+          <div key={wd} className="bg-canvas px-2 py-1.5 text-xs font-semibold text-ink-muted text-center">{wd}</div>
         ))}
         {cells.map((cell, i) => {
-          if (!cell) return <div key={`e-${i}`} className="bg-white min-h-[56px]" />;
+          if (!cell) return <div key={`e-${i}`} className="bg-surface min-h-[56px]" />;
           return (
             <button
               key={cell.dateStr}
               onClick={() => onDateClick(cell)}
-              className={`bg-white min-h-[56px] p-1.5 text-left transition-colors hover:bg-neutral-50 ${cell.isToday ? 'ring-1 ring-inset ring-neutral-900' : ''
+              className={`bg-surface min-h-[56px] p-1.5 text-left transition-colors hover:bg-canvas ${cell.isToday ? 'ring-1 ring-inset ring-brand-600' : ''
                 }`}
             >
-              <span className={`text-[10px] font-medium ${cell.isToday ? 'bg-neutral-900 text-white size-4 inline-flex items-center justify-center rounded-full' : 'text-neutral-500'
+              <span className={`text-xs font-medium ${cell.isToday ? 'bg-brand-600 text-brand-fg size-4 inline-flex items-center justify-center rounded-full' : 'text-ink-muted'
                 }`}>
                 {cell.day}
               </span>
-              {cell.bookings.length > 0 && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-neutral-900 mx-auto" /></div>}
-              {cell.slots.length > 0 && !cell.bookings.length && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-emerald-400 mx-auto" /></div>}
+              {cell.bookings.length > 0 && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-brand-600 mx-auto" /></div>}
+              {cell.slots.length > 0 && !cell.bookings.length && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-brand-400 mx-auto" /></div>}
             </button>
           );
         })}
@@ -103,17 +106,17 @@ const Pagination = ({ page, totalPages, onChange }) => {
         type="button"
         onClick={() => onChange(page - 1)}
         disabled={page === 0}
-        className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-40"
+        className="size-7 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors disabled:opacity-40"
         aria-label="Previous page"
       >
         <ChevronLeft size={14} />
       </button>
-      <span className="text-[11px] text-neutral-500">{page + 1} / {totalPages}</span>
+      <span className="text-xs text-ink-muted">{page + 1} / {totalPages}</span>
       <button
         type="button"
         onClick={() => onChange(page + 1)}
         disabled={page >= totalPages - 1}
-        className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-40"
+        className="size-7 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors disabled:opacity-40"
         aria-label="Next page"
       >
         <ChevronRightIcon size={14} />
@@ -127,38 +130,39 @@ const SessionCard = ({ session, type }) => {
   const counselorLabel = session.counselorName || session.counselor?.fullName || `Counselor #${session.counselorId}`;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-5">
+    <div className="bg-surface border border-line rounded-lg p-5">
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3.5 min-w-0">
-          <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500'
+          <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${session.type === 'Chat' ? 'bg-brand-soft text-brand-soft-ink' : 'bg-line text-ink-muted'
             }`}>
             {session.type === 'Chat' ? <MessageCircle size={18} /> : <CalendarCheck size={18} />}
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2.5 mb-0.5">
-              <h3 className="text-sm font-medium text-neutral-900">{counselorLabel}</h3>
-              <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                session.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                  session.status === 'pending' ? 'text-amber-600 border-amber-200 bg-amber-50' :
-                    'text-emerald-400 border-emerald-200'
-                }`}>
-                {session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'Approved' : session.status}
-              </span>
+              <h3 className="text-sm font-medium text-ink">{counselorLabel}</h3>
+              <StatusBadge
+                status={session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'Approved' : session.status}
+              />
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-400 mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted mt-1">
               <span className="inline-flex items-center gap-1"><Calendar size={11} /> {session.date}</span>
               <span className="inline-flex items-center gap-1"><Clock size={11} /> {session.time}</span>
               <span>{session.duration}</span>
-              <span className="text-[10px] font-medium uppercase">{session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}</span>
+              <span className="text-xs font-medium">{session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}</span>
             </div>
             {!isUpcoming && session.notes && (
-              <p className="text-xs text-neutral-500 mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
+              <p className="text-xs text-ink-muted mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
             )}
           </div>
         </div>
 
         {isUpcoming && session.type === 'Chat' && (
-          <Link to={PATHS.MESSAGES} className="shrink-0 size-9 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 transition-colors">
+          <Link
+            to={PATHS.MESSAGES}
+            aria-label={`Open chat with ${counselorLabel}`}
+            title={`Open chat with ${counselorLabel}`}
+            className="shrink-0 size-9 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink hover:border-line-strong transition-colors"
+          >
             <ArrowUpRight size={15} />
           </Link>
         )}
@@ -168,6 +172,7 @@ const SessionCard = ({ session, type }) => {
 };
 
 const SessionsPage = () => {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -181,6 +186,27 @@ const SessionsPage = () => {
   const [pastPage, setPastPage] = useState(0);
   const [slotsPage, setSlotsPage] = useState(0);
   const [slotCounselorFilter, setSlotCounselorFilter] = useState('');
+
+  const chatPollRef = useRef(null);
+
+  // ─── Request Chat Session state ───
+  const [chatRequestOpen, setChatRequestOpen] = useState(false);
+  const [chatConcern, setChatConcern] = useState('');
+  const [chatCounselors, setChatCounselors] = useState([]);
+  const [chatCounselorId, setChatCounselorId] = useState('');
+  const [chatSubmitting, setChatSubmitting] = useState(false);
+  const [chatLoadingCounselors, setChatLoadingCounselors] = useState(false);
+  const [pendingChatRequest, setPendingChatRequest] = useState(null);
+
+  // ─── Book Face-To-Face state ───
+  const [f2fOpen, setF2fOpen] = useState(false);
+  const [f2fCounselorId, setF2fCounselorId] = useState('');
+  const [f2fAllSlots, setF2fAllSlots] = useState([]);
+  const [f2fDate, setF2fDate] = useState('');
+  const [f2fTime, setF2fTime] = useState('');
+  const [f2fConcern, setF2fConcern] = useState('');
+  const [f2fSubmitting, setF2fSubmitting] = useState(false);
+  const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -203,6 +229,17 @@ const SessionsPage = () => {
     socket.on("appointment:updated", fetchData);
     return () => socket.off("appointment:updated", fetchData);
   }, []);
+
+  const refreshAppointments = async () => {
+    try {
+      const res = await axiosInstance.get('/appointments');
+      setAppointments(res.data);
+      return res.data;
+    } catch (err) {
+      console.error('Failed to refresh appointments:', err);
+      return [];
+    }
+  };
 
   const refreshSlots = async () => {
     try {
@@ -265,8 +302,7 @@ const SessionsPage = () => {
         concern: '',
       });
       toast.success(`Booked ${slot.time} — awaiting counselor confirmation`);
-      const res = await axiosInstance.get('/appointments');
-      setAppointments(res.data);
+      await refreshAppointments();
       await refreshSlots();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to book slot');
@@ -274,24 +310,9 @@ const SessionsPage = () => {
   };
 
   const handleClearPast = async () => {
-    const confirmed = await new Promise((resolve) => {
-      toast(({ closeToast }) => (
-        <div className="flex items-center gap-3 py-3">
-          <span className="text-sm text-neutral-700">Clear all past sessions?</span>
-          <button
-            onClick={() => { closeToast(); resolve(true); }}
-            className="px-3 py-1 text-[8px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => { closeToast(); resolve(false); }}
-            className="px-3 py-1 text-[8px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      ));
+    const confirmed = await confirmAction({
+      title: 'Clear all past sessions?',
+      confirmLabel: 'Clear',
     });
     if (!confirmed) return;
     setArchiving(true);
@@ -307,32 +328,248 @@ const SessionsPage = () => {
     }
   };
 
-  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
+  // ─── Request Chat Session ───
+
+  const openChatCounselors = async () => {
+    setChatLoadingCounselors(true);
+    try {
+      const res = await axiosInstance.get('/message/users');
+      setChatCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== 'administrator'));
+    } catch {
+      toast.error('Failed to load counselors.');
+    } finally {
+      setChatLoadingCounselors(false);
+    }
+  };
+
+  const handleOpenChatRequest = () => {
+    setChatConcern('');
+    setChatCounselorId('');
+    setChatRequestOpen(true);
+    openChatCounselors();
+  };
+
+  const handleCloseChatRequest = () => {
+    setChatRequestOpen(false);
+    setChatConcern('');
+    setChatCounselorId('');
+  };
+
+  const handleRequestChat = async () => {
+    if (!chatConcern.trim()) {
+      toast.error('Please describe your concern briefly.');
+      return;
+    }
+    if (!chatCounselorId) {
+      toast.error('Please select a counselor.');
+      return;
+    }
+    setChatSubmitting(true);
+    try {
+      const res = await axiosInstance.post('/appointments', {
+        counselorId: Number(chatCounselorId),
+        type: 'Chat',
+        date: new Date().toISOString().slice(0, 10),
+        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+        concern: chatConcern.trim(),
+      });
+      toast.success('Chat session requested! \n Waiting for counselor to accept...');
+      handleCloseChatRequest();
+      setPendingChatRequest(res.data);
+      refreshAppointments();
+    } catch {
+      toast.error('Failed to request Chat session.');
+    } finally {
+      setChatSubmitting(false);
+    }
+  };
+
+  const handleCancelChatRequest = async () => {
+    try {
+      await axiosInstance.patch(`/appointments/${pendingChatRequest._id}`, { status: 'cancelled' });
+      toast.success('Request cancelled.');
+    } catch {
+      toast.error('Failed to cancel.');
+    }
+    setPendingChatRequest(null);
+  };
+
+  useEffect(() => {
+    if (!pendingChatRequest) return;
+    chatPollRef.current = setInterval(async () => {
+      try {
+        const res = await axiosInstance.get('/appointments');
+        const updated = res.data.find((a) => a._id === pendingChatRequest._id);
+        if (!updated || updated.status === 'declined' || updated.status === 'cancelled') {
+          setPendingChatRequest(null);
+          toast.error('Chat request was declined.');
+          clearInterval(chatPollRef.current);
+        } else if (updated.status === 'active') {
+          setPendingChatRequest(null);
+          clearInterval(chatPollRef.current);
+          navigate(PATHS.MESSAGES);
+        }
+      } catch {
+        clearInterval(chatPollRef.current);
+      }
+    }, 3000);
+    return () => clearInterval(chatPollRef.current);
+  }, [pendingChatRequest, navigate]);
+
+  // ─── Book Face-To-Face ───
+
+  const f2fAvailableDates = useMemo(() => {
+    const counts = {};
+    f2fAllSlots
+      .filter((s) => s.isAvailable)
+      .forEach((s) => { counts[s.date] = (counts[s.date] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [f2fAllSlots]);
+
+  const f2fAvailableTimes = useMemo(
+    () => f2fAllSlots
+      .filter((s) => s.isAvailable && s.date === f2fDate)
+      .map((s) => s.time)
+      .sort(),
+    [f2fAllSlots, f2fDate]
+  );
+
+  const handleOpenF2f = () => {
+    setF2fCounselorId('');
+    setF2fDate('');
+    setF2fTime('');
+    setF2fConcern('');
+    setF2fAllSlots([]);
+    setF2fOpen(true);
+    openChatCounselors();
+  };
+
+  const handleCloseF2f = () => {
+    setF2fOpen(false);
+    setF2fConcern('');
+    setF2fAllSlots([]);
+    setF2fDate('');
+    setF2fTime('');
+  };
+
+  const handleF2fCounselorChange = async (counselorId) => {
+    setF2fCounselorId(counselorId);
+    setF2fDate('');
+    setF2fTime('');
+    setF2fAllSlots([]);
+    if (!counselorId) return;
+    setF2fLoadingSlots(true);
+    try {
+      const slotRes = await axiosInstance.get(`/availability/${counselorId}`);
+      setF2fAllSlots(slotRes.data);
+    } catch {
+      setF2fAllSlots([]);
+    } finally {
+      setF2fLoadingSlots(false);
+    }
+  };
+
+  const handleBookF2f = async () => {
+    if (!f2fCounselorId || !f2fDate || !f2fTime) {
+      toast.error('Please select counselor, date, and time.');
+      return;
+    }
+    setF2fSubmitting(true);
+    try {
+      await axiosInstance.post('/appointments', {
+        counselorId: Number(f2fCounselorId),
+        type: 'Face-To-Face',
+        date: f2fDate,
+        time: f2fTime,
+        concern: f2fConcern.trim(),
+      });
+      toast.success('Face-to-face session booked! Awaiting counselor confirmation.');
+      handleCloseF2f();
+      await refreshAppointments();
+      await refreshSlots();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to book session.');
+    } finally {
+      setF2fSubmitting(false);
+    }
+  };
+
+  if (loading) return <PageShell title="My Sessions" description="Manage your sessions and book appointments"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
 
   return (
-    <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">
+    <PageShell
+      title="My Sessions"
+      description="Manage your sessions and book appointments"
+      actions={
+        <>
+          <button
+            onClick={handleOpenF2f}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
+          >
+            <CalendarCheck size={13} />
+            Book Face-To-Face
+          </button>
+          <button
+            onClick={handleOpenChatRequest}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-ink border border-line-strong hover:border-brand-600 hover:text-brand-fg transition-colors rounded-lg"
+          >
+            <MessageCircle size={13} />
+            Request Chat Session
+          </button>
+        </>
+      }
+    >
       <div className="space-y-8">
 
-        <div>
-          <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Calendar</h3>
-          <div className="bg-white border border-neutral-200 rounded-sm p-5 max-w-lg">
-            <MiniCalendar
-              year={year} month={month}
-              onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
-              onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
-              bookings={appointments} openSlots={bookableSlots}
-              onDateClick={handleDateClick}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Sessions</h3>
-            {upcoming.length === 0 ? (
-              <div className="bg-white border border-neutral-200 rounded-sm">
-                <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
+        {pendingChatRequest && (
+          <div className="flex items-center justify-between gap-4 bg-surface border border-line rounded-lg p-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="relative flex size-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning-soft0/60 opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-warning-soft0" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">Chat session requested</p>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  {pendingChatRequest.concern || 'Waiting for your counselor to accept the session.'}
+                </p>
               </div>
+            </div>
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="flex items-center gap-2 text-xs text-ink-muted">
+                <Loader size={12} className="animate-spin" />
+                Checking for updates...
+              </span>
+              <button
+                onClick={handleCancelChatRequest}
+                className="px-3 py-1.5 text-xs font-medium text-ink-muted border border-line-strong hover:text-danger-ink hover:border-danger/30 transition-colors rounded-lg"
+              >
+                Cancel Request
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-2">
+            <h3 className="text-xs font-semibold text-ink-muted mb-3">Calendar</h3>
+            <div className="bg-surface border border-line rounded-lg p-5">
+              <MiniCalendar
+                year={year} month={month}
+                onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
+                onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
+                bookings={appointments} openSlots={bookableSlots}
+                onDateClick={handleDateClick}
+              />
+            </div>
+          </div>
+
+          <div className="lg:col-span-3">
+            <h3 className="text-xs font-semibold text-ink-muted mb-3">Active Sessions</h3>
+            {upcoming.length === 0 ? (
+              <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
             ) : (
               <div className="space-y-2">
                 {upcoming.map((s) => <SessionCard key={s._id} session={s} type="upcoming" />)}
@@ -340,14 +577,14 @@ const SessionsPage = () => {
             )}
           </div>
 
-          <div>
+          <div className="lg:col-span-5">
             <div className="flex items-center justify-between gap-3 mb-3">
-              <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Slots</h3>
+              <h3 className="text-xs font-semibold text-ink-muted">Available Slots</h3>
               {slotCounselors.length > 0 && (
                 <select
                   value={slotCounselorFilter}
                   onChange={(e) => setSlotCounselorFilter(e.target.value)}
-                  className="bg-transparent border border-neutral-200 text-xs rounded-sm px-2.5 py-1.5 text-neutral-700 focus:border-neutral-900 outline-none transition-colors"
+                  className="bg-transparent border border-line text-xs rounded-lg px-2.5 py-1.5 text-ink-soft focus:border-brand-600 outline-none transition-colors"
                 >
                   <option value="">All Counselors</option>
                   {slotCounselors.map((c) => (
@@ -357,30 +594,30 @@ const SessionsPage = () => {
               )}
             </div>
             {groupedSlots.length === 0 ? (
-              <div className="bg-white border border-neutral-200 rounded-sm p-6 text-center">
-                <p className="text-xs text-neutral-400">No available slots at this time.</p>
+              <div className="bg-surface border border-line rounded-lg p-6 text-center">
+                <p className="text-xs text-ink-muted">No available slots at this time.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {visibleGroupedSlots.map(({ date, counselors }) => {
                   const totalTimes = counselors.reduce((n, c) => n + c.times.length, 0);
                   return (
-                    <div key={date} className="bg-white border border-neutral-200 rounded-sm overflow-hidden">
-                      <div className="px-4 py-2.5 border-b border-neutral-100 flex items-center gap-2">
-                        <CalendarDays size={13} className="text-neutral-400 shrink-0" />
-                        <span className="text-xs font-medium text-neutral-900">{formatLongDate(date)}</span>
-                        <span className="text-[10px] text-neutral-400 ml-auto">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
+                    <div key={date} className="bg-surface border border-line rounded-lg overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-line flex items-center gap-2">
+                        <CalendarDays size={13} className="text-ink-muted shrink-0" />
+                        <span className="text-xs font-medium text-ink">{formatLongDate(date)}</span>
+                        <span className="text-xs text-ink-muted ml-auto">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
                       </div>
-                      <div className="divide-y divide-neutral-100">
+                      <div className="divide-y divide-line">
                         {counselors.map((c) => (
                           <div key={c.counselorId} className="px-4 py-3">
-                            <p className="text-xs font-medium text-neutral-700 mb-2">{c.fullName || `Counselor #${c.counselorId}`}</p>
+                            <p className="text-xs font-medium text-ink-soft mb-2">{c.fullName || `Counselor #${c.counselorId}`}</p>
                             <div className="flex flex-wrap gap-2">
                               {c.times.map(({ time, slot }) => (
                                 <button
                                   key={slot._id}
                                   onClick={() => handleBook(slot)}
-                                  className="px-3 py-1.5 text-xs rounded-sm border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+                                  className="px-3 py-1.5 text-xs rounded-lg border border-line text-ink-soft hover:border-brand-600 hover:bg-brand-600 hover:text-brand-fg transition-colors"
                                 >
                                   {time}
                                 </button>
@@ -398,26 +635,24 @@ const SessionsPage = () => {
           </div>
         </div>
 
-        <div>
+        <div className="bg-surface border border-line rounded-lg p-5">
           <div className="flex items-center gap-4 mb-4">
-            <span className="h-px flex-1 bg-neutral-200" />
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-xs font-semibold text-ink-muted shrink-0">Past Sessions</span>
             {hasPast && (
               <button
                 onClick={handleClearPast}
                 disabled={archiving}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-danger-ink hover:text-danger-ink transition-colors rounded-lg disabled:opacity-50"
               >
                 {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
                 Clear All
               </button>
             )}
-            <span className="h-px flex-1 bg-neutral-200" />
+            <span className="h-px flex-1 bg-line" />
           </div>
           {past.length === 0 ? (
-            <div className="bg-white border border-neutral-200 rounded-sm">
-              <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
-            </div>
+            <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
           ) : (
             <div className="space-y-2">
               {visiblePast.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
@@ -428,31 +663,196 @@ const SessionsPage = () => {
 
       </div>
 
+      <Modal isOpen={chatRequestOpen} onClose={handleCloseChatRequest} title="Request Chat Session">
+        <form onSubmit={(e) => { e.preventDefault(); handleRequestChat(); }} className="space-y-4">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Select your counselor and briefly describe your concern. All information is kept confidential.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-ink-muted">Counselor</label>
+            {chatLoadingCounselors ? (
+              <div className="text-sm text-ink-muted py-2">Loading counselors...</div>
+            ) : (
+              <select
+                value={chatCounselorId}
+                onChange={(e) => setChatCounselorId(e.target.value)}
+                className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink focus:border-brand-600 outline-none transition-colors"
+              >
+                <option value="">Select a counselor</option>
+                {chatCounselors.map((c) => (
+                  <option key={c._id} value={c._id}>{c.fullName}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-ink-muted">Your Concern</label>
+            <textarea
+              value={chatConcern}
+              onChange={(e) => setChatConcern(e.target.value)}
+              placeholder="e.g., I've been feeling overwhelmed with my coursework and need someone to talk to."
+              rows={4}
+              className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleCloseChatRequest}
+              className="px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={chatSubmitting || chatLoadingCounselors}
+              className="px-5 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg disabled:opacity-50"
+            >
+              {chatSubmitting ? 'Requesting...' : 'Submit Request'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal isOpen={f2fOpen} onClose={handleCloseF2f} title="Book Face-to-Face Session">
+        <form onSubmit={(e) => { e.preventDefault(); handleBookF2f(); }} className="space-y-4">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Schedule an on-campus appointment with your counselor. Select a date and time that works for you.
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-ink-muted">Counselor</label>
+            {chatLoadingCounselors ? (
+              <div className="text-sm text-ink-muted py-2">Loading counselors...</div>
+            ) : (
+              <select
+                value={f2fCounselorId}
+                onChange={(e) => handleF2fCounselorChange(e.target.value)}
+                className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink focus:border-brand-600 outline-none transition-colors"
+              >
+                <option value="">Select a counselor</option>
+                {chatCounselors.map((c) => (
+                  <option key={c._id} value={c._id}>{c.fullName}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {f2fCounselorId && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-ink-muted">Available Dates</label>
+              {f2fLoadingSlots ? (
+                <div className="flex items-center gap-2 text-sm text-ink-muted py-2"><Loader size={14} className="animate-spin" /> Loading available dates...</div>
+              ) : f2fAvailableDates.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {f2fAvailableDates.map(({ date, count }) => (
+                    <button
+                      key={date}
+                      type="button"
+                      onClick={() => { setF2fDate(date); setF2fTime(''); }}
+                      className={`flex flex-col items-center px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                        f2fDate === date
+                          ? 'bg-brand-600 text-brand-fg border-brand-600'
+                          : 'bg-surface text-ink-soft border-line hover:border-line-strong'
+                      }`}
+                    >
+                      <span>{new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
+                      <span className="text-ink-muted">
+                        {count} slot{count !== 1 ? 's' : ''}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-ink-muted py-1">This counselor has no open availability yet.</p>
+              )}
+            </div>
+          )}
+
+          {f2fCounselorId && f2fDate && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-ink-muted">Available Times</label>
+              {f2fAvailableTimes.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {f2fAvailableTimes.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setF2fTime(t)}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                        f2fTime === t
+                          ? 'bg-brand-600 text-brand-fg border-brand-600'
+                          : 'bg-surface text-ink-soft border-line hover:border-line-strong'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-ink-muted py-1">No available times for this date.</p>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-ink-muted">Concern (optional)</label>
+            <textarea
+              value={f2fConcern}
+              onChange={(e) => setF2fConcern(e.target.value)}
+              placeholder="e.g., I'd like to discuss my academic performance and study habits."
+              rows={3}
+              className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors resize-none"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleCloseF2f}
+              className="px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={f2fSubmitting || !f2fCounselorId || !f2fDate || !f2fTime}
+              className="px-5 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg disabled:opacity-50"
+            >
+              {f2fSubmitting ? 'Booking...' : 'Book Session'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedDay ? `Schedule — ${dateStr}` : ''}>
         <div className="max-h-[60vh] overflow-y-auto pr-1">
         {dayBookings.length > 0 && (
           <div className="mb-4">
-            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Your Appointments</span>
+            <span className="text-xs font-semibold text-ink-muted block mb-2">Your Appointments</span>
             <div className="space-y-1.5">
               {dayBookings.map((b) => (
-                <div key={b._id} className="text-sm text-neutral-700 flex items-center gap-2"><CheckCircle size={14} className="text-neutral-900" /> {b.time} — {b.type}</div>
+                <div key={b._id} className="text-sm text-ink-soft flex items-center gap-2"><CheckCircle size={14} className="text-ink" /> {b.time} — {b.type}</div>
               ))}
             </div>
           </div>
         )}
         {daySlots.length > 0 ? (
           <div>
-            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Available Slots</span>
+            <span className="text-xs font-semibold text-ink-muted block mb-2">Available Slots</span>
             <div className="space-y-3">
               {daySlotGroups.map((c) => (
                 <div key={c.counselorId}>
-                  <p className="text-xs font-medium text-neutral-700 mb-1.5">{c.fullName || `Counselor #${c.counselorId}`}</p>
+                  <p className="text-xs font-medium text-ink-soft mb-1.5">{c.fullName || `Counselor #${c.counselorId}`}</p>
                   <div className="flex flex-wrap gap-2">
                     {c.times.map(({ time, slot }) => (
                       <button
                         key={slot._id}
                         onClick={() => { handleBook(slot); setModalOpen(false); }}
-                        className="px-3 py-1.5 text-xs rounded-sm border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+                        className="px-3 py-1.5 text-xs rounded-lg border border-line text-ink-soft hover:border-brand-600 hover:bg-brand-600 hover:text-brand-fg transition-colors"
                       >
                         {time}
                       </button>
@@ -463,7 +863,7 @@ const SessionsPage = () => {
             </div>
           </div>
         ) : dayBookings.length === 0 ? (
-          <p className="text-sm text-neutral-400 py-4 text-center">No slots or bookings for this day.</p>
+          <p className="text-sm text-ink-muted py-4 text-center">No slots or bookings for this day.</p>
         ) : null}
         </div>
       </Modal>

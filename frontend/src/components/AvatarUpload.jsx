@@ -77,17 +77,17 @@ const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' })
       <button
         type="button"
         onClick={handleClick}
-        className={`${sizeClasses[size]} rounded-full overflow-hidden bg-neutral-100 flex items-center justify-center transition-all hover:ring-2 hover:ring-neutral-300 cursor-pointer`}
+        className={`${sizeClasses[size]} rounded-full overflow-hidden bg-line flex items-center justify-center transition-all hover:ring-2 hover:ring-line-strong cursor-pointer`}
       >
         {displaySrc ? (
           <img src={displaySrc} alt={fullName || 'Profile'} className="w-full h-full object-cover" />
         ) : (
-          <User size={iconSizes[size]} className="text-neutral-400" />
+          <User size={iconSizes[size]} className="text-ink-muted" />
         )}
 
         {!selectedFile && !loading && (
-          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity flex items-center justify-center">
-            <Camera size={iconSizes[size] > 20 ? 20 : 14} className="text-white" />
+          <div className="absolute inset-0 rounded-full bg-side/40 opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity flex items-center justify-center">
+            <Camera size={iconSizes[size] > 20 ? 20 : 14} className="text-ink" />
           </div>
         )}
       </button>
@@ -96,7 +96,7 @@ const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' })
         <button
           type="button"
           onClick={handleRemove}
-          className="absolute -top-1 -right-1 size-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+          className="absolute -top-1 -right-1 size-5 rounded-full bg-danger-soft0 text-ink flex items-center justify-center hover:bg-danger transition-colors"
           title="Remove profile picture"
         >
           <X size={10} />
@@ -109,7 +109,7 @@ const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' })
             type="button"
             onClick={(e) => { e.stopPropagation(); handleSave(); }}
             disabled={loading}
-            className="size-6 rounded-full bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors"
+            className="size-6 rounded-full bg-brand-soft text-ink flex items-center justify-center hover:bg-brand-600 transition-colors"
             title="Save"
           >
             {loading ? <Loader size={10} className="animate-spin" /> : <Check size={10} />}
@@ -118,7 +118,7 @@ const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' })
             type="button"
             onClick={handleClick}
             disabled={loading}
-            className="size-6 rounded-full bg-neutral-500 text-white flex items-center justify-center hover:bg-neutral-600 transition-colors"
+            className="size-6 rounded-full bg-ink-muted text-ink flex items-center justify-center hover:bg-ink-soft transition-colors"
             title="Cancel"
           >
             <X size={10} />

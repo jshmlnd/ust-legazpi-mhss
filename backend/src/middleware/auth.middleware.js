@@ -1,10 +1,18 @@
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import { generateUniqueDynamicId } from "../lib/generateId.js";
 
 export const protectRoute = async (req, res, next) => {
     try {
+        // ponytail: fail fast with 503 when DB is down — queued requests would
+        // otherwise buffer up to the 10s server timeout each, piling up while
+        // Mongo reconnects and making recovery slower. Clients get an
+        // unambiguous retryable status instead of a hang.
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: "Service unavailable - database not connected" });
+        }
         const token = req.cookies.jwt;
 
         if (!token) {

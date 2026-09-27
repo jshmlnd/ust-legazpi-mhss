@@ -11,12 +11,12 @@ import {
 } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import Modal from '../components/Modal';
+import Modal from '../ui/Modal';
 import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../ui/EmptyState';
 import { toast } from 'react-toastify';
 
 function useColumnCount() {
@@ -92,20 +92,20 @@ const ICON_MAP = {
 };
 
 const ICON_BG_COLORS = [
-  'bg-neutral-100',
+  'bg-line',
   'bg-rose-50',
-  'bg-amber-50',
-  'bg-emerald-50',
-  'bg-sky-50',
+  'bg-warning-soft',
+  'bg-brand-soft',
+  'bg-info-soft',
   'bg-violet-50',
 ];
 
 const ICON_FG_COLORS = [
-  'text-neutral-500',
+  'text-ink-muted',
   'text-rose-500',
-  'text-amber-500',
-  'text-emerald-500',
-  'text-sky-500',
+  'text-warning',
+  'text-brand-500',
+  'text-info',
   'text-violet-500',
 ];
 
@@ -119,7 +119,7 @@ const ModuleIcon = ({ name, size = 14 }) => {
   const Icon = ICON_MAP[name] || Sparkles;
   const { bg, fg } = getIconColors(name);
   return (
-    <div className={`size-8 rounded-sm ${bg} flex items-center justify-center`}>
+    <div className={`size-8 rounded-lg ${bg} flex items-center justify-center`}>
       <Icon size={size} className={fg} />
     </div>
   );
@@ -127,7 +127,7 @@ const ModuleIcon = ({ name, size = 14 }) => {
 
 const IconPicker = ({ value, onChange }) => (
   <div className="space-y-2">
-    <label className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Module Icon</label>
+    <label className="block text-xs font-semibold text-ink-muted">Module Icon</label>
     <div className="grid grid-cols-6 gap-1.5">
       {ICON_OPTIONS.map((opt) => {
         const Icon = ICON_MAP[opt.name];
@@ -139,12 +139,12 @@ const IconPicker = ({ value, onChange }) => (
             type="button"
             title={opt.label}
             onClick={() => onChange(opt.name)}
-            className={`flex flex-col items-center gap-1 p-2 rounded-sm border transition-colors ${
-              selected ? 'border-neutral-900 bg-neutral-900 text-white' : `border-neutral-200 hover:border-neutral-400 ${bg}`
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors ${
+              selected ? 'border-brand-600 bg-brand-600 text-brand-fg' : `border-line hover:border-line-strong ${bg}`
             }`}
           >
-            <Icon size={16} className={selected ? 'text-white' : fg} />
-            <span className={`text-[9px] leading-none ${selected ? 'text-white/80' : 'text-neutral-400'}`}>{opt.label}</span>
+            <Icon size={16} className={selected ? 'text-brand-fg' : fg} />
+            <span className={`text-xs leading-none ${selected ? 'text-brand-fg/80' : 'text-ink-muted'}`}>{opt.label}</span>
           </button>
         );
       })}
@@ -153,11 +153,11 @@ const IconPicker = ({ value, onChange }) => (
 );
 
 const ActivityItem = ({ activity }) => (
-  <li className="flex items-start gap-2.5 py-2 border-b border-neutral-100 last:border-0">
-    <span className="size-1.5 rounded-full bg-neutral-300 mt-1.5 shrink-0" />
-    <span className="text-[13px] text-neutral-600 leading-relaxed flex-1">{activity.label}</span>
+  <li className="flex items-start gap-2.5 py-2 border-b border-line last:border-0">
+    <span className="size-1.5 rounded-full bg-line-strong mt-1.5 shrink-0" />
+    <span className="text-[13px] text-ink-soft leading-relaxed flex-1">{activity.label}</span>
     {activity.link && (
-      <a href={activity.link} target="_blank" rel="noopener noreferrer" className="shrink-0 text-neutral-400 hover:text-neutral-900 transition-colors mt-0.5" title="Open link">
+      <a href={activity.link} target="_blank" rel="noopener noreferrer" className="shrink-0 text-ink-muted hover:text-ink transition-colors mt-0.5" title="Open link">
         <ExternalLink size={12} />
       </a>
     )}
@@ -169,7 +169,7 @@ const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
   const total = module.activities.length;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm hover:border-neutral-300 transition-colors">
+    <div className="bg-surface border border-line rounded-lg hover:border-line-strong transition-colors">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -178,35 +178,39 @@ const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
         <div className="flex items-center gap-3 min-w-0">
           <ModuleIcon name={module.icon} />
           <div className="min-w-0">
-            <h3 className="text-sm font-medium text-neutral-900 truncate">{module.title}</h3>
-            <p className="text-[11px] text-neutral-400 mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
+            <h3 className="text-sm font-medium text-ink truncate">{module.title}</h3>
+            <p className="text-xs text-ink-muted mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
           {isCounselor && (
             <>
-              <span
+              <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); onEdit(module); }}
-                className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors cursor-pointer"
+                className="size-7 flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-line transition-colors"
                 title="Edit module"
+                aria-label={`Edit ${module.title}`}
               >
                 <Pencil size={12} />
-              </span>
-              <span
+              </button>
+              <button
+                type="button"
                 onClick={(e) => { e.stopPropagation(); onDelete(module._id); }}
-                className="size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                className="size-7 flex items-center justify-center rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-soft transition-colors"
                 title="Delete module"
+                aria-label={`Delete ${module.title}`}
               >
                 <Trash2 size={13} />
-              </span>
+              </button>
             </>
           )}
-          <ChevronDown size={15} className={`text-neutral-400 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown size={15} className={`text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {total > 0 && open && (
-        <div className="border-t border-neutral-100 px-5 py-3 bg-neutral-50/60">
+        <div className="border-t border-line px-5 py-3 bg-canvas/60">
           <ul className="space-y-0">
             {module.activities.map((a) => (
               <ActivityItem key={a._id || a.id} activity={a} />
@@ -268,7 +272,7 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
         <FormField label="Module Title" name="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Midday Reset" required />
         <IconPicker value={icon} onChange={setIcon} />
         <div className="space-y-3">
-          <label className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activities</label>
+          <label className="block text-xs font-semibold text-ink-muted">Activities</label>
           {activities.map((a, i) => (
             <div key={i} className="space-y-1.5">
               <div className="flex items-center gap-2">
@@ -276,10 +280,10 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
                   value={a.label}
                   onChange={(e) => updateActivity(i, 'label', e.target.value)}
                   placeholder={`Activity ${i + 1}`}
-                  className="flex-1 bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+                  className="flex-1 bg-transparent border border-line text-sm rounded-lg px-3 py-2 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors"
                 />
                 {activities.length > 1 && (
-                  <button type="button" onClick={() => removeActivity(i)} className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Remove activity">
+                  <button type="button" onClick={() => removeActivity(i)} className="shrink-0 size-7 flex items-center justify-center rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-soft transition-colors" title="Remove activity">
                     <Trash2 size={12} />
                   </button>
                 )}
@@ -288,19 +292,19 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
                 value={a.link}
                 onChange={(e) => updateActivity(i, 'link', e.target.value)}
                 placeholder="Link URL (optional)"
-                className="w-full bg-transparent border border-neutral-200 text-[11px] rounded-sm px-3 py-1.5 text-neutral-500 placeholder-neutral-300 focus:border-neutral-900 outline-none transition-colors"
+                className="w-full bg-transparent border border-line text-xs rounded-lg px-3 py-1.5 text-ink-muted placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors"
               />
             </div>
           ))}
           {activities.length < 6 && (
-            <button type="button" onClick={() => setActivities((prev) => [...prev, { label: '', link: '' }])} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors mt-1">
+            <button type="button" onClick={() => setActivities((prev) => [...prev, { label: '', link: '' }])} className="text-xs font-medium text-ink-muted hover:text-ink transition-colors mt-1">
               + Add another activity
             </button>
           )}
         </div>
-        <div className="sticky bottom-0 bg-white pt-3 -mx-6 px-6 -mb-5 pb-5 border-t border-neutral-100 flex items-center justify-end gap-3">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-          <button type="submit" className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">{isEdit ? 'Save Changes' : 'Create Module'}</button>
+        <div className="sticky bottom-0 bg-surface pt-3 -mx-6 px-6 -mb-5 pb-5 border-t border-line flex items-center justify-end gap-3">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors">Cancel</button>
+          <button type="submit" className="px-5 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg">{isEdit ? 'Save Changes' : 'Create Module'}</button>
         </div>
       </form>
     </Modal>
@@ -334,6 +338,8 @@ const SelfCarePage = () => {
     try {
       const res = await axiosInstance.post('/self-care', mod);
       setModules((prev) => [...prev, res.data]);
+      setModalOpen(false);
+      setEditing(null);
       toast.success('Module created');
     } catch {
       toast.error('Failed to create module');
@@ -372,15 +378,15 @@ const SelfCarePage = () => {
   const colCount = useColumnCount();
   const columns = useMemo(() => transposeToColumns(modules, colCount), [modules, colCount]);
 
-  if (loading) return <PageShell title="Self-Care Modules" subtitle="Daily routines and wellness exercises"><PageShellSkeleton count={6} /></PageShell>;
+  if (loading) return <PageShell title="Self-Care Modules" description="Daily routines and wellness exercises"><PageShellSkeleton count={6} /></PageShell>;
 
   return (
     <PageShell
       title="Self-Care Modules"
-      subtitle="Daily routines and wellness exercises"
+      description="Daily routines and wellness exercises"
       actions={
         <RoleGate roles={['counselor']}>
-          <button onClick={openAdd} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
+          <button onClick={openAdd} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg">
             <Plus size={14} /> Add Module
           </button>
         </RoleGate>

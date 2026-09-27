@@ -1,14 +1,49 @@
 import { useAuthStore } from "../store/useAuthStore";
 import { Link } from "react-router-dom";
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader, CalendarDays, Clock, User, MoveRight, Pencil } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { MoveRight, Pencil, Sparkles } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
-import { getSocket } from "../lib/socket";
 import { PATHS } from '../lib/routes';
-import Modal from '../components/Modal';
+import Modal from '../ui/Modal';
 import RoleGate from '../components/RoleGate';
+import { getCheckInSuggestion, dismissCheckInBanner } from '../lib/sessionLoop';
 import { toast } from 'react-toastify';
+
+const MOODS = [
+  { value: 'great', label: 'Great', face: '😄' },
+  { value: 'good', label: 'Good', face: '🙂' },
+  { value: 'okay', label: 'Okay', face: '😐' },
+  { value: 'low', label: 'Low', face: '😞' },
+  { value: 'bad', label: 'Bad', face: '😣' },
+];
+
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Streak = consecutive days ending today (or yesterday, so a streak isn't
+// "broken" until a full day is skipped) with at least one diary entry.
+// Entries carry a 'MM-DD-YYYY' date string; computed frontend-only.
+const computeStreak = (entries) => {
+  const days = new Set(
+    entries
+      .map((e) => {
+        const [mm, dd, yyyy] = (e.date || '').split('-').map(Number);
+        return mm && dd && yyyy ? `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}` : null;
+      })
+      .filter(Boolean)
+  );
+  if (days.size === 0) return 0;
+  let streak = 0;
+  const cursor = new Date();
+  if (!days.has(dayKey(cursor))) {
+    cursor.setDate(cursor.getDate() - 1);
+    if (!days.has(dayKey(cursor))) return 0;
+  }
+  while (days.has(dayKey(cursor))) {
+    streak++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return streak;
+};
 
 const DEFAULT_NOTICE = {
   tag: "NOTICE",
@@ -17,84 +52,61 @@ const DEFAULT_NOTICE = {
   linkLabel: "Read latest updates",
 };
 
-const SUGGESTIONS = {
-  linkHref: "/suggestions",
-  linkLabel: "Suggestions"
-}
-
-const QUICK_ACTIONS = [
-  {
-    title: "Active Chat Session",
-    description: "You have an ongoing conversation with your counselor.",
-    meta: "Last message: 2 hours ago",
-    status: "active",
-    href: PATHS.MESSAGES,
-    cta: "Open Chat",
-  },
-  {
-    title: "Your Diary",
-    description: "A private space for your thoughts and reflections.",
-    meta: "Last entry: 3 days ago",
-    href: PATHS.DIARY,
-    cta: "Write Entry",
-  },
-];
-
-const SERVICE_CARDS = [
-  {
-    number: "01",
-    title: "Mental Health Support",
-    description:
-      "Confidential one-on-one counseling sessions. Explore coping strategies, manage stress, and prioritize your well-being in a safe, supportive environment.",
-  },
-  {
-    number: "02",
-    title: "Career Guidance",
-    description:
-      "Navigate your academic and professional journey with personalized career counseling, aptitude assessments, and planning resources tailored to your goals.",
-  },
-  {
-    number: "03",
-    title: "Crisis Intervention",
-    description:
-      "Immediate support for students experiencing emotional distress or crisis. Our team is trained to provide compassionate, urgent care and connect you to the right resources.",
-  },
-];
-
 const HomePage = () => {
   const { authUser } = useAuthStore();
-  const navigate = useNavigate();
 
   const firstName = authUser?.fullName?.split(" ")[0] ?? "Student";
   const genid = authUser?.dynamicId;
-  const [hasActiveChat, setHasActiveChat] = useState(false);
-  const [pendingRequest, setPendingRequest] = useState(null);
-  const [requestOpen, setRequestOpen] = useState(false);
-  const [concern, setConcern] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [counselors, setCounselors] = useState([]);
-  const [selectedCounselor, setSelectedCounselor] = useState("");
-  const [loadingCounselors, setLoadingCounselors] = useState(false);
-  const pollRef = useRef(null);
-
-  const [upcomingF2f, setUpcomingF2f] = useState(null);
-  const [declinedF2f, setDeclinedF2f] = useState(null);
-  const [counselorMap, setCounselorMap] = useState({});
-  const [f2fOpen, setF2fOpen] = useState(false);
-  const [f2fCounselors, setF2fCounselors] = useState([]);
-  const [f2fCounselorId, setF2fCounselorId] = useState('');
-  const [f2fDate, setF2fDate] = useState('');
-  const [f2fTime, setF2fTime] = useState('');
-  const [f2fConcern, setF2fConcern] = useState('');
-  const [f2fAllSlots, setF2fAllSlots] = useState([]);
-  const [f2fAvailableTimes, setF2fAvailableTimes] = useState([]);
-  const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
-  const [f2fSubmitting, setF2fSubmitting] = useState(false);
 
   const [notice, setNotice] = useState(DEFAULT_NOTICE);
   const [noticeEditOpen, setNoticeEditOpen] = useState(false);
   const [noticeForm, setNoticeForm] = useState({ text: '' });
   const [savingNotice, setSavingNotice] = useState(false);
+
+  // ── Daily mood check-in (journal data, no schema change) ──
+  const isStudent = authUser?.userType?.toLowerCase() === 'student';
+  const [entries, setEntries] = useState([]);
+  const [moodSaving, setMoodSaving] = useState(false);
+  const [moodSaved, setMoodSaved] = useState(null);
+
+  useEffect(() => {
+    if (!isStudent) return;
+    axiosInstance.get('/journal').then((res) => setEntries(res.data)).catch(() => {});
+  }, [isStudent]);
+
+  // "Check in again?" — last completed session was 3–7 days ago, no follow-up
+  const [appointments, setAppointments] = useState([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  useEffect(() => {
+    if (!isStudent) return;
+    axiosInstance.get('/appointments').then((res) => setAppointments(res.data)).catch(() => {});
+  }, [isStudent]);
+  const checkInSuggestion = bannerDismissed ? null : getCheckInSuggestion(appointments);
+
+  const streak = computeStreak(entries);
+  const todayKey = dayKey(new Date());
+  const checkedInToday = entries.some((e) => {
+    const [mm, dd, yyyy] = (e.date || '').split('-').map(Number);
+    return mm && dd && yyyy ? `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}` === todayKey : false;
+  });
+
+  const handleMoodCheckIn = async (mood) => {
+    setMoodSaving(true);
+    try {
+      const res = await axiosInstance.post('/journal', {
+        title: 'Daily mood check-in',
+        content: `Feeling ${mood} today.`,
+        mood,
+      });
+      setEntries((prev) => [res.data, ...prev]);
+      setMoodSaved(mood);
+      toast.success(streak > 0 ? `Checked in — ${streak + 1}-day streak! 🔥` : 'Checked in — day 1! Start a streak.');
+    } catch {
+      toast.error('Could not save your check-in.');
+    } finally {
+      setMoodSaving(false);
+    }
+  };
 
   useEffect(() => {
     axiosInstance.get('/notice').then((res) => {
@@ -122,675 +134,156 @@ const HomePage = () => {
     setNoticeEditOpen(true);
   };
 
-  const refreshActiveChat = async () => {
-    try {
-      const [appRes, usersRes] = await Promise.all([
-        axiosInstance.get("/appointments"),
-        axiosInstance.get("/message/users"),
-      ]);
-      const active = appRes.data.find(
-        (a) => a.type === "Chat" && a.status === "active"
-      );
-      setHasActiveChat(!!active);
-      const pending = appRes.data.find(
-        (a) => a.type === "Chat" && a.status === "pending"
-      );
-      if (pending) setPendingRequest(pending);
-      const f2f = appRes.data.find(
-        (a) => a.type === "Face-To-Face" && ["pending", "confirmed", "active"].includes(a.status)
-      );
-      setUpcomingF2f(f2f || null);
-      const declined = appRes.data.find(
-        (a) => a.type === "Face-To-Face" && a.status === "declined"
-      );
-      setDeclinedF2f(declined || null);
-      const map = {};
-      usersRes.data.forEach((c) => { map[c._id] = c.fullName; });
-      setCounselorMap(map);
-    } catch (err) {
-      console.error("Failed to check active Chat:", err);
-    }
-  };
-
-  useEffect(() => {
-    const fetchActiveChat = async () => {
-      try {
-        const [appRes, usersRes] = await Promise.all([
-          axiosInstance.get("/appointments"),
-          axiosInstance.get("/message/users"),
-        ]);
-        const active = appRes.data.find(
-          (a) => a.type === "Chat" && a.status === "active"
-        );
-        setHasActiveChat(!!active);
-        const pending = appRes.data.find(
-          (a) => a.type === "Chat" && a.status === "pending"
-        );
-        if (pending) setPendingRequest(pending);
-        const f2f = appRes.data.find(
-          (a) => a.type === "Face-To-Face" && ["pending", "confirmed", "active"].includes(a.status)
-        );
-        setUpcomingF2f(f2f || null);
-        const declined = appRes.data.find(
-          (a) => a.type === "Face-To-Face" && a.status === "declined"
-        );
-        setDeclinedF2f(declined || null);
-        const map = {};
-        usersRes.data.forEach((c) => { map[c._id] = c.fullName; });
-        setCounselorMap(map);
-      } catch (err) {
-        console.error("Failed to check active Chat:", err);
-      }
-    };
-    fetchActiveChat();
-    const socket = getSocket();
-    if (!socket) return;
-    socket.on("appointment:updated", fetchActiveChat);
-    return () => socket.off("appointment:updated", fetchActiveChat);
-  }, []);
-
-  useEffect(() => {
-    if (!pendingRequest) return;
-    pollRef.current = setInterval(async () => {
-      try {
-        const res = await axiosInstance.get(`/appointments`);
-        const updated = res.data.find((a) => a._id === pendingRequest._id);
-        if (!updated || updated.status === "declined" || updated.status === "cancelled") {
-          setPendingRequest(null);
-          toast.error("Chat request was declined.");
-          clearInterval(pollRef.current);
-        } else if (updated.status === "active") {
-          setPendingRequest(null);
-          clearInterval(pollRef.current);
-          navigate(PATHS.MESSAGES);
-        }
-      } catch {
-        clearInterval(pollRef.current);
-      }
-    }, 3000);
-    return () => clearInterval(pollRef.current);
-  }, [pendingRequest, navigate]);
-
-  const handleOpenRequest = async () => {
-    setRequestOpen(true);
-    setConcern("");
-    setSelectedCounselor("");
-    setLoadingCounselors(true);
-    try {
-      const res = await axiosInstance.get("/message/users");
-      setCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
-    } catch {
-      toast.error("Failed to load counselors.");
-    } finally {
-      setLoadingCounselors(false);
-    }
-  };
-
-  const handleRequestChat = async () => {
-    if (!concern.trim()) {
-      toast.error("Please describe your concern briefly.");
-      return;
-    }
-    if (!selectedCounselor) {
-      toast.error("Please select a counselor.");
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await axiosInstance.post("/appointments", {
-        counselorId: Number(selectedCounselor),
-        type: "Chat",
-        date: new Date().toISOString().slice(0, 10),
-        time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
-        concern: concern.trim(),
-      });
-      toast.success("Chat session requested! \n Waiting for counselor to accept...");
-      setRequestOpen(false);
-      setConcern("");
-      setSelectedCounselor("");
-      setPendingRequest(res.data);
-    } catch {
-      toast.error("Failed to request Chat session.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleOpenF2f = async () => {
-    setF2fOpen(true);
-    setF2fCounselorId('');
-    setF2fDate('');
-    setF2fTime('');
-    setF2fConcern('');
-    setF2fAllSlots([]);
-    setF2fAvailableTimes([]);
-    try {
-      const res = await axiosInstance.get("/message/users");
-      setF2fCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== "administrator"));
-    } catch { toast.error("Failed to load counselors."); }
-  };
-
-  const handleF2fCounselorChange = async (counselorId) => {
-    setF2fCounselorId(counselorId);
-    setF2fDate('');
-    setF2fTime('');
-    setF2fAvailableTimes([]);
-    if (!counselorId) return;
-    setF2fLoadingSlots(true);
-    try {
-      const slotRes = await axiosInstance.get(`/availability/${counselorId}`);
-      setF2fAllSlots(slotRes.data);
-    } catch { setF2fAllSlots([]); }
-    finally { setF2fLoadingSlots(false); }
-  };
-
-  const handleF2fDateChange = (dateStr) => {
-    setF2fDate(dateStr);
-    setF2fTime('');
-    if (!dateStr) { setF2fAvailableTimes([]); return; }
-    const times = f2fAllSlots
-      .filter((s) => s.date === dateStr && s.isAvailable)
-      .map((s) => s.time)
-      .sort();
-    setF2fAvailableTimes(times);
-  };
-
-  const handleBookF2f = async () => {
-    if (!f2fCounselorId || !f2fDate || !f2fTime) {
-      toast.error("Please select counselor, date, and time.");
-      return;
-    }
-    setF2fSubmitting(true);
-    try {
-      await axiosInstance.post("/appointments", {
-        counselorId: Number(f2fCounselorId),
-        type: "Face-To-Face",
-        date: f2fDate,
-        time: f2fTime,
-        concern: f2fConcern.trim(),
-      });
-      toast.success("Face-to-face session booked! Awaiting counselor confirmation.");
-      setF2fOpen(false);
-      refreshActiveChat();
-    } catch (err) {
-      const msg = err.response?.data?.error || err.message || "Failed to book session.";
-      toast.error(msg);
-    } finally { setF2fSubmitting(false); }
-  };
-
-  const availableDates = useMemo(() => {
-    const counts = {};
-    f2fAllSlots
-      .filter((s) => s.isAvailable)
-      .forEach((s) => { counts[s.date] = (counts[s.date] || 0) + 1; });
-    return Object.entries(counts)
-      .map(([date, count]) => ({ date, count }))
-      .sort((a, b) => a.date.localeCompare(b.date));
-  }, [f2fAllSlots]);
-//
   return (
-    <main className="relative min-h-screen overflow-hidden">
-      <div
-        className="home-bg-image absolute inset-0 -z-10 scale-105 bg-center bg-cover bg-no-repeat blur-[15px]"
-        style={{ backgroundImage: "url('https://ik.imagekit.io/zjkm666/background.png')" }}
-      />
-      <div className="home-bg-overlay absolute inset-0 -z-10 bg-white/70" />
-      <div className="mx-auto max-w-[1200px] pt-[calc(68px+3rem)] pb-28 px-4 sm:px-6 lg:px-10">
+    <main className="relative py-24 overflow-hidden">
+      <div className="home-bg-overlay absolute inset-0 -z-10 bg-surface/70" />
+      <div className="mx-auto max-w-[1200px] pb-28 px-4 sm:px-6 lg:px-10">
         {/* ──────── SECTION 1: HERO ──────── */}
-        <section className="relative min-h-screen">
-          <h1 className="text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-neutral-900">
+        <section className="relative min-h-[50vh] flex flex-col justify-center">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="px-2.5 py-1 text-xs font-semibold text-brand-fg bg-brand-600 rounded-lg">Your ID: STU-{genid}</span>
+            <span className="text-xs text-ink-muted">Counselors only see your name if you allow it in <Link to={PATHS.MY_ACCOUNT} className="underline underline-offset-2 hover:text-ink">Preferences</Link></span>
+          </div>
+          <h1 className="mt-4 text-[clamp(2rem,5vw,3.5rem)] font-light leading-[1.1] tracking-[-0.03em] text-ink">
             {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'},{` `}
-            <span className="font-medium">{firstName}</span><br />
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">Dynamic ID: STU-{genid}</span>
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-500">Note: counselor can only see your dynamic id</span>
+            <span className="font-medium">{firstName}</span>
           </h1>
-          <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-neutral-600 tracking-[-0.01em]">
+          <p className="mt-5 max-w-[580px] text-base leading-[1.7] text-ink-soft tracking-[-0.01em]">
             Welcome to the UST-Legazpi Mental Health Support System. Your well-being is our priority — access counseling
             services, schedule appointments, and explore resources designed to support you.
           </p>
-          <Link
-            to={SUGGESTIONS.linkHref}
-            className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
-          >
-            {SUGGESTIONS.linkLabel}
-            <span className="text-sm leading-none"><MoveRight className="size-3" /></span>
-          </Link>
-          {/* Announcement Card */}
-          <div className="mt-10 flex items-start gap-4 border-l-2 border-neutral-900 pl-5 py-4 backdrop-blur-xl rounded-sm relative group">
-            <span className="shrink-0 px-2.5 py-1 text-[10px] font-semibold tracking-[0.15em] uppercase text-white bg-neutral-900 rounded-sm">
-              {notice.tag}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm leading-[1.6] text-neutral-700">{notice.text}</p>
-              {notice.linkLabel && (
+          {checkInSuggestion && (
+            <div className="mt-8 bg-brand-soft border border-brand-200 rounded-xl p-5">
+              <p className="text-sm font-semibold text-ink">Check in again?</p>
+              <p className="text-xs text-ink-muted mt-0.5">
+                It's been a few days since your session on {checkInSuggestion.date}. {checkInSuggestion.counselorName || 'Your counselor'} is here whenever you're ready.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
                 <Link
-                  to={notice.linkHref}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium tracking-[0.05em] uppercase text-neutral-900 border-b border-neutral-900/30 hover:border-neutral-900 transition-colors"
+                  to={PATHS.SESSIONS}
+                  className="px-4 py-1.5 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
                 >
-                  {notice.linkLabel}
-                  <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
+                  Book follow-up
                 </Link>
-              )}
+                <button
+                  onClick={() => {
+                    dismissCheckInBanner();
+                    setBannerDismissed(true);
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-ink transition-colors"
+                >
+                  Not now
+                </button>
+              </div>
             </div>
-            <RoleGate roles={['counselor']}>
-              <button
-                onClick={openNoticeEdit}
-                className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 transition-colors opacity-0 group-hover:opacity-100 max-md:opacity-100"
-                title="Edit notice"
-              >
-                <Pencil size={12} />
-              </button>
-            </RoleGate>
-          </div>
-        </section>
+          )}
 
-        {/* ──────── SECTION 2: QUICK ACTIONS ──────── */}
-        <section className="mb-24">
-          <div className="mb-8 flex items-center gap-4">
-            <span className="h-px flex-1 bg-neutral-200" />
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400">Quick Actions</span>
-            <span className="h-px flex-1 bg-neutral-200" />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-neutral-200 overflow-hidden rounded-sm">
-            {/* Card 1 — Active Chat / Pending Request / Request */}
-            <div className={`group relative bg-neutral-50 backdrop-blur-md p-8 transition-all duration-300 ${hasActiveChat || pendingRequest ? 'hover:bg-neutral-50' : ''}`}>
-              {pendingRequest ? (
-                <>
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <span className="relative flex size-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500/60 opacity-75" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-amber-500" />
+          {/* Daily mood check-in — students only */}
+          {isStudent && (
+            <div className="mt-8 bg-surface/80 backdrop-blur-xl border border-line rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-brand-600" />
+                    How are you today?
+                  </h2>
+                  {streak > 0 && (
+                    <span className="px-2.5 py-1 text-xs font-semibold text-brand-fg bg-brand-600 rounded-lg whitespace-nowrap">
+                      🔥 {streak}-day streak
                     </span>
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-amber-700">
-                      Waiting for Acceptance
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
-                    Chat Session Requested
-                  </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">
-                    Your request has been sent. Waiting for your counselor to accept the session.
-                  </p>
-                  <div className="flex items-center gap-2 text-[11px] text-neutral-400 mb-6">
-                    <Loader size={12} className="animate-spin" />
-                    Checking for updates...
-                  </div>
+                  )}
+                </div>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  {checkedInToday || moodSaved
+                    ? 'Logged for today — see you tomorrow.'
+                    : 'One tap logs your mood in your diary.'}
+                </p>
+              </div>
+              <div className="grid grid-cols-5 gap-2 w-full sm:w-[560px] sm:max-w-full">
+                {MOODS.map((m) => (
                   <button
-                    onClick={async () => {
-                      try {
-                        await axiosInstance.patch(`/appointments/${pendingRequest._id}`, { status: "cancelled" });
-                        toast.success("Request cancelled.");
-                      } catch { toast.error("Failed to cancel."); }
-                      setPendingRequest(null);
-                    }}
-                    className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-red-600 hover:border-red-300 transition-colors rounded-sm"
-                  >
-                    Cancel Request
-                  </button>
-                </>
-              ) : hasActiveChat ? (
-                <>
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <span className="relative flex size-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500/60 opacity-75" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
-                    </span>
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-green-700">Active</span>
-                  </div>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
-                    {QUICK_ACTIONS[0].title}
-                  </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">{QUICK_ACTIONS[0].description}</p>
-                  <p className="text-[11px] text-neutral-400 mb-6">{QUICK_ACTIONS[0].meta}</p>
-                  <Link
-                    to={QUICK_ACTIONS[0].href}
-                    className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
-                  >
-                    {QUICK_ACTIONS[0].cta}
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <span className="relative flex size-2.5 grayscale">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500/60 opacity-75" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-green-500" />
-                    </span>
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">No Active Chat</span>
-                  </div>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-500 mb-2">
-                    {QUICK_ACTIONS[0].title}
-                  </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">No ongoing conversation at the moment.</p>
-                  <p className="text-[11px] text-neutral-500 mb-6">Start a session with your counselor.</p>
-                  <button
-                    onClick={handleOpenRequest}
-                    className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
-                  >
-                    Request Chat Session
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Card 2 — Scheduled Session / Declined / Book F2F */}
-            <div className="group relative bg-neutral-50 backdrop-blur-md p-8 transition-all duration-300">
-              {upcomingF2f ? (
-                <>
-                  <div className="flex items-center justify-between mb-5">
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-900">
-                      Upcoming
-                    </span>
-                    <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${upcomingF2f.status === 'active' || upcomingF2f.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                        'text-amber-600 border-amber-200 bg-amber-50'
-                      }`}>
-                      {upcomingF2f.status === 'active' || upcomingF2f.status === 'confirmed' ? 'Approved' : 'Awaiting'}
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
-                    Face-To-Face Session
-                  </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">
-                    {upcomingF2f.concern || 'No concern specified.'}
-                  </p>
-                  <div className="mb-6 space-y-1 border-t border-neutral-100 pt-3">
-                    <p className="text-[11px] leading-[1.7] text-neutral-600 font-medium">
-                      <CalendarDays size={12} className="inline mr-1.5 -mt-0.5" />
-                      {upcomingF2f.date}
-                    </p>
-                    <p className="text-[11px] leading-[1.7] text-neutral-600 font-medium">
-                      <Clock size={12} className="inline mr-1.5 -mt-0.5" />
-                      {upcomingF2f.time} &middot; {upcomingF2f.duration || '45 min'}
-                    </p>
-                    <p className="text-[11px] leading-[1.7] text-neutral-600 font-medium">
-                      <User size={12} className="inline mr-1.5 -mt-0.5" />
-                      {counselorMap[upcomingF2f.counselorId] || `Counselor #${upcomingF2f.counselorId}`}
-                    </p>
-                  </div>
-                  <Link
-                    to={PATHS.SESSIONS}
-                    className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-neutral-900 border border-neutral-300 hover:bg-neutral-900 hover:text-white hover:border-neutral-900 transition-all duration-300 rounded-sm"
-                  >
-                    View Details
-                  </Link>
-                </>
-              ) : declinedF2f ? (
-                <>
-                  <div className="flex items-center gap-2.5 mb-5">
-                    <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-red-600">
-                      Declined
-                    </span>
-                  </div>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
-                    Face-To-Face Session
-                  </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">
-                    Your session was declined by the counselor.
-                  </p>
-                  <div className="mb-6 space-y-1 border-t border-neutral-100 pt-3">
-                    <p className="text-[11px] leading-[1.7] text-neutral-600 font-medium">
-                      <CalendarDays size={12} className="inline mr-1.5 -mt-0.5" />
-                      {declinedF2f.date}
-                    </p>
-                    <p className="text-[11px] leading-[1.7] text-neutral-600 font-medium">
-                      <Clock size={12} className="inline mr-1.5 -mt-0.5" />
-                      {declinedF2f.time} &middot; {declinedF2f.duration || '45 min'}
-                    </p>
-                    <p className="text-[11px] leading-[1.7] text-neutral-600 font-medium">
-                      <User size={12} className="inline mr-1.5 -mt-0.5" />
-                      {counselorMap[declinedF2f.counselorId] || `Counselor #${declinedF2f.counselorId}`}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => { setDeclinedF2f(null); handleOpenF2f(); }}
-                    className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
-                  >
-                    Book Again
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-500">
-                    Not Scheduled
-                  </span>
-                  <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-500 mb-2">
-                    Face-To-Face Session
-                  </h3>
-                  <p className="text-xs leading-[1.6] text-neutral-500 mb-4">No upcoming on-campus appointment.</p>
-                  <p className="text-[11px] text-neutral-500 mb-6">Book a face-to-face session with your counselor.</p>
-                  <button
-                    onClick={handleOpenF2f}
-                    className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
-                  >
-                    Book Face-to-Face
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Card 3 — Diary */}
-            <div
-              className="group relative bg-neutral-50 backdrop-blur-md p-8"
-            >
-              <span className="mb-5 block text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-900">
-                Personal
-              </span>
-              <h3 className="text-sm font-semibold tracking-[-0.01em] text-neutral-900 mb-2">
-                {QUICK_ACTIONS[1].title}
-              </h3>
-              <p className="text-xs leading-[1.6] text-neutral-500 mb-4">{QUICK_ACTIONS[1].description}</p>
-              <p className="text-[11px] text-neutral-500 mb-6">{QUICK_ACTIONS[1].meta}</p>
-              <Link
-                to={typeof QUICK_ACTIONS[1].href === 'function' ? QUICK_ACTIONS[1].href(authUser?._id) : QUICK_ACTIONS[1].href}
-                className="inline-flex items-center justify-center w-full py-2.5 text-xs font-medium tracking-[0.1em] uppercase transition-all duration-300 rounded-sm text-white bg-neutral-900 hover:bg-neutral-800 transition-colors"
-              >
-                {QUICK_ACTIONS[1].cta}
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ──────── SECTION 3: UNIVERSITY GUIDANCE & COUNSELING SERVICES ──────── */}
-        <section >
-          <div className="mb-12">
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-600">
-              University Services
-            </span>
-            <h2 className="mt-3 text-2xl font-light tracking-[-0.02em] text-neutral-900">
-              Guidance &amp; Counseling
-            </h2>
-            <p className="mt-2 max-w-[520px] text-sm leading-[1.7] text-neutral-600">
-              The University of Santo Tomas–Legazpi is committed to fostering a supportive campus environment. Explore
-              the services available to help you thrive academically, personally, and emotionally.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-neutral-200 overflow-hidden rounded-sm">
-            {SERVICE_CARDS.map((card) => (
-              <article
-                key={card.number}
-                className="group relative bg-neutral-50 backdrop-blur-md p-8 cursor-default"
-              >
-                <span className="text-[13px] font-mono font-semibold text-neutral-500">
-                  {card.number}
-                </span>
-                <h3 className="mt-4 text-sm font-semibold tracking-[-0.01em] text-neutral-500 ">{card.title}</h3>
-                <p className="mt-3 text-xs leading-[1.8] text-neutral-500 ">{card.description}</p>
-                <div className="mt-6 h-px w-8 bg-neutral-500 group-hover:w-full group-hover:bg-neutral-500 transition-all duration-300" />
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* ──────── FOOTER ──────── */}
-        <footer className="mt-28 pt-8 border-t border-neutral-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <p className="text-[11px] text-neutral-400 tracking-[0.05em]">
-            &copy; {new Date().getFullYear()} <a href="https://github.com/jshmlnd" target="_blank" rel="noopener noreferrer">@jshmlnd</a> & <a href="https://github.com/grxg0r" target="_blank" rel="noopener noreferrer">@grxg0r</a>. All rights reserved.
-          </p>
-          <div className="flex items-center gap-5">
-            <Link to={PATHS.RESOURCES} className="text-[11px] text-neutral-400 hover:text-neutral-600 transition-colors tracking-[0.05em]">Resources</Link>
-            <span className="text-neutral-300">/</span>
-            <Link to={PATHS.UNIVERSITY_UPDATES} className="text-[11px] text-neutral-400 hover:text-neutral-900 transition-colors tracking-[0.05em]">Updates</Link>
-            <span className="text-neutral-300">/</span>
-            <Link to={PATHS.SELF_CARE} className="text-[11px] text-neutral-400 hover:text-neutral-900 transition-colors tracking-[0.05em]">Self Care</Link>
-          </div>
-        </footer>
-
-      </div>
-
-      <Modal isOpen={requestOpen} onClose={() => { setRequestOpen(false); setConcern(""); setSelectedCounselor(""); }} title="Request Chat Session">
-        <form onSubmit={(e) => { e.preventDefault(); handleRequestChat(); }} className="space-y-4">
-          <p className="text-xs text-neutral-500 leading-relaxed">
-            Select your counselor and briefly describe your concern. All information is kept confidential.
-          </p>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Counselor</label>
-            {loadingCounselors ? (
-              <div className="text-sm text-neutral-400 py-2">Loading counselors...</div>
-            ) : (
-              <select
-                value={selectedCounselor}
-                onChange={(e) => setSelectedCounselor(e.target.value)}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-              >
-                <option value="">Select a counselor</option>
-                {counselors.map((c) => (
-                  <option key={c._id} value={c._id}>{c.fullName}</option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Your Concern</label>
-            <textarea
-              value={concern}
-              onChange={(e) => setConcern(e.target.value)}
-              placeholder="e.g., I've been feeling overwhelmed with my coursework and need someone to talk to."
-              rows={4}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => { setRequestOpen(false); setConcern(""); setSelectedCounselor(""); }}
-              className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || loadingCounselors}
-              className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
-            >
-              {submitting ? "Requesting..." : "Submit Request"}
-            </button>
-          </div>
-        </form>
-      </Modal>
-
-      <Modal isOpen={f2fOpen} onClose={() => { setF2fOpen(false); setF2fConcern(""); setF2fAllSlots([]); setF2fAvailableTimes([]); }} title="Book Face-to-Face Session">
-        <form onSubmit={(e) => { e.preventDefault(); handleBookF2f(); }} className="space-y-4">
-          <p className="text-xs text-neutral-500 leading-relaxed">
-            Schedule an on-campus appointment with your counselor. Select a date and time that works for you.
-          </p>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Counselor</label>
-            <select
-              value={f2fCounselorId}
-              onChange={(e) => handleF2fCounselorChange(e.target.value)}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
-            >
-              <option value="">Select a counselor</option>
-              {f2fCounselors.map((c) => (
-                <option key={c._id} value={c._id}>{c.fullName}</option>
-              ))}
-            </select>
-          </div>
-
-          {f2fCounselorId && availableDates.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Dates</label>
-              <div className="flex flex-wrap gap-2">
-                {availableDates.map(({ date, count }) => (
-                  <button
-                    key={date}
-                    type="button"
-                    onClick={() => handleF2fDateChange(date)}
-                    className={`flex flex-col items-center px-3 py-1.5 text-xs rounded-sm border transition-colors ${
-                      f2fDate === date
-                        ? 'bg-neutral-900 text-white border-neutral-900'
-                        : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
+                    key={m.value}
+                    onClick={() => !moodSaving && !moodSaved && !checkedInToday && handleMoodCheckIn(m.value)}
+                    disabled={moodSaving || !!moodSaved || checkedInToday}
+                    className={`flex flex-col items-center gap-1 py-2.5 rounded-lg border transition-colors disabled:cursor-default ${
+                      moodSaved === m.value
+                        ? 'bg-brand-600 text-brand-fg border-brand-600'
+                        : checkedInToday || moodSaved
+                          ? 'bg-canvas border-line opacity-60'
+                          : 'bg-canvas border-line hover:border-brand-600 hover:bg-brand-soft'
                     }`}
+                    aria-label={`Feeling ${m.label}`}
                   >
-                    <span>{new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
-                    <span className={`text-[9px] ${f2fDate === date ? 'text-neutral-300' : 'text-neutral-400'}`}>
-                      {count} slot{count !== 1 ? 's' : ''}
-                    </span>
+                    <span className="text-xl leading-none" aria-hidden="true">{m.face}</span>
+                    <span className="text-[10px] font-medium">{m.label}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {f2fCounselorId && f2fDate && (
-            <div className="space-y-2">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Times</label>
-              {f2fLoadingSlots ? (
-                <div className="flex items-center gap-2 text-sm text-neutral-400 py-2"><Loader size={14} className="animate-spin" /> Loading available times...</div>
-              ) : f2fAvailableTimes.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {f2fAvailableTimes.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setF2fTime(t)}
-                      className={`px-3 py-1.5 text-xs rounded-sm border transition-colors ${
-                        f2fTime === t
-                          ? 'bg-neutral-900 text-white border-neutral-900'
-                          : 'bg-white text-neutral-700 border-neutral-200 hover:border-neutral-400'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-neutral-400 py-1">No available times for this date.</p>
-              )}
+          {/* Announcement Card — tag on its own line on mobile, beside the
+              text from sm up; edit affordance sits at the top-right. */}
+          <div className="mt-10 border-l-2 border-brand-600 pl-5 pr-3 sm:pr-5 py-4 backdrop-blur-xl rounded-lg relative group">
+            <RoleGate roles={['counselor']}>
+              <button
+                onClick={openNoticeEdit}
+                className="absolute right-3 sm:right-4 top-3 size-8 flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-line transition-colors sm:opacity-0 sm:group-hover:opacity-100"
+                title="Edit notice"
+                aria-label="Edit notice"
+              >
+                <Pencil size={12} />
+              </button>
+            </RoleGate>
+            <div className="flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-4">
+              <span className="self-start shrink-0 px-2.5 py-1 text-xs font-semibold text-brand-fg bg-brand-600 rounded-lg">
+                {notice.tag}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm leading-[1.6] text-ink-soft">{notice.text}</p>
+                {notice.linkLabel && (
+                  <Link
+                    to={notice.linkHref}
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-ink border-b border-brand-600/30 hover:border-brand-600 transition-colors"
+                  >
+                    {notice.linkLabel}
+                    <span className="text-sm leading-none"><MoveRight className="size-4" /></span>
+                  </Link>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+        </section>
+      </div>
 
+      <Modal isOpen={noticeEditOpen} onClose={() => setNoticeEditOpen(false)} title="Edit Notice">
+        <form onSubmit={(e) => { e.preventDefault(); handleSaveNotice(); }} className="space-y-4">
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Shown to students at the top of their home page. Keep it short and actionable.
+          </p>
           <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Concern (optional)</label>
+            <label className="text-xs font-semibold text-ink-muted">Notice Text</label>
             <textarea
-              value={f2fConcern}
-              onChange={(e) => setF2fConcern(e.target.value)}
-              placeholder="e.g., I'd like to discuss my academic performance and study habits."
-              rows={3}
-              className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+              value={noticeForm.text}
+              onChange={(e) => setNoticeForm({ text: e.target.value })}
+              rows={4}
+              className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors resize-none"
             />
           </div>
-
           <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => { setF2fOpen(false); setF2fConcern(""); setF2fAllSlots([]); setF2fAvailableTimes([]); }}
-              className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors"
+              onClick={() => setNoticeEditOpen(false)}
+              className="px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={f2fSubmitting || !f2fCounselorId || !f2fDate || !f2fTime}
-              className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50"
+              disabled={savingNotice}
+              className="px-5 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg disabled:opacity-50"
             >
-              {f2fSubmitting ? "Booking..." : "Book Session"}
+              {savingNotice ? 'Saving...' : 'Save Notice'}
             </button>
           </div>
         </form>

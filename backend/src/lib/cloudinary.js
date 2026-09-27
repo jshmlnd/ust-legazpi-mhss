@@ -1,6 +1,9 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { config } from 'dotenv';
 
+// Belt-and-braces: index.js loads dotenv as its very first import, so by the
+// time this module evaluates the variables are already set. A plain config()
+// here only covers direct imports of this module outside the app.
 config();
 
 cloudinary.config({

@@ -14,6 +14,24 @@ export const getDashboard = async (req, res) => {
     const completedSessions = await Appointment.countDocuments({ status: { $in: ["completed", "ended"] } });
     const pendingSessions = await Appointment.countDocuments({ status: { $in: ["pending", "active", "on-going", "paused"] } });
 
+    // Active students — distinct students with at least one appointment.
+    const activeStudentIds = await Appointment.distinct("studentId");
+
+    // Avg. active students per month — distinct students seen each month
+    // over the last 6 months, averaged over months that had activity.
+    const monthly = await Appointment.aggregate([
+      { $group: { _id: {
+        y: { $year: "$createdAt" },
+        m: { $month: "$createdAt" },
+      }, students: { $addToSet: "$studentId" } } },
+      { $project: { count: { $size: "$students" } } },
+      { $sort: { "_id.y": -1, "_id.m": -1 } },
+      { $limit: 6 },
+    ]);
+    const avgActiveStudents = monthly.length > 0
+      ? Math.round(monthly.reduce((sum, mo) => sum + mo.count, 0) / monthly.length)
+      : 0;
+
     const journalEntries = await JournalEntry.find();
     const avgSentiment = journalEntries.length > 0
       ? (journalEntries.reduce((sum, e) => sum + (MOOD_SCORE[e.mood] || 5), 0) / journalEntries.length).toFixed(1)
@@ -24,6 +42,8 @@ export const getDashboard = async (req, res) => {
 
     res.json({
       totalStudents,
+      activeStudents: activeStudentIds.length,
+      avgActiveStudents,
       completedSessions,
       pendingSessions,
       avgSentiment: avgSentiment === "—" ? 0 : parseFloat(avgSentiment),
@@ -32,6 +52,51 @@ export const getDashboard = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getDashboard:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/* Weekly Sessions Trend — per-day session counts split by type, for the
+   counselor dashboard's two-line chart. Counts both type spellings that
+   exist in the data ('Face-To-Face' and the legacy 'f2f'). Uses the
+   appointment's createdAt so days align with "this week" even when the
+   date strings use a different locale format. */
+export const getWeeklySessions = async (req, res) => {
+  try {
+    // Rolling 7-day window ending today, oldest first (Mon..Sun order).
+    const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = [];
+    const dayKeys = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      dayKeys.push(d.getTime());
+      days.push({
+        day: weekdays[d.getDay()],
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        chat: 0,
+        f2f: 0,
+      });
+    }
+    const since = new Date(dayKeys[0]);
+
+    const sessions = await Appointment.find({ createdAt: { $gte: since } })
+      .select("type createdAt")
+      .lean();
+
+    sessions.forEach((s) => {
+      const d = new Date(s.createdAt);
+      d.setHours(0, 0, 0, 0);
+      const idx = dayKeys.indexOf(d.getTime());
+      if (idx === -1) return;
+      if (s.type === "Chat") days[idx].chat += 1;
+      else if (s.type === "Face-To-Face" || s.type === "f2f") days[idx].f2f += 1;
+    });
+
+    res.json(days);
+  } catch (error) {
+    console.error("Error in getWeeklySessions:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -86,13 +151,16 @@ export const getUpcomingSessions = async (req, res) => {
       .limit(20);
 
     const studentIds = [...new Set(sessions.map((s) => s.studentId))];
-    const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId").lean();
-    const dynamicMap = Object.fromEntries(students.map((s) => [String(s._id), s.dynamicId]));
+    const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName showNameToCounselor").lean();
+    const studentMap = Object.fromEntries(students.map((s) => [String(s._id), s]));
 
     const result = sessions.map((s) => ({
       _id: s._id,
-      id: `STU-${getDailyDynamicId(dynamicMap[String(s.studentId)]) || s.studentId}`,
+      id: `STU-${getDailyDynamicId(studentMap[String(s.studentId)]?.dynamicId) || s.studentId}`,
       studentId: s.studentId,
+      studentName: studentMap[String(s.studentId)]?.showNameToCounselor
+        ? studentMap[String(s.studentId)].fullName
+        : null,
       type: s.type,
       time: s.time,
       date: s.date,

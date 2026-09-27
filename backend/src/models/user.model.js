@@ -47,6 +47,22 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        // Encrypted TOTP secret (AES-256-GCM, see lib/totp.js) for Google
+        // Authenticator; empty when the user has never enrolled TOTP.
+        totpSecret: {
+            type: String,
+            default: '',
+        },
+        // Set once the TOTP secret is confirmed with a valid code; TOTP then
+        // takes over as the account's second factor (replacing PIN 2FA).
+        totpEnabled: {
+            type: Boolean,
+            default: false,
+        },
+        showNameToCounselor: {
+            type: Boolean,
+            default: false,
+        },
         userType: {
             type: String,
             default: 'Student',

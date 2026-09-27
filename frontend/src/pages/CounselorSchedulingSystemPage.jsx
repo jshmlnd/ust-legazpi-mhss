@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, User, Ban, CalendarDays, Check, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import Modal from '../components/Modal';
+import Modal from '../ui/Modal';
 import { toast } from 'react-toastify';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -34,46 +35,46 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates,
   }
 
   return (
-    <div className="grid grid-cols-7 gap-px bg-neutral-200">
+    <div className="grid grid-cols-7 gap-px bg-line">
       {WEEKDAYS.map((wd) => (
-        <div key={wd} className="bg-neutral-50 px-3 py-2 text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-400 text-center">{wd}</div>
+        <div key={wd} className="bg-canvas px-3 py-2 text-xs font-semibold text-ink-muted text-center">{wd}</div>
       ))}
       {cells.map((cell, i) => {
-        if (!cell) return <div key={`empty-${i}`} className="bg-white min-h-[100px]" />;
+        if (!cell) return <div key={`empty-${i}`} className="bg-surface min-h-[100px]" />;
         const hasSlots = slotDates && slotDates.has(cell.dateStr);
         const isSelected = multiMode && selectedDates?.has(cell.dateStr);
         return (
           <button
             key={cell.dateStr}
             onClick={() => multiMode ? onToggleDate?.(cell.dateStr) : onDateClick(cell)}
-            className={`bg-white min-h-[100px] p-2 text-left transition-colors relative ${
-              multiMode ? 'hover:bg-neutral-100 cursor-pointer' : 'hover:bg-neutral-50'
+            className={`bg-surface min-h-[100px] p-2 text-left transition-colors relative ${
+              multiMode ? 'hover:bg-line cursor-pointer' : 'hover:bg-canvas'
             } ${
-              isSelected ? 'bg-neutral-100 ring-2 ring-inset ring-neutral-900' : ''
+              isSelected ? 'bg-line ring-2 ring-inset ring-brand-600' : ''
             } ${
-              cell.isHoliday ? 'bg-neutral-100/50' : ''
+              cell.isHoliday ? 'bg-line/50' : ''
             }`}
           >
-            <span className={`text-xs font-medium ${cell.isToday ? 'bg-neutral-900 text-white size-5 inline-flex items-center justify-center rounded-full' : cell.isHoliday ? 'text-neutral-300 line-through' : 'text-neutral-600'}`}>
+            <span className={`text-xs font-medium ${cell.isToday ? 'bg-brand-600 text-ink size-5 inline-flex items-center justify-center rounded-full' : cell.isHoliday ? 'text-ink-muted line-through' : 'text-ink-soft'}`}>
               {cell.day}
             </span>
-            {cell.isHoliday && <span className="block text-[9px] text-neutral-400 mt-1">Holiday</span>}
+            {cell.isHoliday && <span className="block text-xs text-ink-muted mt-1">Holiday</span>}
             <div className="mt-1.5 space-y-0.5">
               {cell.bookings.slice(0, 3).map((b) => (
-                <div key={b._id} className={`text-[9px] font-medium px-1 py-0.5 rounded-sm truncate ${
-                  b.type === 'Chat' ? 'bg-emerald-50 text-emerald-700' : 'bg-neutral-100 text-neutral-700'
+                <div key={b._id} className={`text-xs font-medium px-1 py-0.5 rounded-lg truncate ${
+                  b.type === 'Chat' ? 'bg-brand-soft text-brand-soft-ink' : 'bg-line text-ink-soft'
                 }`}>
-                  {b.time} STU-{b.studentDynamicId || b.studentId}
+                  {b.time} {b.studentName || `STU-${b.studentDynamicId || b.studentId}`}
                 </div>
               ))}
-              {cell.bookings.length > 3 && <span className="text-[9px] text-neutral-400 pl-1">+{cell.bookings.length - 3} more</span>}
+              {cell.bookings.length > 3 && <span className="text-xs text-ink-muted pl-1">+{cell.bookings.length - 3} more</span>}
             </div>
             {hasSlots && (
-              <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-blue-400" />
+              <span className="absolute bottom-1 right-1 size-1.5 rounded-full bg-info" />
             )}
             {isSelected && (
-              <span className="absolute top-1.5 right-1.5 size-4 rounded-full bg-neutral-900 flex items-center justify-center">
-                <Check size={10} className="text-white" />
+              <span className="absolute top-1.5 right-1.5 size-4 rounded-full bg-brand-600 flex items-center justify-center">
+                <Check size={10} className="text-ink" />
               </span>
             )}
           </button>
@@ -84,12 +85,12 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates,
 };
 
 const SlotManager = ({ availableSlots, onToggleSlot, selectedDate, multiMode, selectedDates }) => (
-  <div className="bg-white border border-neutral-200 rounded-sm p-5">
-    <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">
+  <div className="bg-surface border border-line rounded-lg p-5">
+    <span className="text-xs font-semibold text-ink-muted block mb-3">
       {multiMode && selectedDates?.size > 0 ? `Slots for ${selectedDates.size} dates` : `Availability Slots${selectedDate ? ` — ${selectedDate}` : ''}`}
     </span>
     {availableSlots.length === 0 && (
-      <p className="text-xs text-neutral-400 mb-3">No slots set. Toggle times below to add availability.</p>
+      <p className="text-xs text-ink-muted mb-3">No slots set. Toggle times below to add availability.</p>
     )}
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
       {SLOTS.map((slot) => {
@@ -98,8 +99,8 @@ const SlotManager = ({ availableSlots, onToggleSlot, selectedDate, multiMode, se
           <button
             key={slot}
             onClick={() => onToggleSlot(slot)}
-            className={`px-3 py-2 text-xs font-medium rounded-sm border transition-colors ${
-              isAvailable ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-400'
+            className={`px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
+              isAvailable ? 'bg-brand-600 text-ink border-brand-600' : 'bg-surface text-ink-muted border-line hover:border-line-strong'
             }`}
           >
             {slot}
@@ -112,19 +113,19 @@ const SlotManager = ({ availableSlots, onToggleSlot, selectedDate, multiMode, se
 
 const getStatusLabel = (b) => {
   if (b.type === 'Chat') {
-    if (b.status === 'on-going' || b.status === 'active') return { label: 'On-going', style: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-    if (b.status === 'ended' || b.status === 'completed') return { label: 'Ended', style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
-    return { label: b.status, style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+    if (b.status === 'on-going' || b.status === 'active') return { label: 'On-going', style: 'text-brand-soft-ink bg-brand-soft border-brand-200' };
+    if (b.status === 'ended' || b.status === 'completed') return { label: 'Ended', style: 'text-ink-muted bg-line border-line' };
+    return { label: b.status, style: 'text-ink-muted bg-line border-line' };
   }
   if (b.type === 'Face-To-Face' || b.type === 'f2f') {
-    if (b.status === 'pending') return { label: 'Waiting for Approval', style: 'text-amber-700 bg-amber-50 border-amber-200' };
-    if (b.status === 'on-going') return { label: 'On-going', style: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-    if (b.status === 'confirmed' || b.status === 'active') return { label: 'Approved', style: 'text-emerald-700 bg-emerald-50 border-emerald-200' };
-    if (b.status === 'paused') return { label: 'Paused', style: 'text-sky-700 bg-sky-50 border-sky-200' };
-    if (b.status === 'ended') return { label: 'Ended', style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
-    return { label: b.status, style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+    if (b.status === 'pending') return { label: 'Waiting for Approval', style: 'text-warning-ink bg-warning-soft border-warning/30' };
+    if (b.status === 'on-going') return { label: 'On-going', style: 'text-brand-soft-ink bg-brand-soft border-brand-200' };
+    if (b.status === 'confirmed' || b.status === 'active') return { label: 'Approved', style: 'text-brand-soft-ink bg-brand-soft border-brand-200' };
+    if (b.status === 'paused') return { label: 'Paused', style: 'text-info-ink bg-info-soft border-info/30' };
+    if (b.status === 'ended') return { label: 'Ended', style: 'text-ink-muted bg-line border-line' };
+    return { label: b.status, style: 'text-ink-muted bg-line border-line' };
   }
-  return { label: b.status, style: 'text-neutral-500 bg-neutral-100 border-neutral-200' };
+  return { label: b.status, style: 'text-ink-muted bg-line border-line' };
 };
 
 const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
@@ -135,20 +136,20 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Bookings — ${dateLabel}`} wide>
       {dayBookings.length === 0 ? (
-        <p className="text-sm text-neutral-400 py-6 text-center">No bookings on this day.</p>
+        <p className="text-sm text-ink-muted py-6 text-center">No bookings on this day.</p>
       ) : (
         <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
           {dayBookings.map((b) => {
             const status = getStatusLabel(b);
             return (
-            <div key={b._id} className="flex items-center justify-between py-3 px-4 bg-neutral-50 rounded-sm">
+            <div key={b._id} className="flex items-center justify-between py-3 px-4 bg-canvas rounded-lg">
               <div className="flex items-center gap-3">
-                <div className="size-8 rounded-full bg-neutral-200 flex items-center justify-center">
-                  <User size={14} className="text-neutral-500" />
+                <div className="size-8 rounded-full bg-line flex items-center justify-center">
+                  <User size={14} className="text-ink-muted" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-neutral-900">STU-{b.studentDynamicId || b.studentId}</p>
-                  <p className="text-[11px] text-neutral-400">{b.time} · {b.type === 'Chat' ? 'Chat Session' : 'Face-to-Face'}</p>
+                  <p className="text-sm font-medium text-ink">{b.studentName || `STU-${b.studentDynamicId || b.studentId}`}</p>
+                  <p className="text-xs text-ink-muted">{b.time} · {b.type === 'Chat' ? 'Chat Session' : 'Face-to-Face'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -161,12 +162,12 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                         onRefresh();
                       } catch { toast.error('Failed to start session'); }
                     }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
                   >
                     Start
                   </button>
                 )}
-                <span className={`px-2.5 py-1 text-[10px] font-semibold tracking-[0.05em] uppercase rounded-sm border ${status.style}`}>
+                <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${status.style}`}>
                   {status.label}
                 </span>
                 {b.type === 'Face-To-Face' && b.status === 'pending' && (
@@ -179,7 +180,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                           onRefresh();
                         } catch { toast.error('Failed to approve booking'); }
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-emerald-600 hover:bg-emerald-700 transition-colors rounded-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
                     >
                       <Check size={12} /> Approve
                     </button>
@@ -191,7 +192,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                           onRefresh();
                         } catch { toast.error('Failed to decline booking'); }
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-danger hover:bg-danger/90 transition-colors rounded-lg"
                     >
                       <X size={12} /> Decline
                     </button>
@@ -207,7 +208,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                           onRefresh();
                         } catch { toast.error('Failed to pause session'); }
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-amber-600 hover:bg-amber-700 transition-colors rounded-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-warning hover:bg-warning/90 transition-colors rounded-lg"
                     >
                       Pause
                     </button>
@@ -219,7 +220,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                           onRefresh();
                         } catch { toast.error('Failed to end session'); }
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-danger hover:bg-danger/90 transition-colors rounded-lg"
                     >
                       End
                     </button>
@@ -235,7 +236,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                           onRefresh();
                         } catch { toast.error('Failed to resume session'); }
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
                     >
                       Resume
                     </button>
@@ -247,7 +248,7 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                           onRefresh();
                         } catch { toast.error('Failed to end session'); }
                       }}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-danger hover:bg-danger/90 transition-colors rounded-lg"
                     >
                       End
                     </button>
@@ -267,35 +268,60 @@ const CounselorSchedulingSystemPage = () => {
   const { authUser } = useAuthStore();
   const today = new Date();
   const todayStr = today.toISOString().slice(0, 10);
-  const [year, setYear] = useState(today.getFullYear());
-  const [month, setMonth] = useState(today.getMonth());
+  // ?date=YYYY-MM-DD deep link (e.g. "View" from Session Requests) — read on
+  // mount; every in-app navigation here remounts the page, so no sync effect
+  // is needed. The date input writes the selection back to the URL.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  const validDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : todayStr;
+  // One-shot deep-link target — consumed by the initial data fetch, which
+  // auto-opens that day's bookings modal once bookings have loaded.
+  const deepLinkDate = useRef(dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : null);
+  const [year, setYear] = useState(() => Number(validDate.slice(0, 4)));
+  const [month, setMonth] = useState(() => Number(validDate.slice(5, 7)) - 1);
   const [bookings, setBookings] = useState([]);
   const [slots, setSlots] = useState([]);
-  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [selectedDate, setSelectedDate] = useState(validDate);
   const [selectedCell, setSelectedCell] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [multiMode, setMultiMode] = useState(false);
   const [selectedDates, setSelectedDates] = useState(new Set());
 
+  const syncDateParam = (dateStr) => {
+    if (!dateStr) return;
+    setSelectedDate(dateStr);
+    setSearchParams(dateStr === todayStr ? {} : { date: dateStr }, { replace: true });
+  };
+
   useEffect(() => {
+    let cancelled = false;
     const fetchData = async () => {
       try {
         const [bookRes] = await Promise.all([
           axiosInstance.get('/appointments'),
         ]);
+        if (cancelled) return;
         setBookings(bookRes.data);
+        // Deep link (?date=…) — auto-open that day's bookings now that data is in.
+        const linkedDate = deepLinkDate.current;
+        deepLinkDate.current = null;
+        if (linkedDate) {
+          setSelectedCell({ dateStr: linkedDate, day: Number(linkedDate.slice(8, 10)), isHoliday: false, isToday: false, bookings: [] });
+          setModalOpen(true);
+        }
         if (authUser?._id) {
           const slotRes = await axiosInstance.get(`/availability/${authUser._id}`);
-          setSlots(slotRes.data);
+          if (!cancelled) setSlots(slotRes.data);
         }
       } catch (err) {
         console.error('Failed to fetch scheduling data:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     fetchData();
+    return () => { cancelled = true; };
   }, [authUser]);
 
   const slotDates = new Set(
@@ -356,21 +382,21 @@ const CounselorSchedulingSystemPage = () => {
     }
   };
 
-  if (loading) return <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
+  if (loading) return <PageShell title="Appointments" description="Manage availability slots and view appointment bookings"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
 
   return (
-    <PageShell title="Appointments Scheduling" subtitle="Manage availability slots and view appointment bookings">
+    <PageShell title="Appointments" description="Manage availability slots and view appointment bookings">
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-4">
-            <button onClick={prevMonth} className="size-8 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 transition-colors">
+            <button onClick={prevMonth} className="size-8 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink hover:border-line-strong transition-colors">
               <ChevronLeft size={16} />
             </button>
             <div className="flex items-center gap-2">
-              <CalendarDays size={16} className="text-neutral-400" />
-              <span className="text-sm font-medium text-neutral-900">{monthLabel}</span>
+              <CalendarDays size={16} className="text-ink-muted" />
+              <span className="text-sm font-medium text-ink">{monthLabel}</span>
             </div>
-            <button onClick={nextMonth} className="size-8 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 transition-colors">
+            <button onClick={nextMonth} className="size-8 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink hover:border-line-strong transition-colors">
               <ChevronRight size={16} />
             </button>
           </div>
@@ -385,44 +411,44 @@ const CounselorSchedulingSystemPage = () => {
           />
         </div>
         <div className="w-full lg:w-72 shrink-0 space-y-4">
-          <div className="bg-white border border-neutral-200 rounded-sm p-5">
+          <div className="bg-surface border border-line rounded-lg p-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Set Date</span>
+              <span className="text-xs font-semibold text-ink-muted">Set Date</span>
               <button
                 onClick={() => { setMultiMode((m) => !m); setSelectedDates(new Set()); }}
-                className={`text-[10px] font-semibold tracking-[0.1em] uppercase px-2.5 py-1 rounded-sm border transition-colors ${
-                  multiMode ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-500 border-neutral-200 hover:border-neutral-400'
+                className={`text-xs font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+                  multiMode ? 'bg-brand-600 text-ink border-brand-600' : 'bg-surface text-ink-muted border-line hover:border-line-strong'
                 }`}
               >
                 {multiMode ? 'Multi' : 'Single'}
               </button>
             </div>
             {multiMode ? (
-              <p className="text-xs text-neutral-400">Click calendar dates to select, then toggle time slots to apply to all.</p>
+              <p className="text-xs text-ink-muted">Click calendar dates to select, then toggle time slots to apply to all.</p>
             ) : (
               <input
                 type="date"
                 value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+                onChange={(e) => syncDateParam(e.target.value)}
+                className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink focus:border-brand-600 outline-none transition-colors"
               />
             )}
           </div>
           <SlotManager availableSlots={availableSlots} onToggleSlot={handleToggleSlot} selectedDate={selectedDate} multiMode={multiMode} selectedDates={selectedDates} />
-          <div className="bg-white border border-neutral-200 rounded-sm p-5">
-            <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-3">Legend</span>
+          <div className="bg-surface border border-line rounded-lg p-5">
+            <span className="text-xs font-semibold text-ink-muted block mb-3">Legend</span>
             <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5 text-xs text-neutral-600">
-                <span className="size-3 rounded-sm bg-emerald-50 border border-emerald-200" /> Chat Session
+              <div className="flex items-center gap-2.5 text-xs text-ink-soft">
+                <span className="size-3 rounded-lg bg-brand-soft border border-brand-200" /> Chat Session
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-neutral-600">
-                <span className="size-3 rounded-sm bg-neutral-100 border border-neutral-200" /> Face-to-Face
+              <div className="flex items-center gap-2.5 text-xs text-ink-soft">
+                <span className="size-3 rounded-lg bg-line border border-line" /> Face-to-Face
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-neutral-400">
-                <span className="size-3 rounded-sm bg-blue-100 border border-blue-200" /> Availability Set
+              <div className="flex items-center gap-2.5 text-xs text-ink-muted">
+                <span className="size-3 rounded-lg bg-info-soft border border-info/30" /> Availability Set
               </div>
-              <div className="flex items-center gap-2.5 text-xs text-neutral-400">
-                <span className="size-3 rounded-sm bg-neutral-100/50 border border-neutral-200 flex items-center justify-center"><Ban size={8} /></span> Holiday / Blocked
+              <div className="flex items-center gap-2.5 text-xs text-ink-muted">
+                <span className="size-3 rounded-lg bg-line/50 border border-line flex items-center justify-center"><Ban size={8} /></span> Holiday / Blocked
               </div>
             </div>
           </div>

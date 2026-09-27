@@ -1,64 +1,58 @@
 import { useEffect } from 'react';
-import { ToastContainer } from 'react-toastify';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Loader } from 'lucide-react';
 
-import Navbar from "./components/Navbar";
+import AppLayout from './components/AppLayout/AppLayout';
+import { RoleRoute } from './components/RoleRoute';
+import VoiceCallModal from './components/VoiceCallModal';
 
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
-import ProfilePage from "./pages/ProfilePage";
-import ResourcePage from "./pages/ResourcePage";
-import SelfCarePage from "./pages/SelfCarePage";
-import SessionsPage from "./pages/SessionsPage";
-import CounselorDashboard from "./pages/CounselorDashboardPage";
-import CounselorSessionManagement from "./pages/CounselorSessionManagementPage";
-import CounselorSchedulingPage from "./pages/CounselorSchedulingSystemPage";
-import CounselorAnnouncementManagerPage from "./pages/CounselorAnnouncementManagerPage";
-import ChatPage from "./pages/ChatPage";
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import ProfilePage from './pages/ProfilePage';
+import ResourcePage from './pages/ResourcePage';
+import SelfCarePage from './pages/SelfCarePage';
+import SessionsPage from './pages/SessionsPage';
+import CounselorDashboard from './pages/CounselorDashboardPage';
+import SessionRequestsPage from './pages/SessionRequestsPage';
+import CounselorSchedulingPage from './pages/CounselorSchedulingSystemPage';
+import CounselorAnnouncementManagerPage from './pages/CounselorAnnouncementManagerPage';
+import ChatPage from './pages/ChatPage';
 import UniversityUpdates from './pages/UniversityUpdates';
 import SuggestionsPage from './pages/SuggestionsPage';
-
 import YourDiary from './pages/YourDiary';
 import StudentIdentityPage from './pages/StudentIdentityPage';
 import RegisterStudentPage from './pages/RegisterStudentPage';
 import RegisterCounselorPage from './pages/RegisterCounselorPage';
 import Administrator from './pages/Administrator';
 
-import { Routes, Route, Navigate } from "react-router-dom";
-import { RoleRoute } from './components/RoleRoute';
 import { useAuthStore } from './store/useAuthStore';
 import { useChatStore } from './store/useChatStore';
 import { useCallStore } from './store/useCallStore';
-import { Loader } from "lucide-react";
 
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
-import { usePrefs } from './lib/prefs';
-import VoiceCallModal from './components/VoiceCallModal';
-
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
+
   const { subscribeToMessages, unsubscribeFromMessages, selectedUser } = useChatStore();
   const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
 
   const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
-  const { prefs } = usePrefs(authUser?._id);
   const peerDisplayName = (() => {
     if (incomingCall?.callerName) {
       return isCounselor ? `STU-${incomingCall.callerId}` : incomingCall.callerName;
     }
     if (selectedUser) {
-      return isCounselor ? `STU-${selectedUser._id}` : selectedUser.fullName;
+      return isCounselor && !selectedUser.showNameToCounselor ? `STU-${selectedUser._id}` : selectedUser.fullName;
     }
     return '';
   })();
 
   useEffect(() => { checkAuth(); }, [checkAuth]);
 
-  useEffect(() => {
-    registerServiceWorker();
-  }, []);
+  useEffect(() => { registerServiceWorker(); }, []);
 
   useEffect(() => {
     if (authUser) {
@@ -74,55 +68,66 @@ const App = () => {
     };
   }, [authUser, subscribeToMessages, unsubscribeFromMessages, subscribeToCallEvents, unsubscribeFromCallEvents]);
 
-if(isCheckingAuth && !authUser) return (
-    <div className="flex items-center justify-center h-screen">
-      <Loader className="size-10 animate-spin" />
-    </div>
-  )
+  if (isCheckingAuth && !authUser) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-canvas">
+        <Loader className="size-10 animate-spin text-brand-600" />
+      </div>
+    );
+  }
+
+  // Route guard helper: unauthenticated users go to login.
+  const guard = (element) => (authUser ? element : <Navigate to={PATHS.LOGIN} replace />);
+
+  // Non-students who land on the student home are sent to their own dashboard.
+  const role = authUser?.userType?.toLowerCase();
 
   return (
-  <div>
+    <div>
+      <VoiceCallModal peerName={peerDisplayName} />
 
-    <Navbar />
-    <ToastContainer position="top-center" autoClose={3000} hideProgressBar newestOnTop closeOnClick pauseOnHover rtl={false} theme={(prefs.calmMode || prefs.switchmode) ? 'dark' : 'light'} />
-    <VoiceCallModal
-      peerName={peerDisplayName}
-    />
+      <Routes>
+        {/* Public */}
+        <Route path={PATHS.LOGIN} element={!authUser ? <LoginPage /> : <Navigate to={PATHS.HOME} replace />} />
 
-    <Routes>
-      {/* Student Routes */}
-      <Route path={PATHS.HOME} element={authUser ? <HomePage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.SESSIONS} element={authUser ? <SessionsPage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.LOGIN} element={!authUser ? <LoginPage /> : <Navigate to={PATHS.HOME} /> } />
-      <Route path={PATHS.MY_ACCOUNT} element={authUser ? <ProfilePage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.RESOURCES} element={ <ResourcePage /> } />
-      <Route path={PATHS.SELF_CARE} element={authUser ? <SelfCarePage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.DIARY} element={authUser ? <YourDiary /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.SUGGESTIONS} element={authUser ? <SuggestionsPage /> : <Navigate to={PATHS.LOGIN} /> } />
+        {/* Authenticated — every page renders inside AppLayout (sidebar + topbar) */}
+        <Route element={authUser ? <AppLayout /> : <Navigate to={PATHS.LOGIN} replace />}>
+          {/* Student */}
+          <Route path={PATHS.HOME} element={guard(role && role !== 'student'
+            ? <Navigate to={role === 'counselor' ? PATHS.DASHBOARD : PATHS.ADMIN} replace />
+            : <HomePage />)} />
+          <Route path={PATHS.SESSIONS} element={guard(<SessionsPage />)} />
+          <Route path={PATHS.MY_ACCOUNT} element={guard(<ProfilePage />)} />
+          <Route path={PATHS.SELF_CARE} element={guard(<SelfCarePage />)} />
+          <Route path={PATHS.DIARY} element={guard(<YourDiary />)} />
+          <Route path={PATHS.SUGGESTIONS} element={guard(<SuggestionsPage />)} />
+          <Route path={PATHS.RESOURCES} element={guard(<ResourcePage />)} />
 
+          {/* Shared */}
+          <Route path={PATHS.MESSAGES} element={guard(<ChatPage />)} />
+          <Route path={PATHS.UNIVERSITY_UPDATES} element={guard(<UniversityUpdates />)} />
 
-      {/* Shared Route */}
-      <Route path={PATHS.MESSAGES} element={authUser ? <ChatPage /> : <Navigate to={PATHS.LOGIN} /> } />
-      <Route path={PATHS.UNIVERSITY_UPDATES} element={authUser ? < UniversityUpdates/> : <Navigate to={PATHS.LOGIN} /> } />
+          {/* Counselor */}
+          <Route path={PATHS.DASHBOARD} element={<RoleRoute allow={['counselor']}><CounselorDashboard /></RoleRoute>} />
+          <Route path={PATHS.SESSION_REQUESTS} element={<RoleRoute allow={['counselor']}><SessionRequestsPage /></RoleRoute>} />
+          <Route path={PATHS.COUNSELOR_SCHEDULE} element={<RoleRoute allow={['counselor']}><CounselorSchedulingPage /></RoleRoute>} />
+          <Route path={PATHS.MANAGE_ANNOUNCEMENT} element={<RoleRoute allow={['counselor']}><CounselorAnnouncementManagerPage /></RoleRoute>} />
+          <Route path={PATHS.MANAGE_SELF_CARE} element={<RoleRoute allow={['counselor']}><SelfCarePage /></RoleRoute>} />
+          <Route path={PATHS.MANAGE_RESOURCES} element={<RoleRoute allow={['counselor']}><ResourcePage /></RoleRoute>} />
+          <Route path={PATHS.STUDENT_IDENTITY} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
+          <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
 
-      {/* Counselor Routes */}
-      <Route path={PATHS.DASHBOARD} element={<RoleRoute allow={['counselor']}>< CounselorDashboard/></RoleRoute>} />
-      <Route path={PATHS.MANAGE_SESSIONS} element={<RoleRoute allow={['counselor']}>< CounselorSessionManagement/></RoleRoute>} />
-      <Route path={PATHS.COUNSELOR_SCHEDULE} element={<RoleRoute allow={['counselor']}>< CounselorSchedulingPage /></RoleRoute>} />
-      <Route path={PATHS.MANAGE_ANNOUNCEMENT} element={<RoleRoute allow={['counselor']}>< CounselorAnnouncementManagerPage /></RoleRoute>} />
-      <Route path={PATHS.MANAGE_SELF_CARE} element={<RoleRoute allow={['counselor']}><SelfCarePage /></RoleRoute>} />
-      <Route path={PATHS.MANAGE_RESOURCES} element={<RoleRoute allow={['counselor']}><ResourcePage /></RoleRoute>} />
-      <Route path={PATHS.STUDENT_IDENTITY} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
-      <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
-      <Route path={PATHS.PROFILE} element={<RoleRoute allow={['student', 'counselor', 'administrator']}><Navigate to={PATHS.MY_ACCOUNT} /></RoleRoute>} />
+          {/* Administrator */}
+          <Route path={PATHS.ADMIN} element={<RoleRoute allow={['administrator']}><Administrator /></RoleRoute>} />
+          <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={<RoleRoute allow={['administrator']}><RegisterStudentPage /></RoleRoute>} />
+          <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={<RoleRoute allow={['administrator']}><RegisterCounselorPage /></RoleRoute>} />
+        </Route>
 
-      {/* Admin Routes */}
-      <Route path={PATHS.ADMIN} element={<RoleRoute allow={['administrator']}><Administrator /></RoleRoute>} />
-      <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={<RoleRoute allow={['administrator']}><RegisterStudentPage /></RoleRoute>} />
-      <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={<RoleRoute allow={['administrator']}><RegisterCounselorPage /></RoleRoute>} />
-    </Routes>
-
-  </div>);
+        {/* Legacy alias */}
+        <Route path={PATHS.PROFILE} element={<RoleRoute allow={['student', 'counselor', 'administrator']}><Navigate to={PATHS.MY_ACCOUNT} /></RoleRoute>} />
+      </Routes>
+    </div>
+  );
 };
 
 export default App;

@@ -180,7 +180,7 @@ const HomePage = () => {
 
           {/* Daily mood check-in — students only */}
           {isStudent && (
-            <div className="mt-8 bg-surface/80 backdrop-blur-xl border border-line rounded-xl p-5 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+            <div className="mt-8 bg-surface/80 backdrop-blur-xl border border-line rounded-xl p-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:gap-8">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
@@ -199,7 +199,7 @@ const HomePage = () => {
                     : 'One tap logs your mood in your diary.'}
                 </p>
               </div>
-              <div className="grid grid-cols-5 gap-2 w-full sm:w-[560px] sm:max-w-full">
+              <div className="grid grid-cols-5 gap-2 w-full xl:w-[560px] xl:flex-none">
                 {MOODS.map((m) => (
                   <button
                     key={m.value}

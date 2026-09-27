@@ -28,3 +28,4 @@ backend/.env
 .env
 node_modules/
 .mongo-data/
+.freebuff

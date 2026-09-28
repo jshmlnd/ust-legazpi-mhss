@@ -63,6 +63,13 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        // OGT Updates newsletter opt-in. Default ON: students receive
+        // announcement emails unless they opt out in Preferences. Admin-
+        // registered accounts get this automatically.
+        receiveOgtUpdates: {
+            type: Boolean,
+            default: true,
+        },
         userType: {
             type: String,
             default: 'Student',

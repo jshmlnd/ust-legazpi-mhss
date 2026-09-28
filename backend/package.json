@@ -22,6 +22,7 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.1",
     "node-cron": "^4.6.0",
+    "nodemailer": "^10.0.12",
     "otplib": "^13.5.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",

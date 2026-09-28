@@ -13,6 +13,7 @@ import {
     buildQrDataUrl,
     verifyTotpToken,
 } from "../lib/totp.js";
+import { sendMail, passwordChangedEmailTemplate } from "../lib/mailer.js";
 
 const generateToken = (userId, res) => {
     const token = jwt.sign({userId}, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -45,6 +46,7 @@ const serializeUser = (user, role) => ({
     twoFactorEnabled: user.twoFactorEnabled,
     totpEnabled: !!user.totpEnabled,
     showNameToCounselor: user.showNameToCounselor || false,
+    receiveOgtUpdates: user.receiveOgtUpdates !== false,
 });
 
 const getModel = (req) => (req.user.constructor.modelName === "Counselor" ? Counselor : User);
@@ -52,7 +54,7 @@ const getModel = (req) => (req.user.constructor.modelName === "Counselor" ? Coun
 export const updateProfileDetails = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { fullName, email, phone, department, program, yearLevel, showNameToCounselor } = req.body;
+        const { fullName, email, phone, department, program, yearLevel, showNameToCounselor, receiveOgtUpdates } = req.body;
 
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
         const account = await Model.findById(userId);
@@ -65,6 +67,7 @@ export const updateProfileDetails = async (req, res) => {
         if (program && account.program !== undefined) account.program = program;
         if (yearLevel && account.yearLevel !== undefined) account.yearLevel = yearLevel;
         if (typeof showNameToCounselor === 'boolean' && account.showNameToCounselor !== undefined) account.showNameToCounselor = showNameToCounselor;
+        if (typeof receiveOgtUpdates === 'boolean' && account.receiveOgtUpdates !== undefined) account.receiveOgtUpdates = receiveOgtUpdates;
 
         await account.save();
 
@@ -303,6 +306,18 @@ export const updatePassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, salt);
         account.password = hashedPassword;
         await account.save();
+
+        // Security notification: "Did you change your password?" — sent to
+        // students and counselors alike (fire-and-optimistic; a Mailtrap
+        // outage must not fail the password change itself).
+        sendMail({
+            to: account.email,
+            subject: "Did you change your password?",
+            html: passwordChangedEmailTemplate({
+                fullName: account.fullName,
+                when: new Intl.DateTimeFormat("en-PH", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date()),
+            }),
+        });
 
         res.status(200).json({ message: "Password updated successfully" });
     } catch (error) {

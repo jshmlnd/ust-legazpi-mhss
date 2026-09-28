@@ -1,6 +1,51 @@
 import Announcement from "../models/announcement.model.js";
+import User from "../models/user.model.js";
 import { getIO } from "../socket/socket.js";
 import cloudinary from "../lib/cloudinary.js";
+import { sendMail, newsletterEmailTemplate } from "../lib/mailer.js";
+
+// Announcement → newsletter email. Sent in background batches so a slow SMTP
+// round-trip never blocks the HTTP response; failures are logged only.
+const dispatchNewsletter = async (announcement) => {
+    try {
+        // Only registered students get the newsletter, and only those who
+        // haven't opted out via the "Receive OGT Updates" preference.
+        const students = await User.find({
+            email: { $exists: true, $ne: "" },
+            receiveOgtUpdates: { $ne: false },
+        })
+            .select("email")
+            .lean();
+        const recipients = [...new Set(students.map((s) => s.email))];
+        if (recipients.length === 0) return;
+
+        const when = new Intl.DateTimeFormat("en-PH", { dateStyle: "long", timeZone: "Asia/Manila" }).format(announcement.createdAt || new Date());
+        const html = newsletterEmailTemplate({
+            title: announcement.title,
+            body: announcement.body,
+            author: announcement.author || "Counseling Office",
+            when,
+            appUrl: process.env.APP_URL || undefined,
+        });
+
+        // Mailtrap testing plans throttle sends per second; pace the batch
+        // sequentially with a gap so rate-limit (550) rejections don't
+        // silently drop students from the newsletter. A failed send logs a
+        // warning but doesn't abort the rest of the batch.
+        const SEND_GAP_MS = Number(process.env.NEWSLETTER_SEND_GAP_MS) || 1100;
+        for (const email of recipients) {
+            await sendMail({
+                to: email,
+                subject: `[SafeSpace] New announcement: ${announcement.title}`,
+                html,
+            });
+            await new Promise((resolve) => setTimeout(resolve, SEND_GAP_MS));
+        }
+        console.log(`[announcements] newsletter dispatched to ${recipients.length} student email(s)`);
+    } catch (error) {
+        console.error("[announcements] newsletter dispatch failed:", error.message);
+    }
+};
 
 // Socket.io may not be initialized (e.g. server still booting or the socket
 // server failed to attach); emitting must never fail an otherwise-successful
@@ -62,6 +107,8 @@ export const createAnnouncement = async (req, res) => {
     const announcement = new Announcement({ ...rest, images: uploadedImages });
     await announcement.save();
     emitAnnouncementsUpdated();
+    // Newsletter is auxiliary: respond first, send in the background.
+    dispatchNewsletter(announcement);
     res.status(201).json(announcement);
   } catch (error) {
     console.error("Error in createAnnouncement:", error.message);

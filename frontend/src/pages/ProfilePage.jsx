@@ -440,6 +440,11 @@ const PreferencesCard = () => {
   const [showName, setShowName] = useState(!!authUser?.showNameToCounselor);
   const [savingVisibility, setSavingVisibility] = useState(false);
 
+  // OGT Updates newsletter opt-out — server-backed (the mail dispatcher reads
+  // it), unlike the device-local notification toggles below.
+  const [ogtUpdates, setOgtUpdates] = useState(authUser?.receiveOgtUpdates !== false);
+  const [savingOgtUpdates, setSavingOgtUpdates] = useState(false);
+
   // Render-time adjustment (avoids setState-in-effect): resync when the
   // server-reported visibility changes underneath us.
   const [lastSeenShowName, setLastSeenShowName] = useState(!!authUser?.showNameToCounselor);
@@ -460,6 +465,21 @@ const PreferencesCard = () => {
       toast.error('Failed to update visibility.');
     } finally {
       setSavingVisibility(false);
+    }
+  };
+
+  const handleToggleOgtUpdates = async (checked) => {
+    setOgtUpdates(checked);
+    setSavingOgtUpdates(true);
+    try {
+      const res = await axiosInstance.put('/auth/profile-details', { receiveOgtUpdates: checked });
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, receiveOgtUpdates: res.data.receiveOgtUpdates } : s.authUser }));
+      toast.success(checked ? "You'll receive OGT Updates emails." : 'You unsubscribed from OGT Updates emails.');
+    } catch {
+      setOgtUpdates((v) => !v);
+      toast.error('Failed to update OGT Updates preference.');
+    } finally {
+      setSavingOgtUpdates(false);
     }
   };
 
@@ -575,6 +595,20 @@ const PreferencesCard = () => {
               disabled={savingVisibility}
               onChange={(checked) => handleToggleVisibility(checked)}
               ariaLabel="Show my name to counselor"
+            />
+          </div>
+        )}
+        {isStudent && (
+          <div className="flex items-center justify-between gap-4 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Receive OGT Updates</p>
+              <p className="text-xs text-ink-muted mt-0.5">Email me when the Office of Guidance and Testing posts a new announcement.</p>
+            </div>
+            <Toggle
+              checked={ogtUpdates}
+              disabled={savingOgtUpdates}
+              onChange={(checked) => handleToggleOgtUpdates(checked)}
+              ariaLabel="Receive OGT Updates emails"
             />
           </div>
         )}

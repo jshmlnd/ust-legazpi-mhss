@@ -76,6 +76,7 @@ fix:
 
 feat:
 
+- Email notifications via Mailtrap + nodemailer (2026-09-28): forgot-password OTP emailed to students and counselors, "Did you change your password?" alert on every password change (reset + settings), and announcement newsletters bulk-sent to all student emails (with "Receive OGT Updates" opt-out preference). OTP verify-before-reset (new-password form gated behind code verification, 5-attempt guard), resend-code cooldown, live sending from verified domain jshmlnd.space
 - Design overhaul: sidebar integration (2026-09-27)
 - JEV AI integration (chatbot + crisis NLP pipeline, severity-aware UI, message translation before detection)
 - Two-factor auth: Google Authenticator TOTP integration; PIN 2FA with login enforcement + preferences toggle
@@ -92,3 +93,10 @@ feat:
 - Close the session loop: SessionFeedbackModal fires when a session completes — from either direction (counselor ends → both sides see it via socket + local action). "How are you feeling?" 1-tap saves a diary entry (feeds F3's streak). Students get 1-tap "Book a follow-up": same counselor, concern pre-filled, straight to Sessions. "Check in again?" banner on HomePage when the last completed session was 3–7 days ago with no open appointment to that counselor (dismissable 3 days).
 - Daily mood streak HomePage card (students): "How are you today?" → 1-tap mood creates a JournalEntry titled "Daily mood check-in" — no schema change. Streak = consecutive days with entries ending today (or yesterday, so it breaks only after a full skipped day), computed frontend-only. Card shows 🔥 N-day streak; buttons disable once today is logged.
 - Real sessionReminders On login/app-open: the student's next confirmed/active appointment inside 24h fires showNotification() through the service worker; a 5-min re-poll catches sessions crossing the window while open. On notification permission granted, the browser also subscribes to background push.
+
+#### Upcoming
+
+- Point System: adds a feature where Counselor can evaluate how much point a student gains per session from `1-10`.
+- Points Shop: adds a feature where Students can buy University Merchandise using their accumulated points. (e.g., ID Lace = 100/200 Points, 100 Pesos Coupon = 100 Points)
+
+[The reason for these point system is to gain recurring users, and increase Office of Guidance and Testing engagement.]

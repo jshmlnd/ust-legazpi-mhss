@@ -1,5 +1,6 @@
 # Logs
 .freebuff
+.freebuff/project-id
 logs
 *.log
 npm-debug.log*

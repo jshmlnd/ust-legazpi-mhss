@@ -259,6 +259,12 @@ select optgroup {
   box-shadow: 0 4px 12px -2px rgb(10 18 15 / 0.2);
 }
 .leaflet-popup-tip { background-color: rgb(var(--c-surface)); }
+.dark .leaflet-popup-content-wrapper {
+  background-color: rgb(var(--c-raised)) !important;
+  color: rgb(var(--c-ink-soft)) !important;
+}
+.dark .leaflet-popup-tip { background-color: rgb(var(--c-raised)) !important; }
+.dark .leaflet-popup-close-button { color: rgb(var(--c-ink-muted)) !important; }
 .leaflet-bar a {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink-soft));

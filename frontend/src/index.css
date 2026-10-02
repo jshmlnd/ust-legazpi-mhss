@@ -11,7 +11,7 @@
 
 :root {
   /* surfaces */
-  --c-canvas: 246 247 246;        /* page background */
+  --c-canvas: 242 247 244;        /* page background */
   --c-surface: 255 255 255;       /* cards, sidebar, inputs */
   --c-raised: 255 255 255;        /* popovers, dropdowns, modals */
 
@@ -21,8 +21,8 @@
   --c-ink-muted: 119 130 125;     /* meta, captions */
 
   /* borders */
-  --c-line: 227 232 230;
-  --c-line-strong: 198 207 203;
+  --c-line: 220 229 224;
+  --c-line-strong: 190 204 197;
 
   /* brand — Evergreen (emerald ramp) */
   --c-brand-50: 236 253 245;
@@ -54,7 +54,7 @@
   --c-info-ink: 7 89 133;
 
   /* sidebar (inverted panel) — hover/active/line are static in tailwind.config */
-  --c-side: 15 23 20;
+  --c-side: 11 31 24;
   --c-side-ink: 237 242 240;
   --c-side-ink-soft: 168 180 175;
   --c-side-ink-muted: 122 134 129;
@@ -129,6 +129,7 @@ html.dark {
 }
 
 body {
+  min-height: 100vh;
   background-color: rgb(var(--c-canvas));
   color: rgb(var(--c-ink-soft));
   -webkit-font-smoothing: antialiased;
@@ -140,6 +141,21 @@ body {
 .dark body {
   background-color: rgb(var(--c-canvas));
   color: rgb(var(--c-ink-soft));
+}
+
+/* Shared atmospheric backdrop: depth without adding decorative markup to every page. */
+.app-backdrop {
+  background:
+    radial-gradient(circle at 8% 2%, rgb(var(--c-brand-200) / 0.32), transparent 28rem),
+    radial-gradient(circle at 96% 18%, rgb(var(--c-warning-soft) / 0.48), transparent 24rem),
+    rgb(var(--c-canvas));
+}
+
+.dark .app-backdrop {
+  background:
+    radial-gradient(circle at 8% 2%, rgb(var(--c-brand-800) / 0.22), transparent 28rem),
+    radial-gradient(circle at 96% 18%, rgb(var(--c-warning-soft) / 0.18), transparent 24rem),
+    rgb(var(--c-canvas));
 }
 
 /* Brand selection + scrollbars */

@@ -26,11 +26,16 @@ const formatLongDate = (dateStr) => {
   });
 };
 
+const timeSortValue = (time) => {
+  const value = Date.parse(`1970-01-01 ${time}`);
+  return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
+};
+
 const groupSlotsByDate = (slots) => {
   const byDate = {};
   slots
     .slice()
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .sort((a, b) => a.date.localeCompare(b.date) || timeSortValue(a.time) - timeSortValue(b.time))
     .forEach((slot) => {
       if (!byDate[slot.date]) byDate[slot.date] = {};
       const key = String(slot.counselorId);
@@ -645,35 +650,38 @@ const SessionsPage = () => {
             ) : (
               <div className="space-y-3">
                 {visibleGroupedSlots.map(({ date, counselors }) => {
-                  const totalTimes = counselors.reduce((n, c) => n + c.times.length, 0);
-                  return (
-                    <div key={date} className="bg-surface border border-line rounded-lg overflow-hidden">
-                      <div className="px-4 py-2.5 border-b border-line flex items-center gap-2">
-                        <CalendarDays size={13} className="text-ink-muted shrink-0" />
-                        <span className="text-xs font-medium text-ink">{formatLongDate(date)}</span>
-                        <span className="text-xs text-ink-muted ml-auto">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="divide-y divide-line">
-                        {counselors.map((c) => (
-                          <div key={c.counselorId} className="px-4 py-3">
-                            <p className="text-xs font-medium text-ink-soft mb-2">{c.fullName || `Counselor #${c.counselorId}`}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {c.times.map(({ time, slot }) => (
-                                <button
-                                  key={slot._id}
-                                  onClick={() => handleBook(slot)}
-                                  className="px-3 py-1.5 text-xs rounded-lg border border-line text-ink-soft hover:border-brand-600 hover:bg-brand-600 hover:text-brand-fg transition-colors"
-                                >
-                                  {time}
-                                </button>
-                              ))}
+                    const totalTimes = counselors.reduce((n, c) => n + c.times.length, 0);
+                    return (
+                      <div
+                        key={date}
+                        className="overflow-hidden rounded-lg border border-line bg-surface"
+                      >
+                        <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
+                          <CalendarDays size={13} className="shrink-0 text-ink-muted" />
+                          <span className="text-xs font-medium text-ink">{formatLongDate(date)}</span>
+                          <span className="ml-auto text-xs text-ink-muted">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="divide-y divide-line">
+                          {counselors.map((c) => (
+                            <div key={c.counselorId} className="px-4 py-3">
+                              <p className="mb-2 text-xs font-medium text-ink-soft">{c.fullName || `Counselor #${c.counselorId}`}</p>
+                              <div className="flex flex-wrap gap-2">
+                                {c.times.map(({ time, slot }) => (
+                                  <button
+                                    key={slot._id}
+                                    onClick={() => handleBook(slot)}
+                                    className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-brand-600 hover:bg-brand-600 hover:text-brand-fg"
+                                  >
+                                    {time}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
             <Pagination page={safeSlotsPage} totalPages={slotsTotalPages} onChange={setSlotsPage} />

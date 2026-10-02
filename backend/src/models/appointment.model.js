@@ -13,6 +13,7 @@ const appointmentSchema = new mongoose.Schema({
   time: { type: String, required: true },
   duration: { type: String, default: '45 min' },
   concern: { type: String, default: '' },
+  concernRisk: { type: String, enum: ['Minimal', 'Low', 'High', 'Urgent'], default: 'Minimal' },
   notes: { type: String, default: '' },
   startedAt: { type: Date },
   endedAt: { type: Date },

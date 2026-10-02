@@ -6,8 +6,37 @@ import CallLog from "../models/callLog.model.js";
 import AvailabilitySlot from "../models/availabilitySlot.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
+import { analyzeCrisisAI } from "../lib/jevCrisis.js";
+import { mapConcernRisk, overlapsAppointment } from "../lib/appointmentTriage.js";
+import { busyRiskAlertEmailTemplate, sendMail } from "../lib/mailer.js";
 
 const FREED_STATUSES = ['declined', 'cancelled', 'archived'];
+const BUSY_F2F_STATUSES = ['confirmed', 'active', 'on-going', 'paused'];
+const GUIDANCE_EMAIL = 'joshuaklein.malonda@gmail.com';
+
+const findOverlappingF2F = async (counselorId, date, time) => {
+  const sessions = await Appointment.find({
+    counselorId,
+    type: 'Face-To-Face',
+    date,
+    status: { $in: BUSY_F2F_STATUSES },
+  }).select('date time duration');
+  return sessions.find((session) => overlapsAppointment(session, date, time));
+};
+
+const sendBusyRiskAlert = async ({ counselorId, concernRisk, date, time }) => {
+  if (!['High', 'Urgent'].includes(concernRisk)) return;
+  const counselor = await Counselor.findById(counselorId).select('email fullName').lean();
+  const counselorName = counselor?.fullName || 'the assigned counselor';
+  const subject = `${concernRisk} risk online session request for ${counselorName}`;
+  const reviewUrl = `${(process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '')}/manage/session-requests`;
+  const text = `A ${concernRisk.toLowerCase()} risk online session was requested for ${date} at ${time} while ${counselorName} has a face-to-face session. Review it at ${reviewUrl}`;
+  const html = busyRiskAlertEmailTemplate({ concernRisk, counselorName, date, time, reviewUrl });
+  void Promise.all([
+    sendMail({ to: counselor?.email, subject, text, html }),
+    sendMail({ to: GUIDANCE_EMAIL, subject, text, html }),
+  ]);
+};
 
 const takeSlot = async (counselorId, date, time) => {
   const slot = await AvailabilitySlot.findOne({ counselorId, date, time });
@@ -64,7 +93,21 @@ export const getAppointments = async (req, res) => {
 
 export const createAppointment = async (req, res) => {
   try {
-    const { counselorId, type, date, time, concern } = req.body;
+    const { counselorId, type, date, time, concern, waitIfBusy = false } = req.body;
+    if (typeof concern !== 'string' || concern.length > 4000) {
+      return res.status(400).json({ error: "Concern must be text up to 4000 characters" });
+    }
+    const normalizedConcern = concern.trim();
+
+    const busySession = type === 'Chat'
+      ? await findOverlappingF2F(counselorId, date, time)
+      : null;
+    if (busySession && !waitIfBusy) {
+      return res.status(409).json({
+        code: 'COUNSELOR_BUSY',
+        error: 'Counselor is busy with a face-to-face session at this time',
+      });
+    }
 
     if (type === 'Face-To-Face') {
       const existingF2F = await Appointment.findOne({
@@ -82,18 +125,23 @@ export const createAppointment = async (req, res) => {
       }
     }
 
+    const analysis = await analyzeCrisisAI(normalizedConcern);
+    const concernRisk = mapConcernRisk(analysis.severity?.level);
     const appointment = new Appointment({
       studentId: req.user._id,
       counselorId,
       type,
       date,
       time,
-      concern,
+      concern: normalizedConcern,
+      concernRisk,
     });
     await appointment.save();
 
     if (type === 'Face-To-Face') {
       await takeSlot(counselorId, date, time);
+    } else if (busySession) {
+      await sendBusyRiskAlert({ counselorId, concernRisk, date, time });
     }
 
     const io = getIO();
@@ -132,7 +180,10 @@ export const updateAppointment = async (req, res) => {
       appointment.endedAt = new Date();
     }
 
-    Object.assign(appointment, req.body);
+    const updates = { ...req.body };
+    delete updates.concernRisk;
+    delete updates.waitIfBusy;
+    Object.assign(appointment, updates);
     await appointment.save();
 
     if (req.body.status && FREED_STATUSES.includes(req.body.status) && appointment.type === 'Face-To-Face') {

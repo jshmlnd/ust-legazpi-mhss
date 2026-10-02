@@ -50,6 +50,10 @@ const TypeBadge = ({ type }) => (
   <StatusBadge tone={type === 'Chat' ? 'brand' : 'warning'}>{type === 'Chat' ? 'Chat' : 'Face-to-Face'}</StatusBadge>
 );
 
+const RiskBadge = ({ risk = 'Minimal' }) => (
+  <StatusBadge tone={risk === 'Urgent' ? 'danger' : risk === 'High' ? 'warning' : 'neutral'}>{risk}</StatusBadge>
+);
+
 const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, onClearAll, clearingAll }) => {
   const navigate = useNavigate();
   const pendingCount = sessions.filter((s) => s.status === 'pending').length;
@@ -114,6 +118,8 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
                 <tr className="border-b border-line">
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Student</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Type</th>
+                  <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Concern</th>
+                  <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Risk</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Time</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Status</th>
                   <th scope="col" className="px-5 py-3" />
@@ -127,6 +133,8 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
                       {session.studentName && <p className="text-xs text-ink-muted">{session.id}</p>}
                     </td>
                     <td className="px-5 py-3.5"><TypeBadge type={session.type} /></td>
+                    <td className="px-5 py-3.5 max-w-56 text-sm text-ink-soft truncate" title={session.concern}>{session.concern || '—'}</td>
+                    <td className="px-5 py-3.5"><RiskBadge risk={session.concernRisk} /></td>
                     <td className="px-5 py-3.5 text-sm text-ink-soft whitespace-nowrap">{session.date} {session.time}</td>
                     <td className="px-5 py-3.5">
                       <StatusBadge status={session.status}>{STATUS_LABELS[session.status] ?? session.status}</StatusBadge>
@@ -152,8 +160,12 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
                   </div>
                   <TypeBadge type={session.type} />
                 </div>
+                {session.concern && <p className="text-xs text-ink-soft line-clamp-2">{session.concern}</p>}
                 <div className="flex items-center justify-between gap-3">
-                  <StatusBadge status={session.status}>{STATUS_LABELS[session.status] ?? session.status}</StatusBadge>
+                  <div className="flex items-center gap-2">
+                    <RiskBadge risk={session.concernRisk} />
+                    <StatusBadge status={session.status}>{STATUS_LABELS[session.status] ?? session.status}</StatusBadge>
+                  </div>
                   {renderActions(session)}
                 </div>
               </div>
@@ -168,8 +180,12 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
 /* ──────────────────────────────── page ──────────────────────────────── */
 
 const STATUS_ORDER = { pending: 0, active: 1, 'on-going': 1, confirmed: 1, paused: 2, declined: 3, ended: 4, completed: 4, cancelled: 5 };
+const RISK_ORDER = { Urgent: 0, High: 1, Low: 2, Minimal: 3 };
 
-const sortSessions = (list) => [...list].sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
+const sortSessions = (list) => [...list].sort((a, b) =>
+  (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
+  || (RISK_ORDER[a.concernRisk] ?? 3) - (RISK_ORDER[b.concernRisk] ?? 3)
+);
 
 const SessionRequestsPage = () => {
   const [sessions, setSessions] = useState([]);
@@ -229,8 +245,8 @@ const SessionRequestsPage = () => {
       await axiosInstance.patch(`/appointments/${session._id}`, { status: 'active' });
       setSessions((prev) => prev.map((s) => (s._id === session._id ? { ...s, status: 'active' } : s)));
       toast.success(`Accepted request from ${session.studentName || session.id}`);
-    } catch {
-      toast.error('Failed to accept request.');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to accept request.');
     } finally {
       setBusy(null);
     }

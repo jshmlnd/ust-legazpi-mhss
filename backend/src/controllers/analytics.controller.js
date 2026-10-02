@@ -164,6 +164,8 @@ export const getUpcomingSessions = async (req, res) => {
       type: s.type,
       time: s.time,
       date: s.date,
+      concern: s.concern,
+      concernRisk: s.concernRisk,
       status: s.status,
     }));
     res.json(result);

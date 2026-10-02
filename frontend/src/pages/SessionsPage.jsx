@@ -17,6 +17,8 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDay = (year, month) => new Date(year, month, 1).getDay();
+const formatLocalDate = (date = new Date()) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const formatLongDate = (dateStr) => {
   if (!dateStr) return '';
@@ -197,6 +199,7 @@ const SessionsPage = () => {
   const [chatSubmitting, setChatSubmitting] = useState(false);
   const [chatLoadingCounselors, setChatLoadingCounselors] = useState(false);
   const [pendingChatRequest, setPendingChatRequest] = useState(null);
+  const [busyChatRequest, setBusyChatRequest] = useState(null);
 
   // ─── Book Face-To-Face state ───
   const [f2fOpen, setF2fOpen] = useState(false);
@@ -355,6 +358,14 @@ const SessionsPage = () => {
     setChatCounselorId('');
   };
 
+  const finishChatRequest = (appointment) => {
+    toast.success('Chat session requested! \n Waiting for counselor to accept...');
+    handleCloseChatRequest();
+    setBusyChatRequest(null);
+    setPendingChatRequest(appointment);
+    refreshAppointments();
+  };
+
   const handleRequestChat = async () => {
     if (!chatConcern.trim()) {
       toast.error('Please describe your concern briefly.');
@@ -364,24 +375,46 @@ const SessionsPage = () => {
       toast.error('Please select a counselor.');
       return;
     }
+    const request = {
+      counselorId: Number(chatCounselorId),
+      type: 'Chat',
+      date: formatLocalDate(),
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      concern: chatConcern.trim(),
+    };
     setChatSubmitting(true);
     try {
-      const res = await axiosInstance.post('/appointments', {
-        counselorId: Number(chatCounselorId),
-        type: 'Chat',
-        date: new Date().toISOString().slice(0, 10),
-        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
-        concern: chatConcern.trim(),
-      });
-      toast.success('Chat session requested! \n Waiting for counselor to accept...');
-      handleCloseChatRequest();
-      setPendingChatRequest(res.data);
-      refreshAppointments();
-    } catch {
-      toast.error('Failed to request Chat session.');
+      const res = await axiosInstance.post('/appointments', request);
+      finishChatRequest(res.data);
+    } catch (err) {
+      if (err.response?.data?.code === 'COUNSELOR_BUSY') {
+        setChatRequestOpen(false);
+        setBusyChatRequest(request);
+      } else {
+        toast.error(err.response?.data?.error || 'Failed to request Chat session.');
+      }
     } finally {
       setChatSubmitting(false);
     }
+  };
+
+  const handleWaitForCounselor = async () => {
+    setChatSubmitting(true);
+    try {
+      const res = await axiosInstance.post('/appointments', { ...busyChatRequest, waitIfBusy: true });
+      finishChatRequest(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to request Chat session.');
+    } finally {
+      setChatSubmitting(false);
+    }
+  };
+
+  const handleBookAnotherCounselor = () => {
+    setChatConcern(busyChatRequest.concern);
+    setChatCounselorId('');
+    setBusyChatRequest(null);
+    setChatRequestOpen(true);
   };
 
   const handleCancelChatRequest = async () => {
@@ -681,7 +714,7 @@ const SessionsPage = () => {
               >
                 <option value="">Select a counselor</option>
                 {chatCounselors.map((c) => (
-                  <option key={c._id} value={c._id}>{c.fullName}</option>
+                  <option key={c._id} value={c._id}>{c.fullName} · {c.status || 'Available'}</option>
                 ))}
               </select>
             )}
@@ -715,6 +748,33 @@ const SessionsPage = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(busyChatRequest)}
+        onClose={() => setBusyChatRequest(null)}
+        title="Counselor is Busy"
+        description="This counselor is currently in a face-to-face session."
+      >
+        <p className="text-sm text-ink mb-5">Wait for counselor or book another counselor?</p>
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            onClick={handleBookAnotherCounselor}
+            disabled={chatSubmitting}
+            className="px-4 py-2 text-xs font-semibold text-ink border border-line rounded-lg hover:border-line-strong disabled:opacity-50"
+          >
+            Book Another Counselor
+          </button>
+          <button
+            type="button"
+            onClick={handleWaitForCounselor}
+            disabled={chatSubmitting}
+            className="px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 rounded-lg hover:bg-brand-700 disabled:opacity-50"
+          >
+            {chatSubmitting ? 'Requesting...' : 'Wait for Counselor'}
+          </button>
+        </div>
       </Modal>
 
       <Modal isOpen={f2fOpen} onClose={handleCloseF2f} title="Book Face-to-Face Session">

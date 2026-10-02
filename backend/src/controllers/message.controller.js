@@ -5,6 +5,7 @@ import Message from "../models/message.model.js";
 import cloudinary from "../lib/cloudinary.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 import { generateUniqueDynamicId, getDailyDynamicId } from "../lib/generateId.js";
+import { overlapsAppointment } from "../lib/appointmentTriage.js";
 
 const MALWARE_EXTENSIONS = ['.exe', '.bat', '.cmd', '.com', '.msi', '.scr', '.pif', '.vbs', '.js', '.ws', '.wsh'];
 const DLP_PATTERNS = [
@@ -30,8 +31,21 @@ export const getUsersForSidebar = async (req, res) => {
         const isStudent = req.user.constructor.modelName === "User";
 
         let filteredUsers;
+        let busyCounselorIds = new Set();
         if (isStudent) {
             filteredUsers = await Counselor.find({ _id: { $ne: loggedInUserId } }).select("-password");
+            const now = new Date();
+            const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            const faceToFaceSessions = await Appointment.find({
+                counselorId: { $in: filteredUsers.map((user) => user._id) },
+                type: 'Face-To-Face',
+                date,
+                status: { $in: ['confirmed', 'active', 'on-going', 'paused'] },
+            }).select('counselorId date time duration');
+            busyCounselorIds = new Set(faceToFaceSessions
+                .filter((session) => overlapsAppointment(session, date, time))
+                .map((session) => String(session.counselorId)));
         } else {
             const appointments = await Appointment.find({
                 counselorId: loggedInUserId,
@@ -52,6 +66,7 @@ export const getUsersForSidebar = async (req, res) => {
         res.status(200).json(filteredUsers.map((u) => ({
             ...u.toObject(),
             dynamicId: getDailyDynamicId(u.dynamicId),
+            ...(isStudent ? { status: busyCounselorIds.has(String(u._id)) ? 'Busy' : 'Available' } : {}),
         })));
     } catch (error) {
         console.error("Error in getUsersForSidebar:", error);

@@ -212,7 +212,43 @@ export const passwordChangedEmailTemplate = ({ fullName, when }) => {
   });
 };
 
-/* ── 3. Announcement newsletter (bulk) ── */
+/* ── 3. Busy counselor high-risk alert ── */
+
+export const busyRiskAlertEmailTemplate = ({ concernRisk, counselorName, date, time, reviewUrl }) => {
+  const safe = (value) => String(value || '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+  const risk = safe(concernRisk);
+  const counselor = safe(counselorName || 'Counselor unavailable');
+
+  return layout({
+  heading: `${risk} risk session request`,
+  bodyHtml: `
+    ${paragraph(`A student requested an online session while the assigned counselor is in a face-to-face session.`)}
+    <div style="margin:18px 0;padding:18px;border:1px solid #e5e7eb;border-left:4px solid ${concernRisk === 'Urgent' ? '#dc2626' : '#d97706'};border-radius:8px;background-color:#f9fafb;">
+      <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">Assigned counselor</p>
+      <p style="margin:0 0 16px;font-size:16px;font-weight:700;color:#111827;">${counselor}</p>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="font-size:13px;color:#6b7280;">Risk level</td>
+          <td style="font-size:13px;font-weight:700;color:#111827;text-align:right;">${risk}</td>
+        </tr>
+        <tr>
+          <td style="padding-top:8px;font-size:13px;color:#6b7280;">Requested schedule</td>
+          <td style="padding-top:8px;font-size:13px;font-weight:700;color:#111827;text-align:right;">${safe(date)} at ${safe(time)}</td>
+        </tr>
+      </table>
+    </div>
+    <div style="margin:22px 0 8px;text-align:center;">
+      <a href="${safe(reviewUrl)}" style="display:inline-block;padding:12px 20px;border-radius:8px;background-color:#0f766e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Review Session Request</a>
+    </div>
+    ${paragraph(`Please review and coordinate the appropriate response as soon as possible.`)}
+  `,
+  footerNote: "This alert contains no student identity or concern details. Sign in to SafeSpace to review the request securely.",
+  });
+};
+
+/* ── 4. Announcement newsletter (bulk) ── */
 
 export const newsletterEmailTemplate = ({ title, body, author, when, appUrl }) => {
   const cta = appUrl

@@ -248,6 +248,7 @@ const ModuleFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
     const filtered = activities.filter((a) => a.label.trim());
     if (!title.trim() || filtered.length === 0) return;
     onSubmit({
+      _id: initial?._id,
       title: title.trim(),
       icon,
       activities: filtered.map((a) => ({ label: a.label.trim(), link: a.link.trim() })),

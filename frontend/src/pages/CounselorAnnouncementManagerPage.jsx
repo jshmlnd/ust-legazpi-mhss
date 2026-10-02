@@ -292,7 +292,9 @@ const CounselorAnnouncementManagerPage = () => {
     : '0.0';
   const totalReactions = announcements.reduce((sum, a) => sum + getTotalReactions(a.reactions), 0);
   const mostReacted = announcements.length > 0
-    ? announcements.sort((a, b) => getTotalReactions(b.reactions) - getTotalReactions(a.reactions))[0].title
+    ? announcements.reduce((most, announcement) => (
+      getTotalReactions(announcement.reactions) > getTotalReactions(most.reactions) ? announcement : most
+    ), announcements[0]).title
     : '—';
 
   const metrics = [

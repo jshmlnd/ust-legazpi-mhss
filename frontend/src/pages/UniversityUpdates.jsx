@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Megaphone, Send, Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Megaphone, Send, Clock, X, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
@@ -216,7 +217,7 @@ const AnnouncementComposer = ({ onPost }) => {
   );
 };
 
-const UniversityUpdates = () => {
+const UniversityUpdates = ({ embedded = false, limit = 3, notice = null }) => {
   const { authUser } = useAuthStore();
   const currentUserId = authUser?._id;
   const role = authUser?.userType?.toLowerCase() ?? null;
@@ -269,7 +270,58 @@ const UniversityUpdates = () => {
     }
   };
 
-  if (loading) return <PageShell title="Office of Guidance & Testing Updates" description="Campus announcements, wellness alerts & seminar listings"><PageShellSkeleton count={4} /></PageShell>;
+  if (loading) {
+    if (embedded) {
+      return (
+        <section aria-label="Loading OGT updates" className="space-y-3">
+          {Array.from({ length: limit }).map((_, i) => <div key={i} className="skeleton h-36 rounded-xl" />)}
+        </section>
+      );
+    }
+    return <PageShell title="Office of Guidance & Testing Updates" description="Campus announcements, wellness alerts & seminar listings"><PageShellSkeleton count={4} /></PageShell>;
+  }
+
+  if (embedded) {
+    const visibleUpdates = updates.slice(0, limit);
+    return (
+      <section aria-labelledby="ogt-updates-heading" className="mt-10 sm:mt-12">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 dark:text-brand-300">Stay informed</span>
+            <h2 id="ogt-updates-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink">OGT Updates</h2>
+            <p className="mt-1 text-sm text-ink-muted">Announcements and wellness updates from the Office of Guidance & Testing.</p>
+            {notice && (
+              <div className="mt-4 flex max-w-3xl items-start gap-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3">
+                <span className="mt-0.5 shrink-0 rounded-md bg-warning px-2 py-0.5 text-[9px] font-bold tracking-wider text-white">{notice.tag}</span>
+                <p className="text-xs leading-5 text-warning-ink">{notice.text}</p>
+              </div>
+            )}
+          </div>
+          {updates.length > limit && (
+            <Link to="/university-updates" className="hidden sm:inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300">
+              View all <ArrowRight size={14} />
+            </Link>
+          )}
+        </div>
+
+        {visibleUpdates.length === 0 ? (
+          <EmptyState icon={Megaphone} title="No announcements yet" description="Check back for new updates." />
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {visibleUpdates.map((update) => (
+              <UpdateCard key={update._id} update={update} currentUserId={currentUserId} onReact={handleReact} />
+            ))}
+          </div>
+        )}
+
+        {updates.length > limit && (
+          <Link to="/university-updates" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300 sm:hidden">
+            View all updates <ArrowRight size={14} />
+          </Link>
+        )}
+      </section>
+    );
+  }
 
   return (
     <PageShell title="Office of Guidance & Testing Updates" description="Campus announcements, wellness alerts & seminar listings">

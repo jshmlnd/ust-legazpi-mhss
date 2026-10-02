@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { Moon, Sun, Menu as MenuIcon } from 'lucide-react';
 import { usePrefs } from '../../lib/prefs';
-import { NAV_SECTIONS } from '../../lib/routes';
+import { NAV_SECTIONS, ACCOUNT_ITEM } from '../../lib/routes';
 
 const usePageTitle = () => {
   const { pathname } = useLocation();
@@ -11,6 +11,9 @@ const usePageTitle = () => {
         return item.label;
       }
     }
+  }
+  if (pathname === ACCOUNT_ITEM.path || pathname.startsWith(`${ACCOUNT_ITEM.path}/`)) {
+    return ACCOUNT_ITEM.label;
   }
   return '';
 };

@@ -74,7 +74,7 @@ const AppLayout = () => {
   }, [authUser]);
 
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="app-backdrop min-h-screen">
       <DesktopSidebar collapsed={collapsed} />
       <MobileSidebar open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
@@ -85,7 +85,7 @@ const AppLayout = () => {
           collapsed={collapsed}
           onToggleCollapse={() => togglePref('sidebarCollapsed')}
         />
-        <div className="flex-1">
+        <div className="relative flex-1">
           <Outlet />
         </div>
       </div>

@@ -91,9 +91,9 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
   })).filter((s) => s.items.length > 0);
 
   return (
-    <div className="flex h-full flex-col bg-side">
+    <div className="relative flex h-full flex-col overflow-hidden bg-side before:pointer-events-none before:absolute before:-right-20 before:-top-20 before:size-56 before:rounded-full before:bg-brand-500/10 before:blur-3xl">
       {/* brand */}
-      <div className={`flex items-center gap-3 h-16 shrink-0 ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
+      <div className={`relative flex items-center gap-3 h-16 shrink-0 border-b border-side-line ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
         <Link
           to={homePath}
           onClick={onNavigate}
@@ -111,7 +111,7 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
       </div>
 
       {/* nav sections */}
-      <nav aria-label="Primary" className="flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
+      <nav aria-label="Primary" className="relative flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4">
         <ul className="space-y-0.5">
           {sections.map((section) => (
             <div key={section.id} className="contents">

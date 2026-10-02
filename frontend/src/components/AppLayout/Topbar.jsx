@@ -37,7 +37,7 @@ const Topbar = ({ authUser, onOpenSidebar, collapsed, onToggleCollapse }) => {
   const userId = authUser?._id;
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-canvas/85 backdrop-blur px-3 sm:px-5">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-line bg-surface/80 shadow-e1 backdrop-blur-xl px-3 sm:px-5">
       {/* mobile: open drawer */}
       <button
         type="button"
@@ -62,7 +62,10 @@ const Topbar = ({ authUser, onOpenSidebar, collapsed, onToggleCollapse }) => {
       </button>
 
       {/* current section label */}
-      <span className="truncate text-sm font-medium text-ink hidden sm:block">{title}</span>
+      <span className="hidden sm:flex items-center gap-2 truncate text-sm font-semibold text-ink">
+        <span className="h-4 w-1 rounded-full bg-brand-500" aria-hidden="true" />
+        {title}
+      </span>
 
       <div className="ml-auto flex items-center gap-1">
         <ThemeToggle authUserId={userId} />

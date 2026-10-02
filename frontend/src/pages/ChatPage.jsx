@@ -403,7 +403,7 @@ const StudentChatView = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-ink">
-                {counselor ? counselor.fullName : 'Your Counselor'}
+                {noActiveSession ? 'No conversation' : counselor ? counselor.fullName : 'No conversation'}
               </p>
             {sessionEnded ? (
               <p className="text-xs text-danger font-medium">Session has ended</p>

@@ -71,7 +71,6 @@ export const NAV_SECTIONS = [
     label: 'Explore',
     items: [
       { label: 'Resources', path: PATHS.RESOURCES, icon: MapPinned, roles: ['student'] },
-      { label: 'OGT Updates', path: PATHS.UNIVERSITY_UPDATES, icon: Megaphone, roles: ['student'] },
     ],
   },
   {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
@@ -775,7 +776,10 @@ const ProfilePage = () => {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const activeTab = ['profile', 'security', 'preferences'].includes(requestedTab) ? requestedTab : 'profile';
+  const setActiveTab = (tab) => setSearchParams(tab === 'profile' ? {} : { tab }, { replace: true });
 
   const TABS = [
     { key: 'profile', label: 'Profile' },

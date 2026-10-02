@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
@@ -11,7 +11,6 @@ import StatusBadge from '../ui/StatusBadge';
 import { toast } from 'react-toastify';
 import { confirmAction } from '../lib/confirm';
 import { PATHS } from '../lib/routes';
-import { useNavigate } from 'react-router-dom';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -175,6 +174,8 @@ const SessionCard = ({ session, type }) => {
 
 const SessionsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedSessionModal = location.state?.openSessionModal;
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -192,17 +193,17 @@ const SessionsPage = () => {
   const chatPollRef = useRef(null);
 
   // ─── Request Chat Session state ───
-  const [chatRequestOpen, setChatRequestOpen] = useState(false);
+  const [chatRequestOpen, setChatRequestOpen] = useState(requestedSessionModal === 'chat');
   const [chatConcern, setChatConcern] = useState('');
   const [chatCounselors, setChatCounselors] = useState([]);
   const [chatCounselorId, setChatCounselorId] = useState('');
   const [chatSubmitting, setChatSubmitting] = useState(false);
-  const [chatLoadingCounselors, setChatLoadingCounselors] = useState(false);
+  const [chatLoadingCounselors, setChatLoadingCounselors] = useState(Boolean(requestedSessionModal));
   const [pendingChatRequest, setPendingChatRequest] = useState(null);
   const [busyChatRequest, setBusyChatRequest] = useState(null);
 
   // ─── Book Face-To-Face state ───
-  const [f2fOpen, setF2fOpen] = useState(false);
+  const [f2fOpen, setF2fOpen] = useState(requestedSessionModal === 'face-to-face');
   const [f2fCounselorId, setF2fCounselorId] = useState('');
   const [f2fAllSlots, setF2fAllSlots] = useState([]);
   const [f2fDate, setF2fDate] = useState('');
@@ -210,6 +211,17 @@ const SessionsPage = () => {
   const [f2fConcern, setF2fConcern] = useState('');
   const [f2fSubmitting, setF2fSubmitting] = useState(false);
   const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
+
+  useEffect(() => {
+    if (!requestedSessionModal) return;
+
+    axiosInstance.get('/message/users')
+      .then((res) => setChatCounselors(res.data.filter((user) => user.userType?.toLowerCase() !== 'administrator')))
+      .catch(() => toast.error('Failed to load counselors.'))
+      .finally(() => setChatLoadingCounselors(false));
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, navigate, requestedSessionModal]);
 
   useEffect(() => {
     const fetchData = async () => {

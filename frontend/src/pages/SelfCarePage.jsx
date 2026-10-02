@@ -93,20 +93,20 @@ const ICON_MAP = {
 
 const ICON_BG_COLORS = [
   'bg-line',
-  'bg-rose-50',
+  'bg-rose-50 dark:bg-rose-950',
   'bg-warning-soft',
   'bg-brand-soft',
   'bg-info-soft',
-  'bg-violet-50',
+  'bg-violet-50 dark:bg-violet-950',
 ];
 
 const ICON_FG_COLORS = [
   'text-ink-muted',
-  'text-rose-500',
+  'text-rose-500 dark:text-rose-300',
   'text-warning',
   'text-brand-500',
   'text-info',
-  'text-violet-500',
+  'text-violet-500 dark:text-violet-300',
 ];
 
 const getIconColors = (name) => {
@@ -119,7 +119,7 @@ const ModuleIcon = ({ name, size = 14 }) => {
   const Icon = ICON_MAP[name] || Sparkles;
   const { bg, fg } = getIconColors(name);
   return (
-    <div className={`size-8 rounded-lg ${bg} flex items-center justify-center`}>
+    <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${bg}`}>
       <Icon size={size} className={fg} />
     </div>
   );
@@ -170,18 +170,19 @@ const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
 
   return (
     <div className="bg-surface border border-line rounded-lg hover:border-line-strong transition-colors">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full p-5 text-left flex items-start justify-between gap-3"
-      >
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-3 p-5">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
+        >
           <ModuleIcon name={module.icon} />
           <div className="min-w-0">
-            <h3 className="text-sm font-medium text-ink truncate">{module.title}</h3>
-            <p className="text-xs text-ink-muted mt-0.5">{total} {total === 1 ? 'activity' : 'activities'}</p>
+            <h3 className="truncate text-sm font-medium text-ink">{module.title}</h3>
+            <p className="mt-0.5 text-xs text-ink-muted">{total} {total === 1 ? 'activity' : 'activities'}</p>
           </div>
-        </div>
+          <ChevronDown size={15} className={`ml-auto shrink-0 text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        </button>
         <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
           {isCounselor && (
             <>
@@ -205,9 +206,8 @@ const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
               </button>
             </>
           )}
-          <ChevronDown size={15} className={`text-ink-muted transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         </div>
-      </button>
+      </div>
 
       {total > 0 && open && (
         <div className="border-t border-line px-5 py-3 bg-canvas/60">

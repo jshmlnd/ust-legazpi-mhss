@@ -26,6 +26,12 @@ const RESOURCE_TYPES = [
 
 const TYPE_ICONS = { hotline: Phone, location: MapPin, psychologist: Brain, psychiatrist: Stethoscope };
 const TYPE_LABELS = { hotline: 'Hotline', location: 'Center', psychologist: 'Psychologist', psychiatrist: 'Psychiatrist' };
+const TYPE_ICON_COLORS = {
+  hotline: 'bg-danger-soft text-danger-ink',
+  location: 'bg-brand-soft text-brand-soft-ink',
+  psychologist: 'bg-info-soft text-info-ink',
+  psychiatrist: 'bg-warning-soft text-warning-ink',
+};
 
 const formatDate = (value) => {
   if (!value) return null;
@@ -196,9 +202,7 @@ const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCoun
 
       <div className="flex items-center gap-2.5 mb-3">
         <div
-          className={`size-8 rounded-lg flex items-center justify-center transition-colors ${
-            isSelected ? 'bg-brand-600 text-brand-fg' : 'bg-line text-ink-muted'
-          }`}
+          className={`size-8 rounded-lg flex items-center justify-center transition-colors ${TYPE_ICON_COLORS[resource.type] || 'bg-line text-ink-muted'}`}
         >
           <Icon size={15} />
         </div>
@@ -751,17 +755,6 @@ const ResourcePage = () => {
             <div className="flex-1 min-h-0">
               <ResourceMap resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
             </div>
-            {selectedResource && (
-              <div className="shrink-0 h-[220px]">
-                <DetailPanel
-                  resource={selectedResource}
-                  onEdit={openEdit}
-                  onDelete={handleDelete}
-                  isCounselor={isCounselor}
-                  onClose={() => setSelectedId(null)}
-                />
-              </div>
-            )}
           </div>
         </div>
       )}

@@ -101,6 +101,7 @@ const App = () => {
           <Route path={PATHS.SELF_CARE} element={guard(<SelfCarePage />)} />
           <Route path={PATHS.DIARY} element={guard(<YourDiary />)} />
           <Route path={PATHS.SUGGESTIONS} element={guard(<SuggestionsPage />)} />
+          <Route path="/suggestions" element={<Navigate to={PATHS.SUGGESTIONS} replace />} />
           <Route path={PATHS.RESOURCES} element={guard(<ResourcePage />)} />
 
           {/* Shared */}

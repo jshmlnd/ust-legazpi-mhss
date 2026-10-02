@@ -16,7 +16,7 @@ export const PATHS = {
   DIARY: '/user/diary',
   MESSAGES: '/messages',
   UNIVERSITY_UPDATES: '/university-updates',
-  SUGGESTIONS: '/suggestions',
+  SUGGESTIONS: '/help',
 
   DASHBOARD: '/dashboard',
   SESSION_REQUESTS: '/manage/session-requests',

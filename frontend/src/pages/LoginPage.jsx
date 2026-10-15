@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
-  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MessageSquare, Moon, Sun,
+  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MailCheck, MessageSquare, Moon, Sun,
+  UserPlus,
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -123,7 +124,41 @@ const LoginPage = () => {
       }
       goToApp(data);
     } catch (error) {
+      if (error.emailVerificationRequired) {
+        setVerifyMasked(error.maskedEmail || null);
+        setVerifyEmail('');
+        setVerifyError(null);
+        setResendIn(0);
+        setStep('verify-pending');
+        return;
+      }
       toast.error(error.message);
+    }
+  };
+
+  const handleResendVerification = async (e) => {
+    e.preventDefault();
+    if (!verifyEmail.trim()) {
+      setVerifyError('Enter your university email to resend the link');
+      return;
+    }
+    if (resendIn > 0) return;
+    setResendLoading(true);
+    setVerifyError(null);
+    try {
+      const data = await resendVerification(verifyEmail.trim());
+      if (data?.maskedEmail) setVerifyMasked(data.maskedEmail);
+      if (typeof data?.retryAfterSecs === 'number') {
+        setResendIn(data.retryAfterSecs);
+        toast.info(`Link already sent — you can resend in ${data.retryAfterSecs}s.`);
+      } else {
+        setResendIn(60);
+        toast.success('A new verification link is on its way. Check your email.');
+      }
+    } catch (error) {
+      setVerifyError(error.message);
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -282,6 +317,9 @@ const LoginPage = () => {
     setNewPassword('');
     setConfirmNewPassword('');
     setMaskedEmail(null);
+    setVerifyEmail('');
+    setVerifyMasked(null);
+    setVerifyError(null);
     setResendIn(0);
     setResendLoading(false);
   };
@@ -426,8 +464,78 @@ const LoginPage = () => {
                       <KeyRound className="size-3.5" aria-hidden="true" />
                       Forgot password?
                     </button>
+                    <p className="text-center text-xs text-ink-muted">
+                      Don&apos;t have an account?{' '}
+                      <button
+                        type="button"
+                        onClick={() => navigate(PATHS.SIGNUP)}
+                        className="inline-flex items-center gap-1 font-semibold text-brand-600
+                          hover:text-brand-700 transition-colors"
+                      >
+                        <UserPlus className="size-3.5" aria-hidden="true" />
+                        Sign up
+                      </button>
+                    </p>
                   </form>
                 </>
+              )}
+              {step === 'verify-pending' && (
+                <form onSubmit={handleResendVerification} className="flex flex-col gap-5">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-soft-ink">
+                    <MailCheck size={22} aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-semibold tracking-tight text-ink">Verify your email</h1>
+                    <p className="mt-1 text-xs leading-5 text-ink-muted">
+                      Your account isn&apos;t activated yet — a verification link was sent to{' '}
+                      {verifyMasked || 'your university email'}. Click it, then sign in.
+                      {verifyMasked
+                        ? ' Enter the same email below to resend the link.'
+                        : ' Enter your university email below to resend the link.'}
+                    </p>
+                  </div>
+
+                  <Field
+                    label="University Email"
+                    htmlFor="verify-email"
+                    required
+                    error={verifyError}
+                  >
+                    <input
+                      id="verify-email"
+                      type="email"
+                      value={verifyEmail}
+                      onChange={(e) => {
+                        setVerifyEmail(e.target.value);
+                        setVerifyError(null);
+                      }}
+                      placeholder="you@ust-legazpi.edu.ph"
+                      className={INPUT_CLASS}
+                      autoComplete="email"
+                      autoFocus
+                      aria-invalid={!!verifyError || undefined}
+                    />
+                  </Field>
+
+                  <Button type="submit" size="lg" loading={resendLoading} disabled={resendIn > 0} className="mt-1 w-full">
+                    {resendLoading
+                      ? 'Sending…'
+                      : resendIn > 0
+                        ? `Resend available in ${resendIn}s`
+                        : 'Resend verification link'}
+                    {resendLoading || resendIn > 0 ? null : <Mail className="size-4" aria-hidden="true" />}
+                  </Button>
+
+                  <button
+                    type="button"
+                    onClick={backToSignIn}
+                    className="mx-auto flex items-center gap-1.5 text-xs font-medium text-ink-muted
+                      hover:text-ink transition-colors"
+                  >
+                    <ArrowLeft className="size-3.5" aria-hidden="true" />
+                    Back to sign in
+                  </button>
+                </form>
               )}
               {step === 'pin' && (
                 <form onSubmit={handleVerifyPin} className="flex flex-col gap-5">

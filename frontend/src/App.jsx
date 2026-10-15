@@ -9,6 +9,7 @@ import VoiceCallModal from './components/VoiceCallModal';
 
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
 import ProfilePage from './pages/ProfilePage';
 import ResourcePage from './pages/ResourcePage';
 import SelfCarePage from './pages/SelfCarePage';
@@ -33,6 +34,7 @@ import { useCallStore } from './store/useCallStore';
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
+import { usePrefs } from './lib/prefs';
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();

@@ -10,6 +10,7 @@ export const PATHS = {
   HOME: '/',
   SESSIONS: '/sessions',
   LOGIN: '/login',
+  SIGNUP: '/signup',
   MY_ACCOUNT: '/account',
   RESOURCES: '/resources',
   SELF_CARE: '/self-care',

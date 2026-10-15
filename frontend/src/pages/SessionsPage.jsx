@@ -626,66 +626,6 @@ const SessionsPage = () => {
               </div>
             )}
           </div>
-
-          <div className="lg:col-span-5">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h3 className="text-xs font-semibold text-ink-muted">Available Slots</h3>
-              {slotCounselors.length > 0 && (
-                <select
-                  value={slotCounselorFilter}
-                  onChange={(e) => setSlotCounselorFilter(e.target.value)}
-                  className="bg-transparent border border-line text-xs rounded-lg px-2.5 py-1.5 text-ink-soft focus:border-brand-600 outline-none transition-colors"
-                >
-                  <option value="">All Counselors</option>
-                  {slotCounselors.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            {groupedSlots.length === 0 ? (
-              <div className="bg-surface border border-line rounded-lg p-6 text-center">
-                <p className="text-xs text-ink-muted">No available slots at this time.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {visibleGroupedSlots.map(({ date, counselors }) => {
-                    const totalTimes = counselors.reduce((n, c) => n + c.times.length, 0);
-                    return (
-                      <div
-                        key={date}
-                        className="overflow-hidden rounded-lg border border-line bg-surface"
-                      >
-                        <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
-                          <CalendarDays size={13} className="shrink-0 text-ink-muted" />
-                          <span className="text-xs font-medium text-ink">{formatLongDate(date)}</span>
-                          <span className="ml-auto text-xs text-ink-muted">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
-                        </div>
-                        <div className="divide-y divide-line">
-                          {counselors.map((c) => (
-                            <div key={c.counselorId} className="px-4 py-3">
-                              <p className="mb-2 text-xs font-medium text-ink-soft">{c.fullName || `Counselor #${c.counselorId}`}</p>
-                              <div className="flex flex-wrap gap-2">
-                                {c.times.map(({ time, slot }) => (
-                                  <button
-                                    key={slot._id}
-                                    onClick={() => handleBook(slot)}
-                                    className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-brand-600 hover:bg-brand-600 hover:text-brand-fg"
-                                  >
-                                    {time}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-            <Pagination page={safeSlotsPage} totalPages={slotsTotalPages} onChange={setSlotsPage} />
-          </div>
         </div>
 
         <div className="bg-surface border border-line rounded-lg p-5">

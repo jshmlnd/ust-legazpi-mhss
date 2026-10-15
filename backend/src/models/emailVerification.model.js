@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 const emailVerificationSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },
     userId: { type: Number, required: true },
+    appUrl: { type: String, default: '' },
     hashedToken: { type: String, required: true },
     expiresAt: { type: Date, required: true },
     // Cooldown until the next link can be requested.

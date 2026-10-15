@@ -26,15 +26,32 @@ const GENERIC_RESEND_MESSAGE =
 
 const hashToken = (token) => crypto.createHash("sha256").update(String(token)).digest("hex");
 
-// The link must hit the API origin (dev backend is :5001, not the :5173 app).
-const apiBase = () =>
-    (process.env.API_URL || process.env.APP_URL || "http://localhost:5001").replace(/\/$/, "");
-const appBase = () =>
-    (process.env.APP_URL || "http://localhost:5173").replace(/\/$/, "");
+// Set VERIFY_BASE_URL/API_URL in production when the API has a public domain.
+// Otherwise use the public host forwarded by the reverse proxy.
+const publicApiBase = (req) => {
+    const configured = process.env.VERIFY_BASE_URL || process.env.API_URL;
+    if (configured) return configured.replace(/\/$/, "");
+    const protocol = String(req.headers["x-forwarded-proto"] || req.protocol).split(",")[0].trim();
+    const host = String(req.headers["x-forwarded-host"] || req.get("host")).split(",")[0].trim();
+    return `${protocol}://${host}`.replace(/\/$/, "");
+};
+
+const publicAppBase = (req) => {
+    const configured = process.env.APP_URL;
+    if (configured) return configured.replace(/\/$/, "");
+    const origin = req.get("origin");
+    if (origin) return origin.replace(/\/$/, "");
+    const referer = req.get("referer");
+    try {
+        return referer ? new URL(referer).origin : "";
+    } catch {
+        return "";
+    }
+};
 
 const isStudentEmail = (email) => String(email).trim().toLowerCase().endsWith(`@${STUDENT_EMAIL_DOMAIN}`);
 
-async function issueLink(email, user) {
+async function issueLink(email, user, req) {
     const now = Date.now();
     const token = crypto.randomBytes(32).toString("hex");
     await EmailVerification.findOneAndUpdate(
@@ -42,21 +59,22 @@ async function issueLink(email, user) {
         {
             email,
             userId: user._id,
+            appUrl: publicAppBase(req),
             hashedToken: hashToken(token),
             expiresAt: new Date(now + VERIFY_TTL_MS),
             nextResendAt: new Date(now + RESEND_COOLDOWN_MS),
         },
         { upsert: true, new: true }
     );
-    sendMail({
+    return sendMail({
         to: email,
         subject: "Verify your SafeSpace account",
         html: verificationEmailTemplate({
             fullName: user.fullName,
-            verifyUrl: `${apiBase()}/api/auth/verify-email?token=${token}`,
+            verifyUrl: `${publicApiBase(req)}/api/auth/verify-email?token=${token}`,
             hours: VERIFY_TTL_HOURS,
         }),
-        text: `Hi ${user.fullName || "there"}, verify your SafeSpace account within ${VERIFY_TTL_HOURS} hours: ${apiBase()}/api/auth/verify-email?token=${token}`,
+        text: `Hi ${user.fullName || "there"}, verify your SafeSpace account within ${VERIFY_TTL_HOURS} hours: ${publicApiBase(req)}/api/auth/verify-email?token=${token}`,
     });
 }
 
@@ -82,8 +100,20 @@ export const signup = async (req, res) => {
             return res.status(400).json({ message: `Sign-up is limited to @${STUDENT_EMAIL_DOMAIN} email addresses` });
         }
 
-        if (await User.findOne({ studentId: id })) {
-            return res.status(400).json({ message: "This Student ID is already registered. Try signing in instead." });
+        const existingById = await User.findOne({ studentId: id });
+        if (existingById) {
+            if (existingById.email !== cleanEmail || existingById.emailVerified !== false) {
+                return res.status(400).json({ message: "This Student ID is already registered. Try signing in instead." });
+            }
+
+            const retry = await issueLink(cleanEmail, existingById, req);
+            if (!retry.delivered) {
+                return res.status(503).json({ message: "Your account exists, but the verification email could not be sent. Please try again." });
+            }
+            return res.status(200).json({
+                message: "A new verification link is on its way. Check your university email.",
+                maskedEmail: maskEmail(cleanEmail),
+            });
         }
         if (await User.findOne({ email: cleanEmail })) {
             return res.status(400).json({ message: "This email is already registered. Try signing in instead." });
@@ -104,7 +134,13 @@ export const signup = async (req, res) => {
         await newUser.save();
 
         // Deliberately NO session cookie — the account can't sign in until verified.
-        await issueLink(cleanEmail, newUser);
+        const delivery = await issueLink(cleanEmail, newUser, req);
+        if (!delivery.delivered) {
+            return res.status(503).json({
+                message: "Your account was created, but the verification email could not be sent. Please try again.",
+                maskedEmail: maskEmail(cleanEmail),
+            });
+        }
 
         return res.status(201).json({
             message: "Account created. Check your university email for the verification link.",
@@ -140,7 +176,10 @@ export const resendVerification = async (req, res) => {
                     retryAfterSecs: Math.ceil((existing.nextResendAt.getTime() - now) / 1000),
                 });
             }
-            await issueLink(cleanEmail, user);
+            const delivery = await issueLink(cleanEmail, user, req);
+            if (!delivery.delivered) {
+                return res.status(503).json({ message: "The verification email could not be sent. Please try again." });
+            }
             return res.status(200).json({ message: GENERIC_RESEND_MESSAGE, maskedEmail: maskEmail(cleanEmail) });
         }
 
@@ -154,7 +193,7 @@ export const resendVerification = async (req, res) => {
 // Self-contained result page for the emailed link (opened by a plain browser
 // GET, so HTML — not JSON — with a way back to sign in). ponytail: one tiny
 // template here instead of a whole frontend route for a two-state page.
-const verifyPage = ({ ok, message }) => `<!doctype html>
+const verifyPage = ({ ok, message, appUrl = "" }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${ok ? "Email verified" : "Verification failed"} — SafeSpace</title></head>
 <body style="margin:0;padding:24px;background:#f4f5f7;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
@@ -162,7 +201,7 @@ const verifyPage = ({ ok, message }) => `<!doctype html>
 <p style="margin:0 0 12px;font-size:13px;font-weight:700;color:#0f766e;letter-spacing:.06em;">SAFESPACE | UST-LEGAZPI</p>
 <h1 style="margin:0 0 12px;font-size:22px;color:#111827;">${ok ? "Email verified 🎉" : "Link didn't work"}</h1>
 <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#374151;">${message}</p>
-<a href="${appBase()}/login" style="display:inline-block;padding:12px 24px;border-radius:8px;background:#0f766e;color:#fff;text-decoration:none;font-size:14px;font-weight:700;">Back to sign in</a>
+${appUrl ? `<a href="${appUrl}/login" style="display:inline-block;padding:12px 24px;border-radius:8px;background:#0f766e;color:#fff;text-decoration:none;font-size:14px;font-weight:700;">Back to sign in</a>` : ""}
 </div></body></html>`;
 
 // GET /api/auth/verify-email?token=…  (clicked from the email)
@@ -193,6 +232,7 @@ export const verifyEmail = async (req, res) => {
 
         return res.status(200).send(verifyPage({
             ok: true,
+            appUrl: doc.appUrl,
             message: `Thanks, ${(user.fullName || "there").split(" ")[0]} — your university email is confirmed and your account is ready.`,
         }));
     } catch (error) {

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Loader } from 'lucide-react';
+import { ToastContainer } from 'react-toastify';
 
 import AppLayout from './components/AppLayout/AppLayout';
 import { RoleRoute } from './components/RoleRoute';
@@ -38,6 +39,10 @@ const App = () => {
 
   const { subscribeToMessages, unsubscribeFromMessages, selectedUser } = useChatStore();
   const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
+
+  // Toast theme hook — must stay above the early return below.
+  const { prefs } = usePrefs(authUser?._id);
+  const darkToast = !!(prefs.calmMode || prefs.switchmode);
 
   const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
   const peerDisplayName = (() => {
@@ -86,9 +91,22 @@ const App = () => {
     <div>
       <VoiceCallModal peerName={peerDisplayName} />
 
+      {/* Toasts live at the root (not in AppLayout) so public pages outside
+          the layout (login, signup) can show them too. */}
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        theme={darkToast ? 'dark' : 'light'}
+      />
+
       <Routes>
         {/* Public */}
         <Route path={PATHS.LOGIN} element={!authUser ? <LoginPage /> : <Navigate to={PATHS.HOME} replace />} />
+        <Route path={PATHS.SIGNUP} element={!authUser ? <SignupPage /> : <Navigate to={PATHS.HOME} replace />} />
 
         {/* Authenticated — every page renders inside AppLayout (sidebar + topbar) */}
         <Route element={authUser ? <AppLayout /> : <Navigate to={PATHS.LOGIN} replace />}>

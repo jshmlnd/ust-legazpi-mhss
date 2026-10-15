@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import { useAuthStore } from '../../store/useAuthStore';
 import { usePrefs, getPrefs } from '../../lib/prefs';
 import { connectSocket } from '../../lib/socket';
@@ -89,16 +89,6 @@ const AppLayout = () => {
           <Outlet />
         </div>
       </div>
-
-      <ToastContainer
-        position="top-center"
-        autoClose={3000}
-        hideProgressBar
-        newestOnTop
-        closeOnClick
-        pauseOnHover
-        theme={prefs.calmMode || prefs.switchmode ? 'dark' : 'light'}
-      />
     </div>
   );
 };

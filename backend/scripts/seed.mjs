@@ -1,30 +1,13 @@
 /**
- * Full database seed (dev/demo data).
+ * Restores the database snapshot captured from umhs_db.
  * Run with: node scripts/seed.mjs
  *
- * Reads MONGODB_URI from backend/.env. Wipes User, Counselor, Appointment,
- * Message, AvailabilitySlot, Resource, JournalEntry, Notice, Announcement,
- * Suggestion collections, then inserts:
- *   - 2 counselors
- *   - 6 students using the accounts from README.md
- *     (password = student number with a leading '0', e.g. 4210043 / 04210043)
- *   - availability slots, appointments in every status, a chat thread,
- *     resources, journal entries, notices, an announcement, a suggestion.
+ * This is intentionally not executed by the export/update process.
  */
 
 import 'dotenv/config';
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
-import User from '../src/models/user.model.js';
-import Counselor from '../src/models/counselor.model.js';
-import Appointment from '../src/models/appointment.model.js';
-import Message from '../src/models/message.model.js';
-import AvailabilitySlot from '../src/models/availabilitySlot.model.js';
-import Resource from '../src/models/resource.model.js';
-import JournalEntry from '../src/models/journalEntry.model.js';
-import Notice from '../src/models/notice.model.js';
-import Announcement from '../src/models/announcement.model.js';
-import Suggestion from '../src/models/suggestion.model.js';
+import { gunzipSync } from 'node:zlib';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 if (!MONGODB_URI) {
@@ -32,144 +15,133 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-const dayOffset = (n, hh = 10, mm = 0) => {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  d.setHours(hh, mm, 0, 0);
-  return d;
-};
-const isoDate = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const time12h = (d) => {
-  let h = d.getHours();
-  const suffix = h >= 12 ? 'PM' : 'AM';
-  h = h % 12 || 12;
-  return `${String(h).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')} ${suffix}`;
-};
-
-const hash = (pw) => bcrypt.hashSync(pw, 10);
-
-// Accounts from README.md: password = student number with leading '0'.
-const students = [
-  { studentId: '4210043', password: hash('04210043'), fullName: 'Joshua M. Santos', email: 'joshua.santos@ust-legazpi.edu.ph', phone: '09171000001', department: 'CEAFA', program: 'BS Civil Engineering', yearLevel: 3 },
-  { studentId: '4230306', password: hash('04230306'), fullName: 'Alina R. Reyes', email: 'alina.reyes@ust-legazpi.edu.ph', phone: '09171000002', department: 'CHS', program: 'BS Nursing', yearLevel: 2 },
-  { studentId: '4230023', password: hash('04230023'), fullName: 'Miguel P. Torres', email: 'miguel.torres@ust-legazpi.edu.ph', phone: '09171000003', department: 'CASE', program: 'BS Psychology', yearLevel: 1 },
-  { studentId: '4210021', password: hash('04210021'), fullName: 'Bea C. Dela Cruz', email: 'bea.delacruz@ust-legazpi.edu.ph', phone: '09171000004', department: 'CBMA', program: 'BS Accountancy', yearLevel: 4 },
-  { studentId: '4200420', password: hash('04200420'), fullName: 'Karla J. Fuentes', email: 'karla.fuentes@ust-legazpi.edu.ph', phone: '09171000005', department: 'LAW', program: 'Juris Doctor', yearLevel: 1 },
-  { studentId: '4220051', password: hash('04220051'), fullName: 'Nico D. Estrella', email: 'nico.estrella@ust-legazpi.edu.ph', phone: '09171000006', department: 'CEAFA', program: 'BS Computer Engineering', yearLevel: 2 },
-].map((s) => ({ ...s, userType: 'Student' }));
-
-const counselors = [
-  { counselorId: 'sonnysallena', fullName: 'Sonny T. Sallena', email: 'sonny.sallena@ust-legazpi.edu.ph', password: hash('sonnysallena') },
-  { counselorId: 'mariacruz', fullName: 'Maria L. Cruz', email: 'maria.cruz@ust-legazpi.edu.ph', password: hash('mariacruz') },
-].map((c) => ({ ...c, userType: 'Counselor', pin: '' }));
-
-console.log(`Connecting to ${MONGODB_URI.replace(/\/\/[^@]+@/, '//<credentials>@')} ...`);
-await mongoose.connect(MONGODB_URI);
-
-console.log('Wiping collections...');
-await Promise.all([
-  User.deleteMany({}),
-  Counselor.deleteMany({}),
-  Appointment.deleteMany({}),
-  Message.deleteMany({}),
-  AvailabilitySlot.deleteMany({}),
-  Resource.deleteMany({}),
-  JournalEntry.deleteMany({}),
-  Notice.deleteMany({}),
-  Announcement.deleteMany({}),
-  Suggestion.deleteMany({}),
-]);
-
-// Use .create() (not insertMany) so pre('save') hooks run: User/Counselor
-// schemas define `_id: false` and assign their numeric _id in the hook.
-console.log('Creating counselors & students...');
-const insertedCounselors = await Counselor.create(counselors);
-const insertedStudents = await User.create(students);
-const [c1, c2] = insertedCounselors;
-const [s1, s2, s3, s4, s5, s6] = insertedStudents;
-
-console.log('Inserting availability slots...');
-const slots = [];
-for (let n = 1; n <= 7; n++) {
-  const d = dayOffset(n);
-  slots.push({ counselorId: c1._id, date: isoDate(d), time: '09:00 AM' });
-  slots.push({ counselorId: c1._id, date: isoDate(d), time: '01:30 PM' });
-  slots.push({ counselorId: c2._id, date: isoDate(d), time: '10:00 AM' });
+// Safety gate: this script replaces every non-system collection.
+const isLocal = /\/\/[^/@]*localhost|\/\/[^/@]*127\.0\.0\.1/.test(MONGODB_URI);
+if (!isLocal && process.env.ALLOW_REMOTE_SEED !== '1') {
+  console.error('REFUSING to seed a non-localhost database.');
+  console.error('Set ALLOW_REMOTE_SEED=1 only when deliberately restoring remotely.');
+  process.exit(1);
 }
-await AvailabilitySlot.insertMany(slots);
 
-console.log('Inserting appointments...');
-const in7d = dayOffset(7);
-const yesterday = dayOffset(-1);
-const appointments = await Appointment.insertMany([
-  // Student 1: upcoming confirmed session with Sonny T. Sallena in 7 days
-  { studentId: s1._id, counselorId: c1._id, type: 'Face-To-Face', status: 'confirmed', date: isoDate(in7d), time: '10:00 AM', concern: 'Academic stress — thesis workload', notes: '' },
-  // Student 2: pending request
-  { studentId: s2._id, counselorId: c1._id, type: 'Chat', status: 'pending', date: isoDate(dayOffset(3)), time: '09:00 AM', concern: 'Adjustment to dorm life' },
-  // Student 3: active chat with counselor 2
-  { studentId: s3._id, counselorId: c2._id, type: 'Chat', status: 'active', date: isoDate(dayOffset(0)), time: time12h(new Date()), concern: 'Homesickness' },
-  // Student 4: declined request
-  { studentId: s4._id, counselorId: c2._id, type: 'Face-To-Face', status: 'declined', date: isoDate(dayOffset(2)), time: '10:00 AM', concern: 'Time management' },
-  // Student 5: completed session a week ago
-  { studentId: s5._id, counselorId: c1._id, type: 'Face-To-Face', status: 'completed', date: isoDate(dayOffset(-7)), time: '01:30 PM', concern: 'Board exam anxiety', startedAt: dayOffset(-7, 13, 30), endedAt: dayOffset(-7, 14, 15) },
-  // Student 6: chat that ended yesterday
-  { studentId: s6._id, counselorId: c2._id, type: 'Chat', status: 'ended', date: isoDate(yesterday), time: '10:00 AM', concern: 'Anxiety about group grades', startedAt: yesterday, endedAt: yesterday },
-]);
+const snapshot = mongoose.mongo.BSON.EJSON.parse(
+  gunzipSync(Buffer.from(`
+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`, 'base64')).toString(),
+);
 
-console.log('Inserting chat thread (student 3 <-> counselor 2)...');
-const chat = appointments.find((a) => a.status === 'active' && a.type === 'Chat');
-await Message.insertMany([
-  { senderId: c2._id, senderModel: 'Counselor', receiverId: s3._id, receiverModel: 'User', appointmentId: chat._id, text: 'Hi Miguel! Thanks for reaching out today — what’s on your mind?' },
-  { senderId: s3._id, senderModel: 'User', receiverId: c2._id, receiverModel: 'Counselor', appointmentId: chat._id, text: 'Hello po. Just missing home a lot this semester.' },
-  { senderId: c2._id, senderModel: 'Counselor', receiverId: s3._id, receiverModel: 'User', appointmentId: chat._id, text: 'That’s completely normal. We can talk about it and set up a visit schedule that helps.' },
-]);
+await mongoose.connect(MONGODB_URI);
+const db = mongoose.connection.db;
+const targets = (await db.listCollections().toArray())
+  .map(({ name }) => name)
+  .filter((name) => !name.startsWith('system.'));
 
-console.log('Inserting resources...');
-await Resource.insertMany([
-  { title: 'UST-Legazpi Guidance Office', type: 'location', address: 'Sta. Rita St., Legazpi City', hours: 'Mon–Fri 8AM–5PM', contact: '(052) 742-0000', lat: 13.1391, lng: 123.7367 },
-  { title: 'National Center for Mental Health Hotline', type: 'hotline', contact: '1553 (landline) / 0917-899-8727', hours: '24/7' },
-  { title: 'Dr. Elena Ramos, Psychiatrist', type: 'psychiatrist', contact: '(052) 480-1111', address: 'Legazpi City, Albay' },
-  { title: 'Dr. Paolo Mendoza, Psychologist', type: 'psychologist', contact: '(052) 480-2222', address: 'Legazpi City, Albay' },
-]);
+await Promise.all(targets.map((name) => db.collection(name).deleteMany({})));
+for (const [name, documents] of Object.entries(snapshot.collections)) {
+  if (documents.length) await db.collection(name).insertMany(documents);
+}
 
-console.log('Inserting journal entries...');
-await JournalEntry.insertMany([
-  { studentId: s1._id, title: 'First week back', content: 'Classes are getting heavier but I feel okay about the pace.', mood: 'good' },
-  { studentId: s1._id, title: 'Long day', content: 'Thesis defense practice drained me. Sleep early tonight.', mood: 'low' },
-  { studentId: s2._id, title: 'Dorm routine', content: 'Made friends with my floor-mates. Weeks are better now.', mood: 'great' },
-]);
-
-console.log('Inserting notices & announcement...');
-await Notice.insertMany([
-  { tag: 'NOTICE', text: 'Counseling walk-in hours resume 8AM Monday.', linkHref: '/university-updates', linkLabel: 'Read latest updates' },
-  { tag: 'OGT', text: 'Mental Health Awareness Week: Oct 20–24. See schedules.', linkHref: '/university-updates', linkLabel: 'See schedules' },
-]);
-await Announcement.insertMany([
-  { title: 'Mental Health Awareness Week', body: 'Join us Oct 20–24 for free workshops, peer support sessions, and stress-relief activities at the Student Bar. Open to all departments.', author: 'Counseling Office' },
-]);
-
-console.log('Inserting suggestion...');
-await Suggestion.insertMany([
-  { studentId: s2._id, message: 'Could we have evening chat slots for working students?' },
-]);
-
-const counts = {
-  Counselors: insertedCounselors.length,
-  Students: insertedStudents.length,
-  'Availability slots': slots.length,
-  Appointments: appointments.length,
-  Messages: 3,
-  Resources: 4,
-  'Journal entries': 3,
-  Notices: 2,
-  Announcements: 1,
-  Suggestions: 1,
-};
-console.log('\nSeed complete:');
-for (const [k, v] of Object.entries(counts)) console.log(`  ${k}: ${v}`);
-console.log('\nTest logins (from README.md — password = student number with leading 0):');
-console.log('  Students:   4210043, 4230306, 4230023, 4210021, 4200420, 4220051');
-console.log("  Counselors: C-0001 (Sonny T. Sallena), C-0002 (Maria L. Cruz) — reuse the first two student passwords");
-
+console.log(`Restored ${Object.keys(snapshot.collections).length} collections.`);
 await mongoose.disconnect();

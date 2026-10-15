@@ -31,10 +31,39 @@ export const useAuthStore = create((set) => ({
             set({ authUser: res.data });
             return res.data;
         } catch (error) {
-            const message = error.response?.data?.message || "Login failed";
-            throw new Error(message, { cause: error });
+            const data = error.response?.data;
+            const message = data?.message || "Login failed";
+            // Unverified-email blocks (403) carry resend context for the UI —
+            // Error(message) alone would drop it.
+            const err = new Error(message, { cause: error });
+            err.emailVerificationRequired = data?.emailVerificationRequired;
+            err.maskedEmail = data?.maskedEmail;
+            throw err;
         } finally {
             set({ isLoggingIn: false });
+        }
+    },
+
+    // Student self-signup (university emails only, enforced server-side).
+    // Creates an UNVERIFIED account and emails the verification link — no
+    // session is issued until the link is clicked.
+    signup: async (payload) => {
+        try {
+            const res = await axiosInstance.post("/auth/signup", payload);
+            return res.data; // { message, maskedEmail }
+        } catch (error) {
+            const message = error.response?.data?.message || "Sign-up failed";
+            throw new Error(message, { cause: error });
+        }
+    },
+
+    resendVerification: async (email) => {
+        try {
+            const res = await axiosInstance.post("/auth/resend-verification", { email });
+            return res.data; // { message, maskedEmail?, retryAfterSecs? }
+        } catch (error) {
+            const message = error.response?.data?.message || "Failed to resend verification link";
+            throw new Error(message, { cause: error });
         }
     },
 

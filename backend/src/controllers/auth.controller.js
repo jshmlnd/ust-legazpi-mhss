@@ -14,6 +14,7 @@ import {
     verifyTotpToken,
 } from "../lib/totp.js";
 import { sendMail, passwordChangedEmailTemplate } from "../lib/mailer.js";
+import { maskEmail } from "./passwordReset.controller.js";
 
 const generateToken = (userId, res) => {
     const token = jwt.sign({userId}, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -115,6 +116,17 @@ export const login = async (req , res) => {
 
         if (!isPasswordCorrect) {
             return res.status(401).json({ message: "Invalid credentials" });
+        }
+
+        // Self-signup accounts can't sign in until they click the emailed
+        // verification link. Pre-existing / admin-registered accounts have no
+        // flag (undefined) and pass straight through.
+        if (role === "student" && account.emailVerified === false) {
+            return res.status(403).json({
+                message: "Please verify your email before signing in. Check your inbox for the verification link.",
+                emailVerificationRequired: true,
+                maskedEmail: maskEmail(account.email),
+            });
         }
 
         if (account.twoFactorEnabled && account.pin) {

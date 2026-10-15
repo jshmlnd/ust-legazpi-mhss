@@ -78,8 +78,14 @@ const LoginPage = () => {
   const [resendIn, setResendIn] = useState(0); // seconds until resend unlocks
   const [resendLoading, setResendLoading] = useState(false);
 
-  const { login, verifyTwoFactor, isLoggingIn, requestPasswordReset, verifyResetCode, resetPassword } = useAuthStore();
+  const { login, verifyTwoFactor, isLoggingIn, requestPasswordReset, verifyResetCode, resetPassword, resendVerification } = useAuthStore();
   const navigate = useNavigate();
+
+  // Unverified self-signup accounts land here after a 403 login: show the
+  // masked inbox + a resend for the verification link.
+  const [verifyEmail, setVerifyEmail] = useState('');
+  const [verifyMasked, setVerifyMasked] = useState(null);
+  const [verifyError, setVerifyError] = useState(null);
 
   // Resend cooldown ticker — mirrors the backend's 60s OTP resend cooldown,
   // and syncs to the server's retryAfterSecs whenever the server reports one.

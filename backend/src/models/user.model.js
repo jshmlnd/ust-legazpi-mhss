@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema(
         },
         phone: {
             type: String,
-            required: true,
+            default: '',
         },
         profilePic: {
             type: String,
@@ -74,10 +74,17 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: 'Student',
         },
+        // Self-signup accounts start UNVERIFIED until they click the emailed
+        // link (login rejects them until then). Default true so existing and
+        // admin-registered accounts keep working untouched.
+        emailVerified: {
+            type: Boolean,
+            default: true,
+        },
         department: {
             type: String,
             required: [true, 'Department is required'],
-            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA', 'LAW'], message: `{VALUE} is not a valid department` },
+            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA'], message: `{VALUE} is not a valid department` },
         },
         program: {
             type: String,

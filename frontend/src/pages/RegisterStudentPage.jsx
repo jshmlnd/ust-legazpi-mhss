@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import PageShell from '../ui/PageShell';
 import { UserPlus } from 'lucide-react';
 
-const DEPARTMENTS = ['CEAFA', 'CHS', 'CASE', 'CBMA', 'LAW'];
+const DEPARTMENTS = ['CEAFA', 'CHS', 'CASE', 'CBMA'];
 
 const initialForm = {
   studentId: '',

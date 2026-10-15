@@ -472,7 +472,6 @@ const LoginPage = () => {
                         className="inline-flex items-center gap-1 font-semibold text-brand-600
                           hover:text-brand-700 transition-colors"
                       >
-                        <UserPlus className="size-3.5" aria-hidden="true" />
                         Sign up
                       </button>
                     </p>

@@ -248,6 +248,30 @@ export const busyRiskAlertEmailTemplate = ({ concernRisk, counselorName, date, t
   });
 };
 
+/* ── 5. Self-signup email verification link ── */
+
+export const verificationEmailTemplate = ({ fullName, verifyUrl, hours = 24 }) => {
+  const firstName = (fullName || "there").split(" ")[0];
+  const safeUrl = String(verifyUrl || "").replace(/"/g, "%22");
+  return layout({
+    heading: "Verify your email",
+    bodyHtml: `
+      ${paragraph(`Hi ${firstName},`)}
+      ${paragraph(
+        `Thanks for creating a SafeSpace account. Confirm your university email to finish signing up:`
+      )}
+      <div style="margin:22px 0 8px;text-align:center;">
+        <a href="${safeUrl}" style="display:inline-block;padding:13px 28px;border-radius:8px;background-color:#0f766e;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">Verify my email</a>
+      </div>
+      ${paragraph(`This link expires in <strong>${hours} hours</strong> and can only be used once.`)}
+      ${paragraph(
+        `Didn't create an account? You can safely ignore this email — nothing will be activated.`
+      )}
+    `,
+    footerNote: "If the button doesn't work, copy this link into your browser:",
+  });
+};
+
 /* ── 4. Announcement newsletter (bulk) ── */
 
 export const newsletterEmailTemplate = ({ title, body, author, when, appUrl }) => {

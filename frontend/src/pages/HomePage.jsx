@@ -91,7 +91,7 @@ const HomePage = () => {
                 Counselors only see your name when you allow it in your account preferences.
               </p>
               <Link to={`${PATHS.MY_ACCOUNT}?tab=preferences`} className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-300 hover:text-brand-200">
-                Review preferences <MoveRight size={14} />
+                View preferences <MoveRight size={14} />
               </Link>
             </div>
           </div>

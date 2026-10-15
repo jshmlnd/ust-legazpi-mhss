@@ -68,7 +68,10 @@ export const checkUpcomingSession = async () => {
     if (mins <= 0) return next;
 
     const { showNotification } = await import('./notifications');
-    const when = mins >= 60 ? `in ${Math.round(mins / 60)}h` : `in ${mins} min`;
+    const when =
+      mins >= 1440 ? `in ${Math.round(mins / 1440)} day${Math.round(mins / 1440) === 1 ? '' : 's'}`
+      : mins >= 60 ? `in ${Math.round(mins / 60)}h`
+      : `in ${mins} min`;
     showNotification(
       'Upcoming session',
       `Your ${next.type === 'Chat' ? 'chat' : 'face-to-face'} session with ${next.counselorName || 'your counselor'} is ${when}.`,

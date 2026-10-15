@@ -64,7 +64,7 @@ const HomePage = () => {
           <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
             <div>
               <span className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-side-ink">
-                Student ID · STU-{genid}
+                Session ID : STU-{genid}
               </span>
               <h1 className="mt-4 max-w-2xl text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.08] tracking-[-0.035em] text-side-ink">
                 {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {firstName}.

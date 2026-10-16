@@ -98,6 +98,9 @@ export const createAppointment = async (req, res) => {
       return res.status(400).json({ error: "Concern must be text up to 4000 characters" });
     }
     const normalizedConcern = concern.trim();
+    if (type === 'Face-To-Face' && !normalizedConcern) {
+      return res.status(400).json({ error: "A concern is required for face-to-face sessions" });
+    }
 
     const busySession = type === 'Chat'
       ? await findOverlappingF2F(counselorId, date, time)
@@ -167,10 +170,23 @@ export const updateAppointment = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: "Appointment not found" });
 
     const isCounselor = req.user.constructor.modelName === "Counselor";
-    if (isCounselor && req.body.status) {
+    const touchesOwnership = Boolean(req.body.status || req.body.actionTaken || req.body.counselorId);
+    if (isCounselor && touchesOwnership) {
       if (String(appointment.counselorId) !== String(req.user._id)) {
         return res.status(403).json({ error: "Not your appointment" });
       }
+    }
+    // Action taken / referrals are counselor decisions; students cannot set them.
+    if (!isCounselor && (req.body.actionTaken || req.body.counselorId)) {
+      return res.status(403).json({ error: "Only counselors can set the action taken" });
+    }
+
+    const previousCounselorId = appointment.counselorId;
+    const reassigning = req.body.counselorId !== undefined
+      && String(req.body.counselorId) !== String(previousCounselorId);
+    if (reassigning) {
+      const target = await Counselor.findById(req.body.counselorId).select("_id");
+      if (!target) return res.status(404).json({ error: "Referred counselor not found" });
     }
 
     if ((req.body.status === 'on-going' || req.body.status === 'active') && appointment.status !== 'on-going' && appointment.status !== 'active') {
@@ -185,6 +201,16 @@ export const updateAppointment = async (req, res) => {
     delete updates.waitIfBusy;
     Object.assign(appointment, updates);
     await appointment.save();
+
+    if (reassigning) {
+      // The F2F slot held by the referring counselor is released and the same
+      // slot is claimed under the referred counselor (takeSlot no-ops when
+      // they didn't publish one at that time).
+      if (appointment.type === 'Face-To-Face') {
+        await freeSlot(previousCounselorId, appointment.date, appointment.time);
+        await takeSlot(appointment.counselorId, appointment.date, appointment.time);
+      }
+    }
 
     if (req.body.status && FREED_STATUSES.includes(req.body.status) && appointment.type === 'Face-To-Face') {
       await freeSlot(appointment.counselorId, appointment.date, appointment.time);
@@ -227,11 +253,30 @@ export const updateAppointment = async (req, res) => {
       getReceiverSocketIds(String(appointment.counselorId)).forEach(socketId => {
         io.to(socketId).emit("appointment:updated", appointment);
       });
+      if (reassigning) {
+        getReceiverSocketIds(String(previousCounselorId)).forEach(socketId => {
+          io.to(socketId).emit("appointment:updated", appointment);
+        });
+      }
     }
 
     res.json(appointment);
   } catch (error) {
     console.error("Error in updateAppointment:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const getCounselors = async (req, res) => {
+  try {
+    // Referral picker: every counselor except the one asking.
+    const counselors = await Counselor.find({ _id: { $ne: req.user._id } })
+      .select("fullName _id")
+      .sort({ fullName: 1 })
+      .lean();
+    res.json(counselors);
+  } catch (error) {
+    console.error("Error in getCounselors:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };

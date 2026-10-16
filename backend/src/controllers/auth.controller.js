@@ -38,24 +38,32 @@ const serializeUser = (user, role) => ({
     email: user.email,
     phone: user.phone || null,
     studentId: user.studentId,
+    counselorId: user.counselorId,
     department: user.department,
     program: user.program,
     yearLevel: user.yearLevel,
     profilePic: user.profilePic || '',
     userType: user.userType || role,
-    pin: user.pin,
+    // Never send the PIN itself — it is a 2FA credential. The client only
+    // needs to know whether one exists.
+    hasPin: !!user.pin,
     twoFactorEnabled: user.twoFactorEnabled,
     totpEnabled: !!user.totpEnabled,
     showNameToCounselor: user.showNameToCounselor || false,
     receiveOgtUpdates: user.receiveOgtUpdates !== false,
+    preferences: user.preferences || null,
 });
+
+// App preferences synced to the account (see frontend lib/prefs.js). Anything
+// else in the request body is ignored — the client cannot inject extra keys.
+const SYNCED_PREF_KEYS = ['sessionReminders', 'messageNotifications', 'switchmode'];
 
 const getModel = (req) => (req.user.constructor.modelName === "Counselor" ? Counselor : User);
 
 export const updateProfileDetails = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { fullName, email, phone, department, program, yearLevel, showNameToCounselor, receiveOgtUpdates } = req.body;
+        const { fullName, email, phone, department, program, yearLevel, showNameToCounselor, receiveOgtUpdates, preferences } = req.body;
 
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
         const account = await Model.findById(userId);
@@ -64,11 +72,16 @@ export const updateProfileDetails = async (req, res) => {
         if (fullName) account.fullName = fullName;
         if (email) account.email = email;
         if (phone !== undefined && account.phone !== undefined) account.phone = phone;
-        if (department && account.department !== undefined) account.department = department;
+        if (department !== undefined && account.department !== undefined) account.department = department;
         if (program && account.program !== undefined) account.program = program;
         if (yearLevel && account.yearLevel !== undefined) account.yearLevel = yearLevel;
         if (typeof showNameToCounselor === 'boolean' && account.showNameToCounselor !== undefined) account.showNameToCounselor = showNameToCounselor;
         if (typeof receiveOgtUpdates === 'boolean' && account.receiveOgtUpdates !== undefined) account.receiveOgtUpdates = receiveOgtUpdates;
+        if (preferences && typeof preferences === 'object') {
+            for (const key of SYNCED_PREF_KEYS) {
+                if (typeof preferences[key] === 'boolean') account.set(`preferences.${key}`, preferences[key]);
+            }
+        }
 
         await account.save();
 
@@ -76,6 +89,7 @@ export const updateProfileDetails = async (req, res) => {
         res.status(200).json(serializeUser(updated));
     } catch (error) {
         console.log("Error in updateProfileDetails controller: ", error.message);
+        if (error.name === "ValidationError") return res.status(400).json({ message: error.message });
         return res.status(500).json({ message: "Internal server error" });
     }
 };
@@ -211,7 +225,7 @@ export const logout = (req , res) => {
 }
 
 export const register = async (req, res) => {
-    const { studentId, password, fullName, email, phone, userType, department, program } = req.body;
+    const { studentId, password, fullName, email, phone, department, program } = req.body;
 
     try {
         if (password.length < 8) {
@@ -231,13 +245,13 @@ export const register = async (req, res) => {
             fullName,
             email,
             phone,
-            userType,
             department,
             program,
         });
 
         if (newUser) {
-            generateToken(newUser._id, res);
+            // Role is fixed to the model default (Student); userType is never
+            // taken from the request body — that would be privilege escalation.
             await newUser.save();
 
             res.status(201).json(serializeUser(newUser));
@@ -273,7 +287,8 @@ export const registerCounselor = async (req, res) => {
         });
 
         if (newUser) {
-            generateToken(newUser._id, res);
+            // No session cookie: the administrator who created this account
+            // must stay signed in as themselves.
             await newUser.save();
 
             res.status(201).json({
@@ -367,7 +382,9 @@ export const updateProfile = async (req, res) => {
 
 export const checkAuth = (req, res) => {
     try {
-        res.status(200).json(req.user);
+        // Serialize so account secrets (pin, totpSecret) are never included —
+        // the raw req.user doc would leak them.
+        res.status(200).json(serializeUser(req.user));
     } catch (error) {
         console.log("Error in checkAuth controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });

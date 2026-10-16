@@ -1,12 +1,13 @@
 import express from "express";
-import { protectRoute } from "../middleware/auth.middleware.js";
+import { protectRoute, counselorOnly } from "../middleware/auth.middleware.js";
 import {
   getAppointments, createAppointment,
-  updateAppointment, deleteAppointment, getActiveAppointment, archivePastSessions, clearAllRequests,
+  updateAppointment, deleteAppointment, getActiveAppointment, archivePastSessions, clearAllRequests, getCounselors,
 } from "../controllers/appointment.controller.js";
 
 const router = express.Router();
 
+router.get("/counselors", counselorOnly, getCounselors);
 router.get("/active/:studentId", protectRoute, getActiveAppointment);
 router.get("/", protectRoute, getAppointments);
 router.post("/", protectRoute, createAppointment);

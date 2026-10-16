@@ -2,7 +2,7 @@ import express from "express";
 import { checkAuth, login, logout, register, registerCounselor, updateProfile, updatePassword, updateProfileDetails, setPin, verifyPin, removePin, verifyTwoFactor, totpSetup, totpVerify, totpDisable } from "../controllers/auth.controller.js";
 import { forgotPassword, resetPassword, verifyResetCode } from "../controllers/passwordReset.controller.js";
 import { signup, verifyEmail, resendVerification } from "../controllers/signup.controller.js";
-import { protectRoute } from "../middleware/auth.middleware.js";
+import { protectRoute, adminOnly } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
@@ -14,8 +14,8 @@ router.post("/signup", signup);
 router.get("/verify-email", verifyEmail);
 router.post("/resend-verification", resendVerification);
 router.post("/logout", logout);
-router.post("/register", register);
-router.post("/register-counselor", registerCounselor);
+router.post("/register", adminOnly, register);
+router.post("/register-counselor", adminOnly, registerCounselor);
 
 router.put("/profile", protectRoute, updateProfile);
 router.put("/password", protectRoute, updatePassword);

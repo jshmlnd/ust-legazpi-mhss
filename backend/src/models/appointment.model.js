@@ -14,6 +14,16 @@ const appointmentSchema = new mongoose.Schema({
   duration: { type: String, default: '45 min' },
   concern: { type: String, default: '' },
   concernRisk: { type: String, enum: ['Minimal', 'Low', 'High', 'Urgent'], default: 'Minimal' },
+  // Action taken on a request (Session Requests page):
+  //   gca      → Level 1 - GCA (Admitted)
+  //   referred → Level 2 - Referred to the appointment's current counselor
+  //   adjunct  → Level 3 - Adjunct
+  // null/undefined = not yet recorded (pending or pre-feature rows → "—").
+  actionTaken: {
+    type: String,
+    enum: ['gca', 'referred', 'adjunct', null],
+    default: null,
+  },
   notes: { type: String, default: '' },
   startedAt: { type: Date },
   endedAt: { type: Date },

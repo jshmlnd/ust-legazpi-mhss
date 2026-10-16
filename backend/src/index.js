@@ -26,7 +26,6 @@ import noticeRoutes from "./routes/notice.route.js";
 import pushRoutes from "./routes/push.route.js";
 import { startReminderScheduler } from "./lib/reminders.js";
 
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import { setupSocket, ALLOWED_ORIGINS } from "./socket/socket.js";

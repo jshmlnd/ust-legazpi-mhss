@@ -50,7 +50,7 @@ export const getUsersForSidebar = async (req, res) => {
             const appointments = await Appointment.find({
                 counselorId: loggedInUserId,
                 type: 'Chat',
-                status: { $nin: ['ended', 'completed', 'cancelled', 'declined', 'archived'] },
+                status: { $in: ['active', 'confirmed', 'on-going'] },
             }).select("studentId");
             const studentIds = [...new Set(appointments.map((a) => a.studentId))];
             filteredUsers = await User.find({ _id: { $in: studentIds } }).select("-password");

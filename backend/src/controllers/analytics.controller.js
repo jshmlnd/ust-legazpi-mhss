@@ -154,6 +154,12 @@ export const getUpcomingSessions = async (req, res) => {
     const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName showNameToCounselor").lean();
     const studentMap = Object.fromEntries(students.map((s) => [String(s._id), s]));
 
+    const counselorIds = [...new Set(sessions.map((s) => String(s.counselorId)))];
+    const counselors = counselorIds.length > 0
+      ? await Counselor.find({ _id: { $in: counselorIds } }).select("fullName").lean()
+      : [];
+    const counselorMap = Object.fromEntries(counselors.map((c) => [String(c._id), c.fullName]));
+
     const result = sessions.map((s) => ({
       _id: s._id,
       id: `STU-${getDailyDynamicId(studentMap[String(s.studentId)]?.dynamicId) || s.studentId}`,
@@ -167,6 +173,9 @@ export const getUpcomingSessions = async (req, res) => {
       concern: s.concern,
       concernRisk: s.concernRisk,
       status: s.status,
+      counselorId: s.counselorId,
+      counselorName: counselorMap[String(s.counselorId)] || null,
+      actionTaken: s.actionTaken || null,
     }));
     res.json(result);
   } catch (error) {

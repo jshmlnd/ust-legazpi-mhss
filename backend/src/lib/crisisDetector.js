@@ -264,14 +264,22 @@ export function translateToEnglish(text) {
 }
 
 // ── Severity scoring ──
-function calculateSeverity(score) {
-  if (score >= 80) return { level: 'critical', label: 'Critical', color: 'red' };
-  if (score >= 60) return { level: 'high', label: 'High', color: 'red' };
-  if (score >= 40) return { level: 'medium', label: 'Medium', color: 'amber' };
+// Tiers key off the strongest single match, not the summed score: weights top
+// out at 10 and a whole sentence of keywords sums to ~20, so the old 40/60/80
+// score bands were unreachable — "I want to kill myself" (weight 10 keyword +
+// weight 9 intent pattern = 19) graded as "low".
+function calculateSeverity(score = 0, matches = []) {
+  const strongest = Math.max(0, ...matches.map((m) => m.weight));
+  // Means at near-max weight ("overdosed", "jumped off", "noose") = acute.
+  if (matches.some((m) => m.category === 'means' && m.weight >= 9)) {
+    return { level: 'critical', label: 'Critical', color: 'red' };
+  }
+  if (strongest >= 10) return { level: 'high', label: 'High', color: 'red' };
+  if (strongest >= 8) return { level: 'medium', label: 'Medium', color: 'amber' };
   // ponytail: >=10 matches the isCrisis gate so a flagged message always has
   // a real severity — the frontend renders 'Flagged · low' from this value;
   // returning 'none' for a flagged message would render a broken badge.
-  if (score >= 10) return { level: 'low', label: 'Low', color: 'yellow' };
+  if (strongest >= 6 || score >= 10) return { level: 'low', label: 'Low', color: 'yellow' };
   return { level: 'none', label: 'None', color: 'green' };
 }
 
@@ -343,7 +351,7 @@ export function analyzeCrisis(text) {
 
   return {
     isCrisis: totalScore >= 10,
-    severity: calculateSeverity(totalScore),
+    severity: calculateSeverity(totalScore, uniqueMatches),
     score: totalScore,
     matches: uniqueMatches,
     language,

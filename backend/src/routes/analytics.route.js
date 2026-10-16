@@ -1,5 +1,5 @@
 import express from "express";
-import { protectRoute } from "../middleware/auth.middleware.js";
+import { counselorOnly } from "../middleware/auth.middleware.js";
 import {
   getDashboard, getWeeklySentiment, getWeeklySessions,
   getSessionDistribution, getUpcomingSessions, getAnalyticsSummary, getStudentInfo,
@@ -7,12 +7,12 @@ import {
 
 const router = express.Router();
 
-router.get("/dashboard", protectRoute, getDashboard);
-router.get("/weekly-sentiment", protectRoute, getWeeklySentiment);
-router.get("/weekly-sessions", protectRoute, getWeeklySessions);
-router.get("/session-distribution", protectRoute, getSessionDistribution);
-router.get("/upcoming-sessions", protectRoute, getUpcomingSessions);
-router.get("/summary", protectRoute, getAnalyticsSummary);
-router.get("/student/:id", protectRoute, getStudentInfo);
+router.get("/dashboard", counselorOnly, getDashboard);
+router.get("/weekly-sentiment", counselorOnly, getWeeklySentiment);
+router.get("/weekly-sessions", counselorOnly, getWeeklySessions);
+router.get("/session-distribution", counselorOnly, getSessionDistribution);
+router.get("/upcoming-sessions", counselorOnly, getUpcomingSessions);
+router.get("/summary", counselorOnly, getAnalyticsSummary);
+router.get("/student/:id", counselorOnly, getStudentInfo);
 
 export default router;

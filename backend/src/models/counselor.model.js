@@ -51,6 +51,20 @@ const counselorSchema = new mongoose.Schema(
             type: String,
             default: "Counselor",
         },
+        // College the counselor is affiliated with (visual grouping on the
+        // student-facing counselor list). Empty until an admin assigns one.
+        department: {
+            type: String,
+            enum: ['', 'CEAFA', 'CHS', 'CBMA', 'CASE'],
+            default: '',
+        },
+        // Account-level app preferences — same shape as User.preferences
+        // (see lib/prefs.js SYNCED_PREFS on the frontend).
+        preferences: {
+            sessionReminders: { type: Boolean, default: true },
+            messageNotifications: { type: Boolean, default: true },
+            switchmode: { type: Boolean, default: false },
+        },
 
     },
     { timestamps: true, _id: false });

@@ -18,20 +18,22 @@ const AppLayout = () => {
   // Real sessionReminders: on app open, notify about sessions starting
   // within 24h (in-app via the service worker) and register this browser
   // for background Web Push reminders (T-24h / T-1h / missed-chat nudge).
+  // Gated by the account's Session Reminders preference.
   useEffect(() => {
     if (!authUser) return;
-    checkUpcomingSession();
+    if (prefs.sessionReminders) checkUpcomingSession();
     subscribeToPush();
-  }, [authUser]);
+  }, [authUser, prefs.sessionReminders]);
 
   // Lightweight poll (mirrors the counselor 3s pattern, slower for students):
   // re-check upcoming sessions every 5 min so a session crossing into the
   // <24h window while the app is open still triggers a notification.
   useEffect(() => {
     if (!authUser || authUser.userType?.toLowerCase() !== 'student') return;
+    if (!prefs.sessionReminders) return;
     const id = setInterval(checkUpcomingSession, 5 * 60 * 1000);
     return () => clearInterval(id);
-  }, [authUser]);
+  }, [authUser, prefs.sessionReminders]);
 
   // Student: appointment accepted / declined notices.
   useEffect(() => {

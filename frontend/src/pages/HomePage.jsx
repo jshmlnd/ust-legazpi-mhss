@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { ArrowUpRight, BookOpen, CalendarDays, Heart, MessageCircle, MoveRight, ShieldCheck } from 'lucide-react';
 import { axiosInstance } from "../lib/axios";
 import { PATHS } from '../lib/routes';
-import Modal from '../ui/Modal';
 import { getCheckInSuggestion, dismissCheckInBanner } from '../lib/sessionLoop';
 import UniversityUpdates from './UniversityUpdates';
-
+import ActionChooserModal from '../components/modals/ActionChooserModal';
+import SessionBookingModal from '../components/modals/SessionBookingModal';
 
 const DEFAULT_NOTICE = {
   tag: "NOTICE",
-  text: "Counseling services are available for walk-in appointments every Monday and Thursday, 8:00 AM – 4:00 PM at the Office of Guidance and Testing.",
+  text: "Stay informed about the latest updates from OGT UST - Legazpi. Press view all to read more.",
   linkHref: "/university-updates",
   linkLabel: "Read latest updates",
 };
@@ -31,6 +31,7 @@ const HomePage = () => {
 
   const [notice, setNotice] = useState(DEFAULT_NOTICE);
   const [actionModal, setActionModal] = useState(null);
+  const [bookingType, setBookingType] = useState(null);
 
   const isStudent = authUser?.userType?.toLowerCase() === 'student';
 
@@ -45,6 +46,11 @@ const HomePage = () => {
   const hasActiveChatSession = appointments.some(
     (appointment) => appointment.type === 'Chat' && ['active', 'confirmed', 'on-going'].includes(appointment.status)
   );
+
+  const openBooking = (type) => {
+    setActionModal(null);
+    setBookingType(type);
+  };
 
   useEffect(() => {
     axiosInstance.get('/notice').then((res) => {
@@ -119,7 +125,7 @@ const HomePage = () => {
               It's been a few days since your session on {checkInSuggestion.date}. {checkInSuggestion.counselorName || 'Your counselor'} is here whenever you're ready.
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <Link to={PATHS.SESSIONS} className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-brand-fg hover:bg-brand-700">Book follow-up</Link>
+              <button type="button" onClick={() => openBooking('Chat')} className="rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-brand-fg hover:bg-brand-700">Book follow-up</button>
               <button onClick={() => { dismissCheckInBanner(); setBannerDismissed(true); }} className="px-3 py-2 text-xs font-medium text-ink-muted hover:text-ink">Not now</button>
             </div>
           </section>
@@ -128,53 +134,16 @@ const HomePage = () => {
         <UniversityUpdates embedded limit={3} notice={notice} />
       </div>
 
-      <Modal
-        isOpen={Boolean(actionModal)}
+      <ActionChooserModal
+        actionModal={actionModal}
         onClose={() => setActionModal(null)}
-        title={actionModal === 'book' ? 'Book a Session' : 'Message a Counselor'}
-        description={actionModal === 'book'
-          ? 'Choose how you would like to connect.'
-          : hasActiveChatSession
-            ? 'Your active chat session is ready.'
-            : 'Messaging requires an accepted chat session.'}
-      >
-        {actionModal === 'book' ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link to={PATHS.SESSIONS} state={{ openSessionModal: 'face-to-face' }} onClick={() => setActionModal(null)} className="group rounded-xl border border-line p-4 hover:border-brand-400 hover:bg-brand-soft transition-colors">
-              <CalendarDays size={20} className="text-brand-600" />
-              <h3 className="mt-3 text-sm font-semibold text-ink">Face-to-face</h3>
-              <p className="mt-1 text-xs leading-5 text-ink-muted">Choose an available counselor, date, and time.</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300">View availability <ArrowUpRight size={13} /></span>
-            </Link>
-            <Link to={PATHS.SESSIONS} state={{ openSessionModal: 'chat' }} onClick={() => setActionModal(null)} className="group rounded-xl border border-line p-4 hover:border-brand-400 hover:bg-brand-soft transition-colors">
-              <MessageCircle size={20} className="text-brand-600" />
-              <h3 className="mt-3 text-sm font-semibold text-ink">Chat session</h3>
-              <p className="mt-1 text-xs leading-5 text-ink-muted">Request a private online conversation with a counselor.</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300">Request session <ArrowUpRight size={13} /></span>
-            </Link>
-          </div>
-        ) : hasActiveChatSession ? (
-          <div>
-            <div className="rounded-xl border border-brand-200 bg-brand-soft p-4">
-              <p className="text-sm font-medium text-ink">Active chat session found</p>
-              <p className="mt-1 text-xs leading-5 text-ink-muted">Continue your private conversation with your counselor.</p>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Link to={PATHS.MESSAGES} onClick={() => setActionModal(null)} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-600 px-4 text-xs font-semibold text-brand-fg hover:bg-brand-700">Open messages</Link>
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div className="rounded-xl border border-line bg-canvas p-4">
-              <p className="text-sm font-medium text-ink">No active chat session</p>
-              <p className="mt-1 text-xs leading-5 text-ink-muted">Request a chat session and wait for a counselor to accept it before messaging.</p>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Link to={PATHS.SESSIONS} state={{ openSessionModal: 'chat' }} onClick={() => setActionModal(null)} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-brand-600 px-4 text-xs font-semibold text-brand-fg hover:bg-brand-700">Request chat session</Link>
-            </div>
-          </div>
-        )}
-      </Modal>
+        onOpenBooking={openBooking}
+        hasActiveChatSession={hasActiveChatSession}
+      />
+
+      {bookingType && (
+        <SessionBookingModal key={bookingType} initialType={bookingType} onClose={() => setBookingType(null)} />
+      )}
     </main>
   );
 };

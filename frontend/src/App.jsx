@@ -14,6 +14,7 @@ import ProfilePage from './pages/ProfilePage';
 import ResourcePage from './pages/ResourcePage';
 import SelfCarePage from './pages/SelfCarePage';
 import SessionsPage from './pages/SessionsPage';
+import CounselorListPage from './pages/CounselorListPage';
 import CounselorDashboard from './pages/CounselorDashboardPage';
 import SessionRequestsPage from './pages/SessionRequestsPage';
 import CounselorSchedulingPage from './pages/CounselorSchedulingSystemPage';
@@ -117,6 +118,7 @@ const App = () => {
             ? <Navigate to={role === 'counselor' ? PATHS.DASHBOARD : PATHS.ADMIN} replace />
             : <HomePage />)} />
           <Route path={PATHS.SESSIONS} element={guard(<SessionsPage />)} />
+          <Route path={PATHS.COUNSELOR_LIST} element={<RoleRoute allow={['student']}><CounselorListPage /></RoleRoute>} />
           <Route path={PATHS.MY_ACCOUNT} element={guard(<ProfilePage />)} />
           <Route path={PATHS.SELF_CARE} element={guard(<SelfCarePage />)} />
           <Route path={PATHS.DIARY} element={guard(<YourDiary />)} />

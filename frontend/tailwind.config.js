@@ -11,6 +11,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        script: ['"KG Second Chances"', 'cursive'],
       },
       // ── Evergreen semantic tokens ─────────────────────────────
       // Values come from CSS variables in src/index.css that flip

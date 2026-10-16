@@ -108,30 +108,6 @@ export const Select = forwardRef(function Select(
   );
 });
 
-/* ── checkbox ── */
-
-export const Checkbox = ({ label, description, error, className = '', id, ...rest }) => {
-  const autoId = useId();
-  const inputId = id || autoId;
-  return (
-    <div className={`flex items-start gap-2.5 ${className}`}>
-      <input
-        id={inputId}
-        type="checkbox"
-        aria-invalid={!!error || undefined}
-        className="mt-0.5 size-4 rounded border-line-strong text-brand-600 accent-[rgb(var(--c-brand-600))] focus:ring-2 focus:ring-brand-600/30 cursor-pointer"
-        {...rest}
-      />
-      {(label || description) && (
-        <label htmlFor={inputId} className="cursor-pointer">
-          {label && <span className="block text-sm font-medium text-ink">{label}</span>}
-          {description && <span className="block text-xs text-ink-muted mt-0.5">{description}</span>}
-        </label>
-      )}
-    </div>
-  );
-};
-
 /* ── radio ── */
 
 export const Radio = ({ label, description, className = '', id, ...rest }) => {
@@ -190,12 +166,3 @@ export const Toggle = ({ label, description, checked, onChange, disabled, ariaLa
     </div>
   );
 };
-
-/* ── standalone label (for custom controls) ── */
-
-export const FieldLabel = ({ children, required }) => (
-  <span className="block text-xs font-medium text-ink mb-1.5">
-    {children}
-    {required && <span className="text-danger ml-0.5" aria-hidden="true">*</span>}
-  </span>
-);

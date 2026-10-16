@@ -38,13 +38,13 @@ const TONES = {
   neutral: 'bg-line text-ink-soft border-line',
 };
 
-const StatusBadge = ({ status, tone, children, className = '' }) => {
+const StatusBadge = ({ status, tone, children, className = '', preserveCase = false }) => {
   const resolved = tone || MAP[String(status).toLowerCase()] || 'neutral';
   const dot = { brand: 'bg-brand-500', success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', info: 'bg-info', neutral: 'bg-ink-muted' }[resolved];
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-medium
-        border rounded-full capitalize ${TONES[resolved]} ${className}`}
+        border rounded-full ${preserveCase ? '' : 'capitalize'} ${TONES[resolved]} ${className}`}
     >
       <span className={`size-1.5 rounded-full ${dot}`} aria-hidden="true" />
       {children ?? status}

@@ -8,6 +8,7 @@ import PageShell from '../ui/PageShell';
 import { Toggle, PinInput } from '../ui';
 import SectionDivider from '../components/SectionDivider';
 import AvatarUpload from '../components/AvatarUpload';
+import TotpModal from '../components/modals/TotpModal';
 import { toast } from 'react-toastify';
 
 const StrengthBar = ({ score }) => {
@@ -52,7 +53,7 @@ const SecurityCard = ({ onGoToPreferences }) => {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const [hasPin, setHasPin] = useState(!!authUser?.pin);
+  const [hasPin, setHasPin] = useState(!!authUser?.hasPin);
   const totpOn = !!authUser?.totpEnabled;
   const twoFAEnabled = !!authUser?.twoFactorEnabled;
   // A second factor (authenticator app, PIN 2FA, or a plain PIN) gates the
@@ -68,9 +69,9 @@ const SecurityCard = ({ onGoToPreferences }) => {
   // Render-time adjustment (avoids setState-in-effect): when the account's
   // PIN existence changes externally (e.g. 2FA toggled in Preferences while
   // this card is mounted), realign hasPin and the PIN mode during render.
-  const [lastSeenPin, setLastSeenPin] = useState(!!authUser?.pin);
-  if (lastSeenPin !== !!authUser?.pin) {
-    const pinExists = !!authUser?.pin;
+  const [lastSeenPin, setLastSeenPin] = useState(!!authUser?.hasPin);
+  if (lastSeenPin !== !!authUser?.hasPin) {
+    const pinExists = !!authUser?.hasPin;
     setLastSeenPin(pinExists);
     setHasPin(pinExists);
     setPinMode((m) => {
@@ -108,7 +109,7 @@ const SecurityCard = ({ onGoToPreferences }) => {
     try {
       await axiosInstance.post('/auth/pin', { pin: pinValue });
       setHasPin(true);
-      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, pin: pinValue } : s.authUser }));
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, hasPin: true } : s.authUser }));
       setPinMode('verify');
       resetPinInputs();
       setStatus({ type: 'success', message: 'PIN set successfully.' });
@@ -157,7 +158,7 @@ const SecurityCard = ({ onGoToPreferences }) => {
     try {
       await axiosInstance.delete('/auth/pin', { data: { pin: pinValue } });
       setHasPin(false);
-      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, pin: '', twoFactorEnabled: false } : s.authUser }));
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, hasPin: false, twoFactorEnabled: false } : s.authUser }));
       setPinMode('setup');
       resetPinInputs();
       setStatus({ type: 'success', message: 'PIN removed successfully.' });
@@ -442,7 +443,7 @@ const PreferencesCard = () => {
   const [savingVisibility, setSavingVisibility] = useState(false);
 
   // OGT Updates newsletter opt-out — server-backed (the mail dispatcher reads
-  // it), unlike the device-local notification toggles below.
+  // it), like the account-synced toggles below (lib/prefs.js SYNCED_PREFS).
   const [ogtUpdates, setOgtUpdates] = useState(authUser?.receiveOgtUpdates !== false);
   const [savingOgtUpdates, setSavingOgtUpdates] = useState(false);
 
@@ -657,119 +658,30 @@ const PreferencesCard = () => {
         ))}
       </div>
 
-      <p className="text-xs text-ink-muted mt-4">Preferences are saved on this device.</p>
+      <p className="text-xs text-ink-muted mt-4">Preferences are saved to your account.</p>
 
-      {showTotpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-side/40 px-4">
-          <div className="absolute inset-0" onClick={() => setShowTotpModal(false)} aria-hidden="true" />
-          <div role="dialog" aria-modal="true" aria-label="Two-factor authentication" className="relative bg-surface rounded-lg p-6 w-full max-w-sm">
-            {totpPhase === 'loading' ? (
-              <div className="flex flex-col items-center gap-3 py-8">
-                <Loader size={20} className="animate-spin text-ink-muted" />
-                <p className="text-xs text-ink-muted">Generating your secret…</p>
-              </div>
-            ) : totpPhase === 'qr' ? (
-              <>
-                <h4 className="text-sm font-medium text-ink mb-1">Set up authenticator app</h4>
-                <p className="text-xs text-ink-muted mb-4">
-                  Scan the QR code with Google Authenticator, Authy, or any TOTP app. Can't scan?
-                  Enter this key manually:
-                </p>
-                <div className="flex justify-center mb-3">
-                  {qrDataUrl
-                    ? <img src={qrDataUrl} alt="Authenticator QR code" width={220} height={220} className="rounded-lg border border-line" />
-                    : <Loader size={20} className="animate-spin" />}
-                </div>
-                <div className="bg-canvas rounded-lg px-3 py-2 mb-4">
-                  <p className="text-[10px] font-semibold text-ink-muted uppercase tracking-wide mb-0.5">Manual entry key</p>
-                  <p className="text-xs font-mono text-ink break-all select-all">{totpSecret}</p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-ink">Enter the 6-digit code to confirm</label>
-                  <PinInput
-                    value={totpToken}
-                    onChange={(v) => { setTotpToken(v); setTotpError(null); }}
-                    error={!!totpError}
-                    autoFocus
-                    ariaLabel="Authenticator code digits"
-                  />
-                </div>
-                {totpError && <p className="text-xs text-danger mt-2">{totpError}</p>}
-                <div className="flex items-center gap-2 mt-5">
-                  <button
-                    type="button"
-                    onClick={() => setShowTotpModal(false)}
-                    className="flex-1 px-4 py-2 text-xs font-semibold text-ink-soft bg-line hover:bg-line transition-colors rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmTotpSetup}
-                    disabled={savingTotp || totpToken.length !== 6}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg"
-                  >
-                    {savingTotp ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
-                    Confirm & enable
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h4 className="text-sm font-medium text-ink mb-1">Disable authenticator app</h4>
-                <p className="text-xs text-ink-muted mb-4">
-                  Enter the current 6-digit code from your authenticator app to turn off TOTP 2FA
-                  {authUser?.pin ? ', or use your PIN instead.' : '.'}
-                </p>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-ink">
-                    {disableWithPin ? 'Account PIN' : 'Authenticator code'}
-                  </label>
-                  <PinInput
-                    key={disableWithPin ? 'pin' : 'totp'}
-                    value={totpToken}
-                    onChange={(v) => { setTotpToken(v); setTotpError(null); }}
-                    error={!!totpError}
-                    autoFocus
-                    ariaLabel={disableWithPin ? 'PIN digits' : 'Authenticator code digits'}
-                  />
-                </div>
-                {authUser?.pin && (
-                  <button
-                    type="button"
-                    onClick={() => { setDisableWithPin((v) => !v); setTotpToken(''); setTotpError(null); }}
-                    className="text-xs font-medium text-ink-muted hover:text-ink transition-colors mt-2"
-                  >
-                    {disableWithPin ? 'Use authenticator code instead' : 'Use PIN instead'}
-                  </button>
-                )}
-                {totpError && <p className="text-xs text-danger mt-2">{totpError}</p>}
-                <div className="flex items-center gap-2 mt-5">
-                  <button
-                    type="button"
-                    onClick={() => setShowTotpModal(false)}
-                    className="flex-1 px-4 py-2 text-xs font-semibold text-ink-soft bg-line hover:bg-line transition-colors rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={confirmTotpDisable}
-                    disabled={savingTotp || totpToken.length < 4}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-danger hover:bg-danger/90 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg"
-                  >
-                    {savingTotp ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
-                    Disable
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+      <TotpModal
+        isOpen={showTotpModal}
+        onClose={() => setShowTotpModal(false)}
+        totpPhase={totpPhase}
+        qrDataUrl={qrDataUrl}
+        totpSecret={totpSecret}
+        totpToken={totpToken}
+        setTotpToken={setTotpToken}
+        setTotpError={setTotpError}
+        totpError={totpError}
+        savingTotp={savingTotp}
+        confirmTotpSetup={confirmTotpSetup}
+        authUser={authUser}
+        disableWithPin={disableWithPin}
+        setDisableWithPin={setDisableWithPin}
+        confirmTotpDisable={confirmTotpDisable}
+      />
     </div>
   );
 };
+
+const DEPARTMENTS = ['CEAFA', 'CHS', 'CASE', 'CBMA'];
 
 const ProfilePage = () => {
   const { authUser, updateProfile } = useAuthStore();
@@ -823,7 +735,6 @@ const ProfilePage = () => {
       fullName: authUser.fullName || '',
       email: authUser.email || '',
       department: authUser.department || '',
-      program: authUser.program || '',
     });
     setEditing(true);
   };
@@ -900,8 +811,6 @@ const ProfilePage = () => {
                 {[
                   { key: 'fullName', label: 'Full Name' },
                   { key: 'email', label: 'Email' },
-                  { key: 'department', label: 'Department' },
-                  { key: 'program', label: 'Program' },
                 ].map(({ key, label }) => (
                   <div key={key} className="space-y-1">
                     <label className="text-xs font-semibold text-ink-muted">{label}</label>
@@ -912,6 +821,20 @@ const ProfilePage = () => {
                     />
                   </div>
                 ))}
+                <div className="space-y-1">
+                  <label htmlFor="profile-department" className="text-xs font-semibold text-ink-muted">Department</label>
+                  <select
+                    id="profile-department"
+                    value={editForm.department || ''}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2 text-ink focus:border-brand-600 outline-none transition-colors"
+                  >
+                    <option value="">Not assigned</option>
+                    {DEPARTMENTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex gap-2 pt-2">
                   <button onClick={() => setEditing(false)} className="flex-1 px-4 py-2 text-xs font-semibold text-ink-soft bg-line hover:bg-line transition-colors rounded-lg">
                     Cancel

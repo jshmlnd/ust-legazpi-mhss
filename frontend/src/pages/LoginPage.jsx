@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
-  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MailCheck, MessageSquare, Moon, Sun,
-  UserPlus,
+  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MailCheck, MessageSquare, Moon, Sun
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -11,7 +10,7 @@ import { toast } from 'react-toastify';
 import { usePrefs } from '../lib/prefs';
 import { Button, Field, PinInput } from '../ui';
 
-const LOGO_URL = 'https://ik.imagekit.io/zjkm666/new-ust-logo.png';
+const LOGO_URL = 'https://ik.imagekit.io/zjkm666/OGT-Logo.png';
 
 const INPUT_CLASS =
   'w-full rounded-lg border bg-surface py-3 pl-4 text-sm text-ink ' +
@@ -28,8 +27,8 @@ const BRAND_PANEL_POINTS = [
   { icon: Heart, label: 'Mental Wellness' },
 ];
 
-const LogoTile = ({ size = 'size-11' }) => (
-  <span className={`flex ${size} shrink-0 items-center justify-center rounded-xl bg-white shadow-e2`}>
+const LogoTile = ({ size = 'size-24' }) => (
+  <span className={`flex ${size} shrink-0 items-center justify-center`}>
     <img src={LOGO_URL} alt="UST-Legazpi logo" className="size-3/4" />
   </span>
 );
@@ -341,14 +340,14 @@ const LoginPage = () => {
         <div className="relative flex items-center gap-3">
           <LogoTile />
           <div>
-            <p className="text-sm font-semibold text-side-ink">UST-Legazpi</p>
-            <p className="text-xs text-side-ink-muted">Mental Health Support System</p>
+            <p className="text-md font-semibold text-side-ink">UST-Legazpi</p>
+            <p className="text-sm text-side-ink-muted">Office of Guidance & Testing</p>
           </div>
         </div>
 
         <div className="relative max-w-md">
           <h2 className="text-4xl font-medium leading-[1.1] tracking-tight text-side-ink xl:text-6xl">
-            Welcome to <span className="text-brand-300 font-black">SafeSpace</span>
+            Welcome to <span className="text-brand-300 font-script">SafeSpace</span>
           </h2>
           <p className="mt-5 text-sm leading-[1.7] text-side-ink-soft">
             A University of Santo Tomas - Legazpi Mental Health Support website, a safe, anonymous
@@ -374,7 +373,7 @@ const LoginPage = () => {
         <LogoTile size="size-10" />
         <div>
           <p className="text-sm font-semibold text-side-ink">UST-Legazpi · SafeSpace</p>
-          <p className="text-xs text-side-ink-muted">Mental Health Support System</p>
+          <p className="text-xs text-side-ink-muted">Office of Guidance & Testing</p>
         </div>
       </div>
 

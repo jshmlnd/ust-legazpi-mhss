@@ -113,7 +113,6 @@ const StudentIdentityPage = () => {
                 </div>
                 <div>
                   <h2 className="text-lg font-medium text-ink">{student.fullName}</h2>
-                  <span className="text-xs text-ink-muted font-mono">STU-{student._id}</span>
                 </div>
               </div>
 

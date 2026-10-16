@@ -46,7 +46,7 @@ const Modal = ({ isOpen, onClose, title, description, children, footer, wide = f
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[8vh] pb-10 px-4 sm:px-6 animate-fade-in">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center px-4 pt-4 pb-4 sm:px-6 sm:pt-[8vh] sm:pb-10 animate-fade-in">
       <div className="absolute inset-0 bg-ink/45" aria-hidden="true" onClick={onClose} />
       <div
         ref={panelRef}
@@ -54,7 +54,7 @@ const Modal = ({ isOpen, onClose, title, description, children, footer, wide = f
         aria-modal="true"
         aria-label={title}
         tabIndex={-1}
-        className={`relative w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} max-h-[84vh] flex flex-col bg-raised border border-line
+          className={`relative w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} max-h-[calc(100dvh-2rem)] sm:max-h-[84vh] flex flex-col bg-raised border border-line
           rounded-xl shadow-e3 animate-modal-in focus:outline-none`}
       >
         <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-line">

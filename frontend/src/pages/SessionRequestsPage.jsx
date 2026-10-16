@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarDays, Check, Clock, MessageSquare, RefreshCw, Trash2, X,
+  AlertTriangle, CalendarDays, Check, Clock, MessageSquare, Pencil, RefreshCw, Trash2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import PageShell from '../ui/PageShell';
@@ -10,23 +10,20 @@ import Button from '../ui/Button';
 import StatusBadge from '../ui/StatusBadge';
 import EmptyState from '../ui/EmptyState';
 import { PageShellSkeleton } from '../components/skeleton';
+import ActionLevelModal from '../components/modals/ActionLevelModal';
 import { axiosInstance } from '../lib/axios';
-import { confirmAction } from '../lib/confirm';
 import { PATHS } from '../lib/routes';
 import { getSocket } from '../lib/socket';
 
 /* ─────────────────────── request rows (moved from dashboard) ─────────────────────── */
 
-const STATUS_LABELS = {
-  pending: 'Pending',
-  'on-going': 'On-going',
-  paused: 'Paused',
-  ended: 'Ended',
-  confirmed: 'Approved',
-  active: 'Accepted',
-  declined: 'Declined',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
+// "Action taken" levels recorded on an appointment (backend actionTaken enum).
+const ACTION_TONES = { gca: 'success', referred: 'info', adjunct: 'warning' };
+const actionTakenLabel = (session) => {
+  if (session.actionTaken === 'gca') return 'Level 1 - GCA (Admitted)';
+  if (session.actionTaken === 'referred') return `Level 2 - Referred (Referred to ${session.counselorName || 'counselor'})`;
+  if (session.actionTaken === 'adjunct') return 'Level 3 - Adjunct';
+  return null;
 };
 
 const ACTIONABLE = ['active', 'on-going', 'confirmed'];
@@ -34,8 +31,7 @@ const ACTIONABLE = ['active', 'on-going', 'confirmed'];
 const getRowActions = (session) => {
   if (session.status === 'pending') {
     return [
-      { key: 'accept', label: 'Accept', icon: Check, variant: 'primary', onClick: 'accept' },
-      { key: 'decline', label: 'Decline', icon: X, variant: 'secondary', onClick: 'decline' },
+      { key: 'admit', label: 'Admit', icon: Check, variant: 'primary', onClick: 'admit' },
     ];
   }
   if (ACTIONABLE.includes(session.status)) {
@@ -54,7 +50,7 @@ const RiskBadge = ({ risk = 'Minimal' }) => (
   <StatusBadge tone={risk === 'Urgent' ? 'danger' : risk === 'High' ? 'warning' : 'neutral'}>{risk}</StatusBadge>
 );
 
-const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, onClearAll, clearingAll }) => {
+const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, busy, onClearAll, clearingAll }) => {
   const navigate = useNavigate();
   const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
@@ -72,11 +68,35 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
             icon={a.icon}
             disabled={isBusy && busy.action !== a.key}
             loading={isBusy && busy.action === a.key}
-            onClick={() => (a.onClick === 'accept' ? onAccept(session) : a.onClick === 'decline' ? onDecline(session) : navigate(a.to))}
+            onClick={() => (a.onClick === 'admit' ? onAdmit(session) : navigate(a.to))}
           >
             {a.label}
           </Button>
         ))}
+      </div>
+    );
+  };
+
+  const renderActionTaken = (session) => {
+    const label = actionTakenLabel(session);
+    const editable = ACTIONABLE.includes(session.status);
+    return (
+      <div className="flex items-center gap-1.5">
+        {label ? (
+          <StatusBadge tone={ACTION_TONES[session.actionTaken]} preserveCase>{label}</StatusBadge>
+        ) : (
+          <span className="text-xs text-ink-muted">—</span>
+        )}
+        {editable && (
+          <Button
+            size="sm"
+            variant="tertiary"
+            icon={Pencil}
+            aria-label={`Change action taken for ${session.studentName || session.id}`}
+            onClick={() => onEditLevel(session)}
+            className="!px-2"
+          />
+        )}
       </div>
     );
   };
@@ -121,7 +141,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Concern</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Risk</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Time</th>
-                  <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Status</th>
+                  <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Action taken</th>
                   <th scope="col" className="px-5 py-3" />
                 </tr>
               </thead>
@@ -136,9 +156,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
                     <td className="px-5 py-3.5 max-w-56 text-sm text-ink-soft truncate" title={session.concern}>{session.concern || '—'}</td>
                     <td className="px-5 py-3.5"><RiskBadge risk={session.concernRisk} /></td>
                     <td className="px-5 py-3.5 text-sm text-ink-soft whitespace-nowrap">{session.date} {session.time}</td>
-                    <td className="px-5 py-3.5">
-                      <StatusBadge status={session.status}>{STATUS_LABELS[session.status] ?? session.status}</StatusBadge>
-                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap">{renderActionTaken(session)}</td>
                     <td className="px-5 py-3.5 text-right">{renderActions(session)}</td>
                   </tr>
                 ))}
@@ -164,7 +182,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAccept, onDecline, busy, on
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <RiskBadge risk={session.concernRisk} />
-                    <StatusBadge status={session.status}>{STATUS_LABELS[session.status] ?? session.status}</StatusBadge>
+                    {renderActionTaken(session)}
                   </div>
                   {renderActions(session)}
                 </div>
@@ -196,6 +214,12 @@ const SessionRequestsPage = () => {
   const [busy, setBusy] = useState(null);
   const [clearingAll, setClearingAll] = useState(false);
 
+  const [counselors, setCounselors] = useState([]);
+  const [levelSession, setLevelSession] = useState(null);
+  const [levelChoice, setLevelChoice] = useState('gca');
+  const [referredId, setReferredId] = useState('');
+  const [savingLevel, setSavingLevel] = useState(false);
+
   // Loader lives inside the mount effect (where the react-hooks rules can
   // verify no setState happens synchronously) and is exposed via ref so the
   // retry button, socket handler, and poll can reuse the same fetch.
@@ -222,6 +246,10 @@ const SessionRequestsPage = () => {
     loaders.current = { requests: fetchRequests };
     fetchRequests();
 
+    axiosInstance.get('/appointments/counselors')
+      .then((res) => { if (!cancelled) setCounselors(res.data ?? []); })
+      .catch(() => {});
+
     const socket = getSocket();
     const handleUpdated = () => loaders.current.requests?.();
     if (socket) socket.on('appointment:updated', handleUpdated);
@@ -239,38 +267,54 @@ const SessionRequestsPage = () => {
     Promise.resolve(loaders.current.requests?.()).finally(() => setRefreshing(false));
   };
 
-  const handleAccept = async (session) => {
-    setBusy({ id: session._id, action: 'accept' });
+  const handleAdmit = async (session) => {
+    setBusy({ id: session._id, action: 'admit' });
     try {
-      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'active' });
-      setSessions((prev) => prev.map((s) => (s._id === session._id ? { ...s, status: 'active' } : s)));
-      toast.success(`Accepted request from ${session.studentName || session.id}`);
+      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'active', actionTaken: 'gca' });
+      setSessions((prev) => prev.map((s) => (s._id === session._id ? { ...s, status: 'active', actionTaken: 'gca' } : s)));
+      toast.success(`Admitted request from ${session.studentName || session.id}`);
     } catch (err) {
-      toast.error(err.response?.data?.error || 'Failed to accept request.');
+      toast.error(err.response?.data?.error || 'Failed to admit request.');
     } finally {
       setBusy(null);
     }
   };
 
-  const handleDecline = async (session) => {
-    setBusy({ id: session._id, action: 'decline' });
+  const openLevelEditor = (session) => {
+    setLevelSession(session);
+    setLevelChoice(session.actionTaken || 'gca');
+    setReferredId(counselors[0] ? String(counselors[0]._id) : '');
+  };
+
+  const saveLevel = async () => {
+    if (!levelSession) return;
+    if (levelChoice === 'referred' && !referredId) {
+      toast.error('Choose a counselor to refer to.');
+      return;
+    }
+    setSavingLevel(true);
     try {
-      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'declined' });
-      setSessions((prev) => prev.map((s) => (s._id === session._id ? { ...s, status: 'declined' } : s)));
-      toast.success(`Declined request from ${session.studentName || session.id}`);
-    } catch {
-      toast.error('Failed to decline request.');
+      await axiosInstance.patch(`/appointments/${levelSession._id}`, levelChoice === 'referred'
+        ? { actionTaken: 'referred', counselorId: Number(referredId) }
+        : { actionTaken: levelChoice });
+      if (levelChoice === 'referred') {
+        const name = counselors.find((c) => String(c._id) === referredId)?.fullName || 'the counselor';
+        setSessions((prev) => prev.filter((s) => s._id !== levelSession._id));
+        toast.success(`Referred to ${name} — the request moved to their list.`);
+      } else {
+        setSessions((prev) => prev.map((s) => (s._id === levelSession._id ? { ...s, actionTaken: levelChoice } : s)));
+        toast.success('Action taken updated.');
+      }
+      setLevelSession(null);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update action taken.');
     } finally {
-      setBusy(null);
+      setSavingLevel(false);
     }
   };
 
   const handleClearAll = async () => {
-    const confirmed = await confirmAction({
-      title: 'Clear all requests? This will hide them for you but keep student records intact.',
-      confirmLabel: 'Clear',
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Clear all requests? This will hide them for you but keep student records intact.')) return;
     setClearingAll(true);
     try {
       await axiosInstance.post('/appointments/clear-all');
@@ -305,11 +349,24 @@ const SessionRequestsPage = () => {
         sessions={sessions}
         error={error && sessions.length === 0 ? error : null}
         onRetry={retryRequests}
-        onAccept={handleAccept}
-        onDecline={handleDecline}
+        onAdmit={handleAdmit}
+        onEditLevel={openLevelEditor}
         busy={busy}
         onClearAll={handleClearAll}
         clearingAll={clearingAll}
+      />
+
+      <ActionLevelModal
+        isOpen={!!levelSession}
+        onClose={() => setLevelSession(null)}
+        levelSession={levelSession}
+        levelChoice={levelChoice}
+        setLevelChoice={setLevelChoice}
+        referredId={referredId}
+        setReferredId={setReferredId}
+        counselors={counselors}
+        savingLevel={savingLevel}
+        saveLevel={saveLevel}
       />
     </PageShell>
   );

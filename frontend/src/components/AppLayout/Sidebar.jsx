@@ -3,10 +3,9 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { LogOut, PanelLeftClose, Menu } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { NAV_SECTIONS, ACCOUNT_ITEM } from '../../lib/routes';
-import { confirmAction } from '../../lib/confirm';
 
 const Logo = () => (
-  <img src="https://ik.imagekit.io/zjkm666/new-ust-logo.png" alt="UST-Legazpi logo" className="size-9 shrink-0" />
+  <img src="https://ik.imagekit.io/zjkm666/OGT-Logo.png" alt="OGT UST - Legazpi logo" className="size-9 shrink-0" />
 );
 
 /* Home route per role — students get the marketing/home page, everyone else
@@ -76,11 +75,7 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
   const homePath = ROLE_HOME[role] || '/';
 
   const handleLogout = async () => {
-    const confirmed = await confirmAction({
-      title: 'Are you sure you want to log out?',
-      confirmLabel: 'Log out',
-    });
-    if (!confirmed) return;
+    if (!window.confirm('Are you sure you want to log out?')) return;
     await logout();
     navigate('/login');
   };
@@ -103,8 +98,8 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
           <Logo />
           {!collapsed && (
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-side-ink truncate">UST-Legazpi</span>
-              <span className="block text-[10px] text-side-ink-muted truncate">Mental Health Support</span>
+              <span className="block text-2xl font-script text-side-ink truncate">SafeSpace</span>
+              <span className="block text-[10px] text-side-ink-muted truncate">Office of Guidance & Testing</span>
             </span>
           )}
         </Link>

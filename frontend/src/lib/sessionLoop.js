@@ -1,7 +1,18 @@
 import { axiosInstance } from './axios';
 
 const BANNER_KEY = 'checkin_banner_dismissed';
+const NOTIFIED_KEY = 'session_notified_ids';
 const DAY_MS = 24 * 3600e3;
+const REMIND_WINDOW_MS = 24 * 3600e3;
+
+const getNotifiedIds = () => {
+  try {
+    const ids = JSON.parse(localStorage.getItem(NOTIFIED_KEY));
+    return Array.isArray(ids) ? ids : [];
+  } catch {
+    return [];
+  }
+};
 
 const toDate = (appt) => {
   // Appointments: date 'YYYY-MM-DD' + time 'HH:MM AM/PM'.
@@ -52,6 +63,9 @@ export const dismissCheckInBanner = () => localStorage.setItem(BANNER_KEY, Strin
  * confirmed/active appointment inside 24h and fire a system notification
  * (through the existing service worker). Also subscribes to Web Push when
  * permission is granted so background reminders can reach the device.
+ *
+ * Each appointment notifies exactly once (NOTIFIED_KEY), otherwise the
+ * 5-minute poll and AppLayout re-mounts would re-alert for the whole window.
  */
 export const checkUpcomingSession = async () => {
   try {
@@ -61,8 +75,12 @@ export const checkUpcomingSession = async () => {
       .filter((a) => ['confirmed', 'active'].includes(a.status))
       .map((a) => ({ ...a, _when: toDate(a)?.getTime() }))
       .filter((a) => a._when && a._when > now - 3600e3) // started <1h ago still counts
+      .filter((a) => a._when - now <= REMIND_WINDOW_MS) // only inside the 24h window
       .sort((a, b) => a._when - b._when)[0];
     if (!next) return null;
+
+    const notified = getNotifiedIds();
+    if (notified.includes(String(next._id))) return next;
 
     const mins = Math.round((next._when - now) / 60e3);
     if (mins <= 0) return next;
@@ -75,8 +93,10 @@ export const checkUpcomingSession = async () => {
     showNotification(
       'Upcoming session',
       `Your ${next.type === 'Chat' ? 'chat' : 'face-to-face'} session with ${next.counselorName || 'your counselor'} is ${when}.`,
-      { url: next.type === 'Chat' ? '/messages' : '/sessions' }
+      { url: next.type === 'Chat' ? '/messages' : '/sessions' },
+      `session-${next._id}`
     );
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify([...notified, String(next._id)].slice(-20)));
     return next;
   } catch {
     return null;

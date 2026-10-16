@@ -49,7 +49,19 @@ export const useChatStore = create((set, get) => ({
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/message/users");
-      set({ users: res.data });
+      set((state) => {
+        const selectedStillAvailable = state.selectedUser
+          && res.data.some((user) => String(user._id) === String(state.selectedUser._id));
+        return {
+          users: res.data,
+          ...(selectedStillAvailable ? {} : {
+            selectedUser: null,
+            messages: [],
+            crisisMessageMap: {},
+            currentAppointmentId: null,
+          }),
+        };
+      });
     } catch {
       toast.error("Failed to load contacts");
     } finally {

@@ -1,27 +1,19 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart, CalendarDays } from 'lucide-react';
+import { Book, Plus, Trash2, Clock, Meh, CalendarDays } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import Modal from '../ui/Modal';
 import EmptyState from '../ui/EmptyState';
 import { toast } from 'react-toastify';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import { useChartTheme } from '../lib/useChartTheme';
+import EntryForm, { MOODS } from '../components/modals/EntryForm';
 
 /* Days without entries are pushed with `empty: true` and no score, so
    recharts (with connectNulls=false on <Area>) renders a gap in the line
    instead of dragging the trend down to zero. */
-
-const MOODS = [
-  { key: 'great', icon: Heart, label: 'Great', color: 'text-brand-soft-ink bg-brand-soft' },
-  { key: 'good', icon: Smile, label: 'Good', color: 'text-info-ink bg-info-soft' },
-  { key: 'okay', icon: Meh, label: 'Okay', color: 'text-warning-ink bg-warning-soft' },
-  { key: 'low', icon: Frown, label: 'Low', color: 'text-orange-600 bg-orange-50' },
-  { key: 'bad', icon: Angry, label: 'Bad', color: 'text-danger-ink bg-danger-soft' },
-];
 
 const EntryCard = ({ entry, onDelete }) => {
   const mood = MOODS.find((m) => m.key === entry.mood);
@@ -49,68 +41,6 @@ const EntryCard = ({ entry, onDelete }) => {
       </div>
       <p className="text-xs text-ink-soft leading-relaxed whitespace-pre-line line-clamp-3">{entry.content}</p>
     </div>
-  );
-};
-
-const EntryForm = ({ onSave, onClose }) => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [mood, setMood] = useState('okay');
-  const [saving, setSaving] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
-    setSaving(true);
-    const ok = await onSave({ title: title.trim(), content: content.trim(), mood });
-    if (!ok) { setSaving(false); return; }
-    setTitle(''); setContent(''); setMood('okay');
-    onClose();
-  };
-
-  return (
-    <Modal isOpen onClose={onClose} title="New Journal Entry">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Entry title..."
-          className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors"
-        />
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What&apos;s on your mind?"
-          rows={8}
-          className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors resize-none"
-        />
-        <div>
-          <span className="text-xs font-semibold text-ink-muted block mb-2">Mood</span>
-          <div className="flex flex-wrap gap-2">
-            {MOODS.map((m) => {
-              const Icon = m.icon;
-              const selected = mood === m.key;
-              return (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => setMood(m.key)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors ${
-                    selected ? `${m.color} border-transparent` : 'text-ink-muted border-line hover:border-line-strong'
-                  }`}
-                >
-                  <Icon size={14} /> {m.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-semibold text-ink-muted hover:text-ink transition-colors">Cancel</button>
-          <button type="submit" disabled={saving} className="px-5 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg disabled:opacity-50">{saving ? 'Saving...' : 'Save Entry'}</button>
-        </div>
-      </form>
-    </Modal>
   );
 };
 

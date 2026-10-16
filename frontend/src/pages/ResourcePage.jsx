@@ -9,20 +9,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import { Button, Input, Textarea, Select } from '../ui';
+import { Button } from '../ui';
 import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import Modal from '../ui/Modal';
 import RoleGate from '../components/RoleGate';
 import EmptyState from '../ui/EmptyState';
 import { toast } from 'react-toastify';
-
-const RESOURCE_TYPES = [
-  { value: 'hotline', label: 'Emergency Hotline' },
-  { value: 'psychiatrist', label: 'Psychiatrist' },
-  { value: 'psychologist', label: 'Psychologist' },
-  { value: 'location', label: 'Physical Center' },
-];
+import ResourceFormModal, { RESOURCE_TYPES } from '../components/modals/ResourceFormModal';
 
 const TYPE_ICONS = { hotline: Phone, location: MapPin, psychologist: Brain, psychiatrist: Stethoscope };
 const TYPE_LABELS = { hotline: 'Hotline', location: 'Center', psychologist: 'Psychologist', psychiatrist: 'Psychiatrist' };
@@ -309,7 +302,7 @@ const DetailPanel = ({ resource, onEdit, onDelete, isCounselor, onClose }) => {
 
   return (
     <aside
-      className="bg-surface border border-line rounded-xl shadow-e1 flex flex-col h-full min-h-0 overflow-hidden"
+      className="bg-surface border border-line rounded-xl shadow-e1 flex flex-col h-auto lg:h-full min-h-0 overflow-hidden"
       aria-label={`Details for ${resource.title}`}
     >
       <div className="relative shrink-0 overflow-hidden bg-side p-5">
@@ -335,7 +328,7 @@ const DetailPanel = ({ resource, onEdit, onDelete, isCounselor, onClose }) => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-5">
+      <div className="p-5 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
         {resource.description && (
           <p className="text-xs leading-relaxed text-ink-soft">{resource.description}</p>
         )}
@@ -387,62 +380,6 @@ const DetailPanel = ({ resource, onEdit, onDelete, isCounselor, onClose }) => {
         )}
       </div>
     </aside>
-  );
-};
-
-/* ─────────────────────────────────────────────────────────────
-   Form modal
-   ───────────────────────────────────────────────────────────── */
-const FORM_EMPTY = { title: '', type: 'hotline', description: '', url: '', address: '', hours: '', contact: '', mapUrl: '' };
-
-/* Keyed by the parent on `editing` so add vs. edit sessions remount with
-   fresh form state — no setState-in-effect reset needed. */
-const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
-  const [form, setForm] = useState(initial ? { ...FORM_EMPTY, ...initial } : FORM_EMPTY);
-  const isEdit = !!initial;
-
-  const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(form);
-    setForm(FORM_EMPTY);
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit Resource' : 'Add Resource'} wide>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Title" name="title" value={form.title} onChange={handleChange} placeholder="e.g., Bicol Region Mental Health Hotline" required />
-          <Select
-            label="Type"
-            name="type"
-            value={form.type}
-            onChange={handleChange}
-            options={RESOURCE_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-          />
-        </div>
-        <Textarea label="Description" name="description" value={form.description} onChange={handleChange} placeholder="Brief summary of the resource..." rows={3} resize="y" required />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-          <Input label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Full address" />
-          <Input label="Hours" name="hours" value={form.hours} onChange={handleChange} placeholder="e.g., Mon–Fri 8AM–5PM" />
-          <Input label="Contact" name="contact" value={form.contact} onChange={handleChange} placeholder="Phone number" />
-        </div>
-        {form.type !== 'hotline' && (
-          <Input
-            label="Google Maps Link"
-            name="mapUrl"
-            value={form.mapUrl ?? ''}
-            onChange={handleChange}
-            placeholder="https://www.google.com/maps/..."
-            helper="Paste a Google Maps link to drop the pin automatically, or leave it blank to locate the address."
-          />
-        )}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm">{isEdit ? 'Save Changes' : 'Add Resource'}</Button>
-        </div>
-      </form>
-    </Modal>
   );
 };
 
@@ -722,10 +659,10 @@ const ResourcePage = () => {
         renderGrid()
       ) : viewMode === 'map' ? (
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-stretch">
-          <div className="h-[65vh]">
+          <div className="h-[45vh] min-h-[280px] max-h-[420px] lg:h-[65vh] lg:max-h-none">
             <ResourceMap resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
           </div>
-          <div className="h-[60vh] lg:h-[65vh]">
+          <div className="h-auto lg:h-[65vh]">
             {selectedResource ? (
               <DetailPanel
                 resource={selectedResource}
@@ -747,11 +684,11 @@ const ResourcePage = () => {
         /* Split: list + sticky map + live detail panel */
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
           <div className="min-h-0">
-            <div className="max-h-[65vh] overflow-y-auto pr-1 -mr-1">
+            <div className="lg:max-h-[65vh] lg:overflow-y-auto lg:pr-1 lg:-mr-1">
               {renderGrid()}
             </div>
           </div>
-          <div className="h-[65vh] lg:sticky lg:top-24 flex flex-col min-h-0 gap-3">
+          <div className="h-[45vh] min-h-[280px] max-h-[420px] lg:h-[65vh] lg:max-h-none lg:sticky lg:top-24 flex flex-col min-h-0 gap-3">
             <div className="flex-1 min-h-0">
               <ResourceMap resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
             </div>

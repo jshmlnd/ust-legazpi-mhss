@@ -300,14 +300,18 @@ const StudentChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
-    isSocketConnected, typingUsers, crisisMessageMap,
+    isSocketConnected, typingUsers, crisisMessageMap, unreadCounts,
   } = useChatStore();
   const { callState, initiateCall } = useCallStore();
   const messagesEndRef = useRef(null);
+  const [showMobileList, setShowMobileList] = useState(true);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [appointmentLoading, setAppointmentLoading] = useState(true);
   const [feedbackAppointment, setFeedbackAppointment] = useState(null);
+  // Counselor that currently has an open Chat session with this student —
+  // drives the "Session open" tag in the picker regardless of selection.
+  const [sessionCounselorId, setSessionCounselorId] = useState(null);
 
   useEffect(() => {
     getUsers();
@@ -319,10 +323,28 @@ const StudentChatView = () => {
     };
   }, [getUsers, subscribeToMessages, unsubscribeFromMessages]);
 
+  // Pick the counselor the student actually has an active Chat session with —
+  // /message/users lists every counselor, so users[0] may be one with no
+  // session (fetch would 404 → "No conversation" despite an open session).
   useEffect(() => {
-    if (users.length > 0 && !selectedUser) {
-      setSelectedUser(users[0]);
-    }
+    if (users.length === 0 || selectedUser) return;
+    let cancelled = false;
+    (async () => {
+      let pick = users[0];
+      try {
+        const res = await axiosInstance.get('/appointments');
+        const active = (res.data ?? []).find(
+          (a) => a.type === 'Chat' && ['active', 'on-going', 'confirmed'].includes(a.status),
+        );
+        const match = active && users.find((u) => String(u._id) === String(active.counselorId));
+        if (match) {
+          pick = match;
+          if (!cancelled) setSessionCounselorId(String(active.counselorId));
+        }
+      } catch { /* keep users[0] */ }
+      if (!cancelled) setSelectedUser(pick);
+    })();
+    return () => { cancelled = true; };
   }, [users, selectedUser, setSelectedUser]);
 
   useEffect(() => {
@@ -336,9 +358,11 @@ const StudentChatView = () => {
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
         setActiveAppointment(res.data);
+        setSessionCounselorId(String(selectedUser._id));
         getMessages(selectedUser._id, res.data?._id);
       } catch {
         setActiveAppointment(null);
+        setSessionCounselorId((prev) => (prev === String(selectedUser._id) ? null : prev));
         getMessages(selectedUser._id);
       } finally {
         setAppointmentLoading(false);
@@ -354,8 +378,11 @@ const StudentChatView = () => {
     const handler = (appointment) => {
       if (String(appointment.studentId) !== String(authUser._id)) return;
       if (appointment.type !== 'Chat') return;
+      const isSelectedCounselor = String(appointment.counselorId) === String(selectedUser?._id);
 
       if (appointment.status === 'completed') {
+        setSessionCounselorId((prev) => (prev === String(appointment.counselorId) ? null : prev));
+        if (!isSelectedCounselor) return;
         const st = useCallStore.getState();
         if (st.callState !== 'idle') st.endCall(false);
         setActiveAppointment(null);
@@ -363,8 +390,14 @@ const StudentChatView = () => {
         setFeedbackAppointment(appointment); // close the loop: how are you feeling?
         toast.success('Counselor ended the session');
       } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
-        // A new session activated while this thread stayed open: adopt it and
-        // re-fetch so the thread shows this session's content.
+        setSessionCounselorId(String(appointment.counselorId));
+        // A new session activated while this page was open: switch to that
+        // counselor (the thread must match the session) and re-fetch.
+        if (!isSelectedCounselor) {
+          const counselor = users.find((u) => String(u._id) === String(appointment.counselorId));
+          if (counselor) setSelectedUser(counselor, appointment._id);
+          return;
+        }
         if (String(activeAppointment?._id || '') !== String(appointment._id || '')) {
           setSessionEnded(false);
           setActiveAppointment(appointment);
@@ -375,7 +408,7 @@ const StudentChatView = () => {
 
     socket.on("appointment:updated", handler);
     return () => socket.off("appointment:updated", handler);
-  }, [authUser._id, navigate, selectedUser, getMessages, activeAppointment?._id]);
+  }, [authUser._id, navigate, selectedUser, users, setSelectedUser, getMessages, activeAppointment?._id]);
 
   const handleSend = useCallback(async (data) => {
     try {
@@ -385,15 +418,79 @@ const StudentChatView = () => {
     }
   }, [sendMessage, navigate]);
 
+  const handleSelectCounselor = (user) => {
+    if (String(selectedUser?._id) !== String(user._id)) setSessionEnded(false);
+    setSelectedUser(user);
+    setShowMobileList(false);
+  };
+
   const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
   const hasActiveSession = !!activeAppointment && !sessionEnded;
   const noActiveSession = !!counselor && !appointmentLoading && !hasActiveSession;
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-3.5rem)]">
+    <div className="flex h-[calc(100dvh-3.5rem)] bg-surface">
+      {/* ─── Counselor list ─── */}
+      <div className={`w-full lg:w-80 border-r border-line flex flex-col shrink-0 ${
+        showMobileList ? 'block' : 'hidden lg:block'
+      }`}>
+        <div className="px-5 py-[24px] border-b border-line">
+          <h2 className="text-sm font-medium text-ink tracking-[-0.01em]">Counselors</h2>
+          <p className="text-xs text-ink-muted mt-0.5">{users.length} counselors</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {isUsersLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader size={18} className="animate-spin text-ink-muted" />
+            </div>
+          ) : users.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <p className="text-xs text-ink-muted">No counselors yet</p>
+            </div>
+          ) : (
+            users.map((user) => {
+              const isSelected = selectedUser?._id === user._id;
+              const hasOpenSession = sessionCounselorId === String(user._id);
+              return (
+                <button
+                  key={user._id}
+                  onClick={() => handleSelectCounselor(user)}
+                  className={`w-full text-left px-5 py-4 border-b border-line transition-colors hover:bg-canvas ${
+                    isSelected ? 'bg-canvas' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-ink truncate">{user.fullName}</p>
+                    {unreadCounts[String(user._id)] > 0 && (
+                      <span className="shrink-0 size-5 rounded-lg bg-danger text-ink text-xs font-bold flex items-center justify-center">
+                        {unreadCounts[String(user._id)]}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ink-muted mt-0.5 truncate">
+                    {user.department || '—'}
+                    {hasOpenSession && <span className="text-success-ink"> · Session open</span>}
+                  </p>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ─── Chat ─── */}
+      <div className={`flex-1 flex flex-col min-w-0 ${!showMobileList ? 'block' : 'hidden lg:flex'}`}>
       <div className="border-b border-line px-6 py-4 bg-surface shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowMobileList(true)}
+              className="lg:hidden size-8 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors"
+              aria-label="Back to counselors"
+            >
+              <ChevronLeft size={16} />
+            </button>
             <div className="size-10 rounded-full bg-line flex items-center justify-center overflow-hidden shrink-0">
               {counselor?.profilePic ? (
                 <img src={counselor.profilePic} alt="" className="w-full h-full object-cover" />
@@ -411,7 +508,7 @@ const StudentChatView = () => {
               <p className="text-xs text-ink-muted">No active session</p>
             ) : (
               <p className="text-xs text-ink-muted">
-                {counselor ? counselor.department : '—'}
+                {counselor ? counselor.department || '—' : '—'}
               </p>
             )}
           </div>
@@ -497,6 +594,7 @@ const StudentChatView = () => {
         counselorName={counselor?.fullName || selectedUser?.fullName}
         isStudent
       />
+      </div>
     </div>
   );
 };

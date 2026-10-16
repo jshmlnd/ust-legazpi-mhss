@@ -19,18 +19,18 @@ export const registerServiceWorker = async () => {
   }
 };
 
-export const showNotification = (title, body, data = {}) => {
+export const showNotification = (title, body, data = {}, tag = 'chat-message') => {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
 
   if (swRegistration) {
     swRegistration.showNotification(title, {
       body,
       icon: "/favicon.svg",
-      tag: "chat-message",
+      tag,
       renotify: true,
       data,
     });
   } else {
-    new Notification(title, { body, icon: "/favicon.svg", tag: "chat-message", data });
+    new Notification(title, { body, icon: "/favicon.svg", tag, data });
   }
 };

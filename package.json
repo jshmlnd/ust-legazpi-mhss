@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend && npm install agora-rtc-sdk-ng --prefix frontend && npm install agora-access-token --prefix backend",
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "npm run start --prefix backend"
   },
   "repository": {
@@ -18,8 +18,5 @@
   "bugs": {
     "url": "https://github.com/jshmlnd/ust-legazpi-mhss/issues"
   },
-  "homepage": "https://github.com/jshmlnd/ust-legazpi-mhss#readme",
-  "dependencies": {
-    "ai": "^7.0.107"
-  }
+  "homepage": "https://github.com/jshmlnd/ust-legazpi-mhss#readme"
 }

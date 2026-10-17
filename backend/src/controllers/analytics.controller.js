@@ -1,10 +1,12 @@
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import Appointment from "../models/appointment.model.js";
+import SessionSummary from "../models/sessionSummary.model.js";
 import JournalEntry from "../models/journalEntry.model.js";
 import SelfCareModule from "../models/selfCareModule.model.js";
 import Resource from "../models/resource.model.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
+import { mapConcernRisk } from "../lib/appointmentTriage.js";
 
 const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
 
@@ -154,7 +156,14 @@ export const getUpcomingSessions = async (req, res) => {
     const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName showNameToCounselor").lean();
     const studentMap = Object.fromEntries(students.map((s) => [String(s._id), s]));
 
-    const counselorIds = [...new Set(sessions.map((s) => String(s.counselorId)))];
+    const summaries = await SessionSummary.find({ appointmentId: { $in: sessions.map((s) => s._id) } })
+      .select("appointmentId summary generatedAt editedAt generatedByAi")
+      .lean();
+    const summaryMap = Object.fromEntries(summaries.map((summary) => [String(summary.appointmentId), summary]));
+
+    const counselorIds = [...new Set(
+      sessions.flatMap((s) => [s.counselorId, s.referredById]).filter(Boolean).map(String)
+    )];
     const counselors = counselorIds.length > 0
       ? await Counselor.find({ _id: { $in: counselorIds } }).select("fullName").lean()
       : [];
@@ -171,11 +180,16 @@ export const getUpcomingSessions = async (req, res) => {
       time: s.time,
       date: s.date,
       concern: s.concern,
-      concernRisk: s.concernRisk,
+      concernRisk: mapConcernRisk(s.concernRisk, s.concern),
       status: s.status,
       counselorId: s.counselorId,
       counselorName: counselorMap[String(s.counselorId)] || null,
+      referredByName: s.referredById ? counselorMap[String(s.referredById)] || null : null,
       actionTaken: s.actionTaken || null,
+      summary: summaryMap[String(s._id)]?.summary || null,
+      summaryGeneratedAt: summaryMap[String(s._id)]?.generatedAt || null,
+      summaryEditedAt: summaryMap[String(s._id)]?.editedAt || null,
+      summaryGeneratedByAi: summaryMap[String(s._id)]?.generatedByAi ?? null,
     }));
     res.json(result);
   } catch (error) {

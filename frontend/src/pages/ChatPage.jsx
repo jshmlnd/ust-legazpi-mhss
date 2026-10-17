@@ -130,6 +130,7 @@ const EmergencyBanner = ({ onReveal, onDismiss, severity }) => {
     low: { bg: 'bg-warning-soft', border: 'border-warning/30', iconBg: 'bg-warning-soft', iconColor: 'text-warning-ink', title: 'text-warning-ink', subtitle: 'text-warning-ink', btn: 'bg-warning hover:bg-warning/90' },
   };
   const s = severityConfig[severity] || severityConfig.high;
+  const canReveal = ['high', 'critical'].includes(String(severity || '').toLowerCase());
 
   return (
     <div className={`${s.bg} border-b ${s.border} px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`}>
@@ -143,12 +144,14 @@ const EmergencyBanner = ({ onReveal, onDismiss, severity }) => {
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={onReveal}
-          className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-ink ${s.btn} transition-colors rounded-lg`}
-        >
-          <Eye size={14} /> <span className="hidden sm:inline">Reveal Identity</span><span className="sm:hidden">Reveal</span>
-        </button>
+        {canReveal && (
+          <button
+            onClick={onReveal}
+            className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-ink ${s.btn} transition-colors rounded-lg`}
+          >
+            <Eye size={14} /> <span className="hidden sm:inline">Reveal Identity</span><span className="sm:hidden">Reveal</span>
+          </button>
+        )}
         <button onClick={onDismiss} className={`text-xs ${s.subtitle} hover:opacity-70 transition-opacity font-medium`}>
           Dismiss
         </button>
@@ -300,18 +303,14 @@ const StudentChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
-    isSocketConnected, typingUsers, crisisMessageMap, unreadCounts,
+    isSocketConnected, typingUsers, crisisMessageMap,
   } = useChatStore();
   const { callState, initiateCall } = useCallStore();
   const messagesEndRef = useRef(null);
-  const [showMobileList, setShowMobileList] = useState(true);
   const [sessionEnded, setSessionEnded] = useState(false);
   const [activeAppointment, setActiveAppointment] = useState(null);
   const [appointmentLoading, setAppointmentLoading] = useState(true);
   const [feedbackAppointment, setFeedbackAppointment] = useState(null);
-  // Counselor that currently has an open Chat session with this student —
-  // drives the "Session open" tag in the picker regardless of selection.
-  const [sessionCounselorId, setSessionCounselorId] = useState(null);
 
   useEffect(() => {
     getUsers();
@@ -323,9 +322,7 @@ const StudentChatView = () => {
     };
   }, [getUsers, subscribeToMessages, unsubscribeFromMessages]);
 
-  // Pick the counselor the student actually has an active Chat session with —
-  // /message/users lists every counselor, so users[0] may be one with no
-  // session (fetch would 404 → "No conversation" despite an open session).
+  // Pick the counselor the student actually has an active Chat session with.
   useEffect(() => {
     if (users.length === 0 || selectedUser) return;
     let cancelled = false;
@@ -339,7 +336,6 @@ const StudentChatView = () => {
         const match = active && users.find((u) => String(u._id) === String(active.counselorId));
         if (match) {
           pick = match;
-          if (!cancelled) setSessionCounselorId(String(active.counselorId));
         }
       } catch { /* keep users[0] */ }
       if (!cancelled) setSelectedUser(pick);
@@ -358,11 +354,9 @@ const StudentChatView = () => {
       try {
         const res = await axiosInstance.get(`/appointments/active/${selectedUser._id}`);
         setActiveAppointment(res.data);
-        setSessionCounselorId(String(selectedUser._id));
         getMessages(selectedUser._id, res.data?._id);
       } catch {
         setActiveAppointment(null);
-        setSessionCounselorId((prev) => (prev === String(selectedUser._id) ? null : prev));
         getMessages(selectedUser._id);
       } finally {
         setAppointmentLoading(false);
@@ -381,7 +375,6 @@ const StudentChatView = () => {
       const isSelectedCounselor = String(appointment.counselorId) === String(selectedUser?._id);
 
       if (appointment.status === 'completed') {
-        setSessionCounselorId((prev) => (prev === String(appointment.counselorId) ? null : prev));
         if (!isSelectedCounselor) return;
         const st = useCallStore.getState();
         if (st.callState !== 'idle') st.endCall(false);
@@ -390,7 +383,6 @@ const StudentChatView = () => {
         setFeedbackAppointment(appointment); // close the loop: how are you feeling?
         toast.success('Counselor ended the session');
       } else if (appointment.status === 'active' || appointment.status === 'confirmed') {
-        setSessionCounselorId(String(appointment.counselorId));
         // A new session activated while this page was open: switch to that
         // counselor (the thread must match the session) and re-fetch.
         if (!isSelectedCounselor) {
@@ -418,79 +410,17 @@ const StudentChatView = () => {
     }
   }, [sendMessage, navigate]);
 
-  const handleSelectCounselor = (user) => {
-    if (String(selectedUser?._id) !== String(user._id)) setSessionEnded(false);
-    setSelectedUser(user);
-    setShowMobileList(false);
-  };
-
   const counselor = selectedUser?._id !== authUser?._id ? selectedUser : null;
   const hasActiveSession = !!activeAppointment && !sessionEnded;
   const noActiveSession = !!counselor && !appointmentLoading && !hasActiveSession;
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] bg-surface">
-      {/* ─── Counselor list ─── */}
-      <div className={`w-full lg:w-80 border-r border-line flex flex-col shrink-0 ${
-        showMobileList ? 'block' : 'hidden lg:block'
-      }`}>
-        <div className="px-5 py-[24px] border-b border-line">
-          <h2 className="text-sm font-medium text-ink tracking-[-0.01em]">Counselors</h2>
-          <p className="text-xs text-ink-muted mt-0.5">{users.length} counselors</p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {isUsersLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader size={18} className="animate-spin text-ink-muted" />
-            </div>
-          ) : users.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <p className="text-xs text-ink-muted">No counselors yet</p>
-            </div>
-          ) : (
-            users.map((user) => {
-              const isSelected = selectedUser?._id === user._id;
-              const hasOpenSession = sessionCounselorId === String(user._id);
-              return (
-                <button
-                  key={user._id}
-                  onClick={() => handleSelectCounselor(user)}
-                  className={`w-full text-left px-5 py-4 border-b border-line transition-colors hover:bg-canvas ${
-                    isSelected ? 'bg-canvas' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-ink truncate">{user.fullName}</p>
-                    {unreadCounts[String(user._id)] > 0 && (
-                      <span className="shrink-0 size-5 rounded-lg bg-danger text-ink text-xs font-bold flex items-center justify-center">
-                        {unreadCounts[String(user._id)]}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-ink-muted mt-0.5 truncate">
-                    {user.department || '—'}
-                    {hasOpenSession && <span className="text-success-ink"> · Session open</span>}
-                  </p>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </div>
-
       {/* ─── Chat ─── */}
-      <div className={`flex-1 flex flex-col min-w-0 ${!showMobileList ? 'block' : 'hidden lg:flex'}`}>
+      <div className="flex flex-1 flex-col min-w-0">
       <div className="border-b border-line px-6 py-4 bg-surface shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowMobileList(true)}
-              className="lg:hidden size-8 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors"
-              aria-label="Back to counselors"
-            >
-              <ChevronLeft size={16} />
-            </button>
             <div className="size-10 rounded-full bg-line flex items-center justify-center overflow-hidden shrink-0">
               {counselor?.profilePic ? (
                 <img src={counselor.profilePic} alt="" className="w-full h-full object-cover" />
@@ -644,6 +574,7 @@ const CounselorChatView = () => {
   const [noSessionBanner, setNoSessionBanner] = useState(false);
   const [appointmentLoading, setAppointmentLoading] = useState(false);
   const [feedbackAppointment, setFeedbackAppointment] = useState(null);
+  const [returnToDashboard, setReturnToDashboard] = useState(false);
 
   useEffect(() => {
     getUsers();
@@ -750,7 +681,8 @@ const CounselorChatView = () => {
   };
 
   const handleReveal = () => {
-    if (flaggedMessage) {
+    const severity = flaggedMessage?.severity || crisisAnalysis?.severity?.level;
+    if (flaggedMessage && ['high', 'critical'].includes(String(severity || '').toLowerCase())) {
       navigate(`/identity/user/${flaggedMessage.userId}`);
     }
   };
@@ -760,11 +692,11 @@ const CounselorChatView = () => {
     if (callState !== 'idle') endCall(true);
     setIsEndingSession(true);
     try {
-      await axiosInstance.patch(`/appointments/${activeAppointment._id}`, { status: 'completed' });
+      const { data: endedAppointment } = await axiosInstance.patch(`/appointments/${activeAppointment._id}`, { status: 'completed' });
       toast.success('Session ended');
       setActiveAppointment(null);
       setSessionEndedBanner(true);
-      setFeedbackAppointment(activeAppointment); // close the loop
+      setFeedbackAppointment(endedAppointment || activeAppointment); // review the private documentation draft
 
       const currentIndex = users.findIndex((u) => u._id === selectedUser?._id);
       const nextUser = currentIndex >= 0 && currentIndex + 1 < users.length
@@ -772,11 +704,12 @@ const CounselorChatView = () => {
         : null;
 
       removeUser(selectedUser._id);
+      setReturnToDashboard(!nextUser);
 
       if (nextUser) {
         handleSelectUser(nextUser);
       } else {
-        navigate(PATHS.DASHBOARD);
+        setShowMobileList(true);
       }
     } catch {
       toast.error('Failed to end session');
@@ -920,7 +853,7 @@ const CounselorChatView = () => {
                 studentName={selectedUser.showNameToCounselor ? selectedUser.fullName : `STU-${selectedUser.dynamicId || selectedUser._id}`}
                 onReveal={handleReveal}
                 onDismiss={clearFlaggedMessage}
-                severity={crisisAnalysis?.severity?.level}
+                severity={flaggedMessage.severity || crisisAnalysis?.severity?.level}
               />
             )}
 
@@ -992,8 +925,12 @@ const CounselorChatView = () => {
       </div>
 
       <SessionFeedbackModal
+        key={feedbackAppointment?._id || 'counselor-summary'}
         open={!!feedbackAppointment}
-        onClose={() => setFeedbackAppointment(null)}
+        onClose={() => {
+          setFeedbackAppointment(null);
+          if (returnToDashboard) navigate(PATHS.DASHBOARD);
+        }}
         appointment={feedbackAppointment}
         counselorName={selectedUser?.fullName}
         isStudent={false}

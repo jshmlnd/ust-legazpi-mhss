@@ -110,7 +110,7 @@ const getSessionOutcome = (session) => {
   if (session.actionTaken === 'gca') return { label: 'Admitted', tone: 'success' };
   if (session.actionTaken === 'referred') {
     const counselor = session.counselorName || session.counselor?.fullName || 'counselor';
-    return { label: `Referred to ${counselor}`, tone: 'info' };
+    return { label: `Referred to ${counselor}${session.referredByName ? ` by ${session.referredByName}` : ''}`, tone: 'info' };
   }
   if (session.actionTaken === 'adjunct') return { label: 'Adjunct', tone: 'warning' };
   if (['confirmed', 'active', 'on-going', 'paused', 'completed', 'ended'].includes(session.status)) {

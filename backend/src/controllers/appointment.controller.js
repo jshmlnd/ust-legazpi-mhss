@@ -3,16 +3,22 @@ import Counselor from "../models/counselor.model.js";
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
 import CallLog from "../models/callLog.model.js";
+import SessionSummary from "../models/sessionSummary.model.js";
 import AvailabilitySlot from "../models/availabilitySlot.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
-import { analyzeCrisisAI } from "../lib/jevCrisis.js";
+import { analyzeCrisisAI } from "../lib/groqCrisis.js";
 import { mapConcernRisk, overlapsAppointment } from "../lib/appointmentTriage.js";
 import { busyRiskAlertEmailTemplate, sendMail } from "../lib/mailer.js";
+import { generateSessionSummary, stripSummaryMarkdown } from "../lib/sessionSummary.js";
 
 const FREED_STATUSES = ['declined', 'cancelled', 'archived'];
 const BUSY_F2F_STATUSES = ['confirmed', 'active', 'on-going', 'paused'];
+const OPEN_CHAT_STATUSES = ['pending', 'confirmed', 'active', 'on-going', 'paused'];
 const GUIDANCE_EMAIL = 'joshuaklein.malonda@gmail.com';
+const SUMMARY_STATUSES = ['completed', 'ended'];
+const MAX_SUMMARY_LENGTH = 12000;
+const ANONYMOUS_STUDENT = 'Anonymous Student';
 
 const findOverlappingF2F = async (counselorId, date, time) => {
   const sessions = await Appointment.find({
@@ -54,6 +60,50 @@ const freeSlot = async (counselorId, date, time) => {
   }
 };
 
+const createSessionSummary = async (appointment) => {
+  const messages = await Message.find({ appointmentId: appointment._id })
+    .sort({ createdAt: 1 })
+    .select('senderModel text')
+    .lean();
+  const generated = await generateSessionSummary({ appointment, messages });
+
+  return SessionSummary.findOneAndUpdate(
+    { appointmentId: appointment._id },
+    {
+      $set: {
+        counselorId: appointment.counselorId,
+        studentId: appointment.studentId,
+        summary: generated.summary,
+        generatedByAi: generated.generatedByAi,
+        generatedAt: new Date(),
+        editedAt: null,
+      },
+      $setOnInsert: { appointmentId: appointment._id },
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true },
+  );
+};
+
+const findOwnedCounselorAppointment = async (req) => {
+  const appointment = await Appointment.findById(req.params.id);
+  if (!appointment) return { error: 'Appointment not found', status: 404 };
+  if (String(appointment.counselorId) !== String(req.user._id)) {
+    return { error: 'Not your appointment', status: 403 };
+  }
+  return { appointment };
+};
+
+const serializeSessionSummary = async (summary, appointment) => {
+  const student = await User.findById(appointment.studentId)
+    .select('fullName showNameToCounselor')
+    .lean();
+  const studentName = student?.showNameToCounselor && student.fullName
+    ? student.fullName
+    : ANONYMOUS_STUDENT;
+  const data = summary?.toObject ? summary.toObject() : summary;
+  return { ...data, studentName };
+};
+
 export const getAppointments = async (req, res) => {
   try {
     const isCounselor = req.user.constructor.modelName === "Counselor";
@@ -64,7 +114,9 @@ export const getAppointments = async (req, res) => {
       appointments = await Appointment.find({ studentId: req.user._id, studentArchived: { $ne: true } }).sort({ date: -1, time: -1 });
     }
 
-    const counselorIds = [...new Set(appointments.map((appointment) => String(appointment.counselorId)))];
+    const counselorIds = [...new Set(
+      appointments.flatMap((appointment) => [appointment.counselorId, appointment.referredById]).filter(Boolean).map(String)
+    )];
     if (counselorIds.length > 0) {
       const counselors = await Counselor.find({ _id: { $in: counselorIds } }).select("fullName _id").lean();
       const counselorMap = Object.fromEntries(counselors.map((counselor) => [String(counselor._id), counselor.fullName]));
@@ -77,6 +129,7 @@ export const getAppointments = async (req, res) => {
       appointments = appointments.map((appointment) => ({
         ...appointment.toObject(),
         counselorName: counselorMap[String(appointment.counselorId)] || null,
+        referredByName: appointment.referredById ? counselorMap[String(appointment.referredById)] || null : null,
         studentDynamicId: getDailyDynamicId(dynamicMap[String(appointment.studentId)]) || null,
         studentName: studentMap[String(appointment.studentId)]?.showNameToCounselor
           ? studentMap[String(appointment.studentId)].fullName
@@ -100,6 +153,23 @@ export const createAppointment = async (req, res) => {
     const normalizedConcern = concern.trim();
     if (type === 'Face-To-Face' && !normalizedConcern) {
       return res.status(400).json({ error: "A concern is required for face-to-face sessions" });
+    }
+
+    if (type === 'Chat' && req.user.constructor.modelName === 'User') {
+      const openChat = await Appointment.findOne({
+        studentId: req.user._id,
+        type: 'Chat',
+        status: { $in: OPEN_CHAT_STATUSES },
+      }).sort({ createdAt: -1 }).lean();
+      if (openChat) {
+        const counselor = await Counselor.findById(openChat.counselorId).select('fullName').lean();
+        const counselorName = counselor?.fullName || 'your counselor';
+        return res.status(409).json({
+          code: 'STUDENT_CHAT_SESSION_EXISTS',
+          counselorName,
+          error: `You already have an active/open session with counselor ${counselorName}. If you want to change your counselor, you can ask/request your counselor to refer you to your chosen counselor.`,
+        });
+      }
     }
 
     const busySession = type === 'Chat'
@@ -129,7 +199,7 @@ export const createAppointment = async (req, res) => {
     }
 
     const analysis = await analyzeCrisisAI(normalizedConcern);
-    const concernRisk = mapConcernRisk(analysis.severity?.level);
+    const concernRisk = mapConcernRisk(analysis.severity?.level, normalizedConcern);
     const appointment = new Appointment({
       studentId: req.user._id,
       counselorId,
@@ -170,6 +240,9 @@ export const updateAppointment = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: "Appointment not found" });
 
     const isCounselor = req.user.constructor.modelName === "Counselor";
+    if (!isCounselor && SUMMARY_STATUSES.includes(req.body.status)) {
+      return res.status(403).json({ error: "Only the assigned counselor can end a session" });
+    }
     const touchesOwnership = Boolean(req.body.status || req.body.actionTaken || req.body.counselorId);
     if (isCounselor && touchesOwnership) {
       if (String(appointment.counselorId) !== String(req.user._id)) {
@@ -187,11 +260,15 @@ export const updateAppointment = async (req, res) => {
     if (reassigning) {
       const target = await Counselor.findById(req.body.counselorId).select("_id");
       if (!target) return res.status(404).json({ error: "Referred counselor not found" });
+      appointment.referredById = previousCounselorId;
     }
 
     if ((req.body.status === 'on-going' || req.body.status === 'active') && appointment.status !== 'on-going' && appointment.status !== 'active') {
       appointment.startedAt = new Date();
     }
+    const shouldGenerateSummary = isCounselor
+      && SUMMARY_STATUSES.includes(req.body.status)
+      && !SUMMARY_STATUSES.includes(appointment.status);
     if ((req.body.status === 'ended' || req.body.status === 'completed') && appointment.status !== 'ended' && appointment.status !== 'completed') {
       appointment.endedAt = new Date();
     }
@@ -199,6 +276,7 @@ export const updateAppointment = async (req, res) => {
     const updates = { ...req.body };
     delete updates.concernRisk;
     delete updates.waitIfBusy;
+    delete updates.referredById;
     Object.assign(appointment, updates);
     await appointment.save();
 
@@ -214,6 +292,16 @@ export const updateAppointment = async (req, res) => {
 
     if (req.body.status && FREED_STATUSES.includes(req.body.status) && appointment.type === 'Face-To-Face') {
       await freeSlot(appointment.counselorId, appointment.date, appointment.time);
+    }
+
+    if (shouldGenerateSummary) {
+      try {
+        // Generate before the Chat transcript purge below; F2F notes use the
+        // recorded concern because those sessions have no stored transcript.
+        await createSessionSummary(appointment);
+      } catch (summaryError) {
+        console.error("Error creating session summary:", summaryError.message);
+      }
     }
 
     if (req.body.status === 'completed' && appointment.type === 'Chat') {
@@ -267,6 +355,73 @@ export const updateAppointment = async (req, res) => {
   }
 };
 
+export const getSessionSummary = async (req, res) => {
+  try {
+    const result = await findOwnedCounselorAppointment(req);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+
+    const summary = await SessionSummary.findOne({ appointmentId: result.appointment._id }).lean();
+    if (!summary) return res.status(404).json({ error: "Session summary not found" });
+    res.json({
+      ...(await serializeSessionSummary(summary, result.appointment)),
+      summary: stripSummaryMarkdown(summary.summary),
+    });
+  } catch (error) {
+    console.error("Error in getSessionSummary:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const generateSessionSummaryForAppointment = async (req, res) => {
+  try {
+    const result = await findOwnedCounselorAppointment(req);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    if (!SUMMARY_STATUSES.includes(result.appointment.status)) {
+      return res.status(400).json({ error: "A summary is available after the session ends" });
+    }
+
+    const summary = await createSessionSummary(result.appointment);
+    res.json(await serializeSessionSummary(summary, result.appointment));
+  } catch (error) {
+    console.error("Error generating session summary:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateSessionSummary = async (req, res) => {
+  try {
+    const result = await findOwnedCounselorAppointment(req);
+    if (result.error) return res.status(result.status).json({ error: result.error });
+    if (!SUMMARY_STATUSES.includes(result.appointment.status)) {
+      return res.status(400).json({ error: "A summary can be edited after the session ends" });
+    }
+
+    const summaryText = typeof req.body.summary === "string" ? stripSummaryMarkdown(req.body.summary) : "";
+    if (!summaryText || summaryText.length > MAX_SUMMARY_LENGTH) {
+      return res.status(400).json({ error: "Summary must be between 1 and 12000 characters" });
+    }
+
+    const summary = await SessionSummary.findOneAndUpdate(
+      { appointmentId: result.appointment._id },
+      {
+        $set: {
+          counselorId: result.appointment.counselorId,
+          studentId: result.appointment.studentId,
+          summary: summaryText,
+          editedAt: new Date(),
+        },
+        $setOnInsert: { appointmentId: result.appointment._id, generatedByAi: false },
+      },
+      { new: true, upsert: true, setDefaultsOnInsert: true },
+    );
+
+    res.json(await serializeSessionSummary(summary, result.appointment));
+  } catch (error) {
+    console.error("Error updating session summary:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const getCounselors = async (req, res) => {
   try {
     // Referral picker: every counselor except the one asking.
@@ -307,6 +462,7 @@ export const deleteAppointment = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: "Appointment not found" });
     // Session-scoped content would be orphaned by the hard delete.
     await CallLog.deleteMany({ appointmentId: appointment._id });
+    await SessionSummary.deleteOne({ appointmentId: appointment._id });
     res.json({ message: "Appointment deleted" });
   } catch (error) {
     console.error("Error in deleteAppointment:", error.message);

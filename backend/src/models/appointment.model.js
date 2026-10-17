@@ -24,6 +24,7 @@ const appointmentSchema = new mongoose.Schema({
     enum: ['gca', 'referred', 'adjunct', null],
     default: null,
   },
+  referredById: { type: Number, ref: 'Counselor', default: null },
   notes: { type: String, default: '' },
   startedAt: { type: Date },
   endedAt: { type: Date },

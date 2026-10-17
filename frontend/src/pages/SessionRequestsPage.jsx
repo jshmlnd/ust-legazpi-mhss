@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertTriangle, CalendarDays, Check, Clock, MessageSquare, Pencil, RefreshCw, Trash2,
+  AlertTriangle, CalendarDays, Check, Clock, FileText, MessageSquare, Pencil, RefreshCw, Trash2,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import PageShell from '../ui/PageShell';
@@ -11,6 +11,7 @@ import StatusBadge from '../ui/StatusBadge';
 import EmptyState from '../ui/EmptyState';
 import { PageShellSkeleton } from '../components/skeleton';
 import ActionLevelModal from '../components/modals/ActionLevelModal';
+import SessionFeedbackModal from '../components/SessionFeedbackModal';
 import { axiosInstance } from '../lib/axios';
 import { PATHS } from '../lib/routes';
 import { getSocket } from '../lib/socket';
@@ -21,7 +22,9 @@ import { getSocket } from '../lib/socket';
 const ACTION_TONES = { gca: 'success', referred: 'info', adjunct: 'warning' };
 const actionTakenLabel = (session) => {
   if (session.actionTaken === 'gca') return 'Level 1 - GCA (Admitted)';
-  if (session.actionTaken === 'referred') return `Level 2 - Referred (Referred to ${session.counselorName || 'counselor'})`;
+  if (session.actionTaken === 'referred') {
+    return `Level 2 - Referred (Referred to ${session.counselorName || 'counselor'}${session.referredByName ? ` by ${session.referredByName}` : ''})`;
+  }
   if (session.actionTaken === 'adjunct') return 'Level 3 - Adjunct';
   return null;
 };
@@ -39,6 +42,15 @@ const getRowActions = (session) => {
       ? [{ key: 'join', label: 'Join Chat', icon: MessageSquare, variant: 'primary', to: `${PATHS.MESSAGES}?user=${session.studentId}` }]
       : [{ key: 'view', label: 'View', icon: CalendarDays, variant: 'secondary', to: `${PATHS.COUNSELOR_SCHEDULE}?date=${session.date}` }];
   }
+  if (['completed', 'ended'].includes(session.status)) {
+    return [{
+      key: 'summary',
+      label: session.summary ? 'Review documentation' : 'Add documentation',
+      icon: FileText,
+      variant: 'secondary',
+      onClick: 'summary',
+    }];
+  }
   return null;
 };
 
@@ -50,7 +62,7 @@ const RiskBadge = ({ risk = 'Minimal' }) => (
   <StatusBadge tone={risk === 'Urgent' ? 'danger' : risk === 'High' ? 'warning' : 'neutral'}>{risk}</StatusBadge>
 );
 
-const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, busy, onClearAll, clearingAll }) => {
+const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSummary, busy, onClearAll, clearingAll }) => {
   const navigate = useNavigate();
   const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
@@ -68,7 +80,11 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, busy, o
             icon={a.icon}
             disabled={isBusy && busy.action !== a.key}
             loading={isBusy && busy.action === a.key}
-            onClick={() => (a.onClick === 'admit' ? onAdmit(session) : navigate(a.to))}
+            onClick={() => {
+              if (a.onClick === 'admit') onAdmit(session);
+              else if (a.onClick === 'summary') onSummary(session);
+              else navigate(a.to);
+            }}
           >
             {a.label}
           </Button>
@@ -219,6 +235,7 @@ const SessionRequestsPage = () => {
   const [levelChoice, setLevelChoice] = useState('gca');
   const [referredId, setReferredId] = useState('');
   const [savingLevel, setSavingLevel] = useState(false);
+  const [summarySession, setSummarySession] = useState(null);
 
   // Loader lives inside the mount effect (where the react-hooks rules can
   // verify no setState happens synchronously) and is exposed via ref so the
@@ -327,6 +344,20 @@ const SessionRequestsPage = () => {
     }
   };
 
+  const handleSummarySaved = (saved) => {
+    setSessions((prev) => prev.map((session) => (
+      session._id === summarySession?._id
+        ? {
+          ...session,
+          summary: saved.summary,
+          summaryGeneratedAt: saved.generatedAt,
+          summaryEditedAt: saved.editedAt,
+          summaryGeneratedByAi: saved.generatedByAi,
+        }
+        : session
+    )));
+  };
+
   if (loading) {
     return (
       <PageShell title="Session Requests" description="Appointment and chat requests from students">
@@ -351,6 +382,7 @@ const SessionRequestsPage = () => {
         onRetry={retryRequests}
         onAdmit={handleAdmit}
         onEditLevel={openLevelEditor}
+        onSummary={setSummarySession}
         busy={busy}
         onClearAll={handleClearAll}
         clearingAll={clearingAll}
@@ -367,6 +399,15 @@ const SessionRequestsPage = () => {
         counselors={counselors}
         savingLevel={savingLevel}
         saveLevel={saveLevel}
+      />
+
+      <SessionFeedbackModal
+        key={summarySession?._id || 'session-summary'}
+        open={!!summarySession}
+        onClose={() => setSummarySession(null)}
+        appointment={summarySession}
+        isStudent={false}
+        onSaved={handleSummarySaved}
       />
     </PageShell>
   );

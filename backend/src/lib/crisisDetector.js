@@ -180,6 +180,12 @@ const CRISIS_DICT = [
   { phrase: 'burden', weight: 4, category: 'distress' },
   { phrase: 'nobody cares', weight: 5, category: 'distress' },
   { phrase: 'all alone', weight: 4, category: 'distress' },
+  { phrase: 'very depressed', weight: 8, category: 'distress' },
+  { phrase: 'extremely depressed', weight: 8, category: 'distress' },
+  { phrase: 'severely depressed', weight: 8, category: 'distress' },
+  { phrase: 'deeply depressed', weight: 8, category: 'distress' },
+  { phrase: 'depressed', weight: 6, category: 'distress' },
+  { phrase: 'depression', weight: 6, category: 'distress' },
 
   // Urgency/crisis (weight: 7-9)
   { phrase: 'help me', weight: 7, category: 'crisis' },

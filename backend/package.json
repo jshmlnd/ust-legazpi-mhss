@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
-    "seed": "node scripts/seed.mjs"
+    "seed": "node scripts/seed.mjs",
+    "eval:crisis": "node scripts/crisis-eval.mjs"
   },
   "keywords": [],
   "author": "",

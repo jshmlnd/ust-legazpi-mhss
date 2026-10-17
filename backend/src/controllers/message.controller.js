@@ -15,6 +15,7 @@ const DLP_PATTERNS = [
 ];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024;
+const OPEN_CHAT_STATUSES = ['pending', 'confirmed', 'active', 'on-going', 'paused'];
 
 const scanForMalware = (filename) => {
     const ext = filename.toLowerCase().match(/\.[^.]+$/)?.[0];
@@ -33,7 +34,18 @@ export const getUsersForSidebar = async (req, res) => {
         let filteredUsers;
         let busyCounselorIds = new Set();
         if (isStudent) {
-            filteredUsers = await Counselor.find({ _id: { $ne: loggedInUserId } }).select("-password");
+            const chatOnly = req.query.scope === 'chat';
+            const openChatAppointments = chatOnly
+                ? await Appointment.find({
+                    studentId: loggedInUserId,
+                    type: 'Chat',
+                    status: { $in: OPEN_CHAT_STATUSES },
+                }).select('counselorId')
+                : [];
+            const counselorIds = [...new Set(openChatAppointments.map((appointment) => appointment.counselorId))];
+            filteredUsers = await Counselor.find(
+                chatOnly ? { _id: { $in: counselorIds } } : { _id: { $ne: loggedInUserId } },
+            ).select("-password");
             const now = new Date();
             const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;

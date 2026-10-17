@@ -1,3 +1,5 @@
+import { analyzeCrisis } from "./crisisDetector.js";
+
 const timeToMinutes = (value) => {
   const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
   if (!match) return null;
@@ -19,10 +21,30 @@ export const overlapsAppointment = (appointment, date, time) => {
   return requested >= start && requested < start + duration;
 };
 
-export const mapConcernRisk = (severity) => ({
+const INTENSE_DEPRESSION = /\b(?:very|extremely|severely|deeply)\s+depress(?:ed|ion)\b|\b(?:severe|intense|persistent)\s+depression\b/i;
+const RISK_ORDER = { Minimal: 0, Low: 1, High: 2, Urgent: 3 };
+
+const riskForSeverity = (severity) => ({
   none: "Minimal",
   low: "Low",
   medium: "High",
   high: "Urgent",
   critical: "Urgent",
+  Minimal: "Minimal",
+  Low: "Low",
+  High: "High",
+  Urgent: "Urgent",
 })[severity] || "Minimal";
+
+export const mapConcernRisk = (severity, concern = "") => {
+  let risk = riskForSeverity(severity);
+
+  // The local detector is the safety floor when the remote model under-scores
+  // an appointment concern, such as "I want to kill myself" as low.
+  if (typeof concern === "string" && concern.trim()) {
+    const fallbackRisk = riskForSeverity(analyzeCrisis(concern).severity?.level);
+    if (RISK_ORDER[fallbackRisk] > RISK_ORDER[risk]) risk = fallbackRisk;
+  }
+  if (INTENSE_DEPRESSION.test(concern) && ['Minimal', 'Low'].includes(risk)) return "High";
+  return risk;
+};

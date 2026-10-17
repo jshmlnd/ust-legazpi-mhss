@@ -1,6 +1,6 @@
 import express from "express";
 import { protectRoute } from "../middleware/auth.middleware.js";
-import { analyzeCrisisAI } from "../lib/jevCrisis.js";
+import { analyzeCrisisAI } from "../lib/groqCrisis.js";
 
 const router = express.Router();
 

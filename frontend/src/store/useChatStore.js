@@ -48,7 +48,7 @@ export const useChatStore = create((set, get) => ({
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/message/users");
+      const res = await axiosInstance.get("/message/users?scope=chat");
       set((state) => {
         const selectedStillAvailable = state.selectedUser
           && res.data.some((user) => String(user._id) === String(state.selectedUser._id));
@@ -116,7 +116,7 @@ export const useChatStore = create((set, get) => ({
         const analysis = await analyzeCrisis(text);
         if (analysis.isCrisis) {
           set((state) => ({
-            flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
+            flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id, severity: analysis.severity?.level },
             crisisAnalysis: analysis,
             crisisMessageMap: { ...state.crisisMessageMap, [res.data._id]: analysis.severity.level },
           }));
@@ -209,7 +209,7 @@ export const useChatStore = create((set, get) => ({
           if (analysis.isCrisis) {
             const authUser = useAuthStore.getState().authUser;
             set((state) => ({
-              flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
+              flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id, severity: analysis.severity?.level },
               crisisAnalysis: analysis,
               crisisMessageMap: { ...state.crisisMessageMap, [message._id]: analysis.severity.level },
             }));

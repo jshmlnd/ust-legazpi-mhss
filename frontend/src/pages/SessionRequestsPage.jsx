@@ -97,9 +97,16 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
     const label = actionTakenLabel(session);
     const editable = ACTIONABLE.includes(session.status);
     return (
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
         {label ? (
-          <StatusBadge tone={ACTION_TONES[session.actionTaken]} preserveCase>{label}</StatusBadge>
+          <StatusBadge
+            tone={ACTION_TONES[session.actionTaken]}
+            preserveCase
+            className="min-w-0 max-w-full truncate"
+            title={label}
+          >
+            {label}
+          </StatusBadge>
         ) : (
           <span className="text-xs text-ink-muted">—</span>
         )}
@@ -110,7 +117,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
             icon={Pencil}
             aria-label={`Change action taken for ${session.studentName || session.id}`}
             onClick={() => onEditLevel(session)}
-            className="!px-2"
+            className="!px-2 shrink-0"
           />
         )}
       </div>
@@ -149,7 +156,16 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
         <>
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left">
+            <table className="w-full table-fixed text-left">
+              <colgroup>
+                <col className="w-32" />
+                <col className="w-24" />
+                <col />
+                <col className="w-24" />
+                <col className="w-44" />
+                <col className="w-72" />
+                <col className="w-52" />
+              </colgroup>
               <thead>
                 <tr className="border-b border-line">
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Student</th>
@@ -172,7 +188,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
                     <td className="px-5 py-3.5 max-w-56 text-sm text-ink-soft truncate" title={session.concern}>{session.concern || '—'}</td>
                     <td className="px-5 py-3.5"><RiskBadge risk={session.concernRisk} /></td>
                     <td className="px-5 py-3.5 text-sm text-ink-soft whitespace-nowrap">{session.date} {session.time}</td>
-                    <td className="px-5 py-3.5 whitespace-nowrap">{renderActionTaken(session)}</td>
+                    <td className="px-5 py-3.5 whitespace-nowrap overflow-hidden">{renderActionTaken(session)}</td>
                     <td className="px-5 py-3.5 text-right">{renderActions(session)}</td>
                   </tr>
                 ))}

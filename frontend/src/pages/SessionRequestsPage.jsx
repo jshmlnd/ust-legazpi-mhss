@@ -45,7 +45,7 @@ const getRowActions = (session) => {
   if (['completed', 'ended'].includes(session.status)) {
     return [{
       key: 'summary',
-      label: session.summary ? 'Review documentation' : 'Add documentation',
+      label: session.summary ? 'Review' : 'Document',
       icon: FileText,
       variant: 'secondary',
       onClick: 'summary',
@@ -54,8 +54,21 @@ const getRowActions = (session) => {
   return null;
 };
 
+const actionTakenShortLabel = (session) => {
+  if (session.actionTaken === 'gca') return 'Level 1 - Admitted';
+  if (session.actionTaken === 'referred') return 'Level 2 - Referred';
+  if (session.actionTaken === 'adjunct') return 'Level 3 - Adjunct';
+  return null;
+};
+
 const TypeBadge = ({ type }) => (
-  <StatusBadge tone={type === 'Chat' ? 'brand' : 'warning'}>{type === 'Chat' ? 'Chat' : 'Face-to-Face'}</StatusBadge>
+  <StatusBadge
+    tone={type === 'Chat' ? 'brand' : 'warning'}
+    className="whitespace-nowrap"
+    title={type === 'Chat' ? 'Chat' : 'Face-to-Face'}
+  >
+    {type === 'Chat' ? 'Chat' : 'Face-to-Face'}
+  </StatusBadge>
 );
 
 const RiskBadge = ({ risk = 'Minimal' }) => (
@@ -95,6 +108,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
 
   const renderActionTaken = (session) => {
     const label = actionTakenLabel(session);
+    const shortLabel = actionTakenShortLabel(session);
     const editable = ACTIONABLE.includes(session.status);
     return (
       <div className="flex min-w-0 items-center gap-1.5">
@@ -105,7 +119,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
             className="min-w-0 max-w-full truncate"
             title={label}
           >
-            {label}
+            {shortLabel}
           </StatusBadge>
         ) : (
           <span className="text-xs text-ink-muted">—</span>
@@ -159,7 +173,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
             <table className="w-full table-fixed text-left">
               <colgroup>
                 <col className="w-32" />
-                <col className="w-24" />
+                <col className="w-36" />
                 <col />
                 <col className="w-24" />
                 <col className="w-44" />

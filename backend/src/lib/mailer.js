@@ -248,7 +248,7 @@ export const busyRiskAlertEmailTemplate = ({ concernRisk, counselorName, date, t
   });
 };
 
-/* ── 5. Self-signup email verification link ── */
+/* ── 5. Email verification link ── */
 
 export const verificationEmailTemplate = ({ fullName, verifyUrl, hours = 24 }) => {
   const firstName = (fullName || "there").split(" ")[0];

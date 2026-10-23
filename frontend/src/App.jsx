@@ -9,7 +9,6 @@ import VoiceCallModal from './components/VoiceCallModal';
 
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
 import ProfilePage from './pages/ProfilePage';
 import ResourcePage from './pages/ResourcePage';
 import SelfCarePage from './pages/SelfCarePage';
@@ -94,8 +93,7 @@ const App = () => {
     <div>
       <VoiceCallModal peerName={peerDisplayName} />
 
-      {/* Toasts live at the root (not in AppLayout) so public pages outside
-          the layout (login, signup) can show them too. */}
+      {/* Toasts live at the root so public pages outside the layout can show them too. */}
       <ToastContainer
         position="top-center"
         autoClose={3000}
@@ -109,7 +107,6 @@ const App = () => {
       <Routes>
         {/* Public */}
         <Route path={PATHS.LOGIN} element={!authUser ? <LoginPage /> : <Navigate to={PATHS.HOME} replace />} />
-        <Route path={PATHS.SIGNUP} element={!authUser ? <SignupPage /> : <Navigate to={PATHS.HOME} replace />} />
 
         {/* Authenticated — every page renders inside AppLayout (sidebar + topbar) */}
         <Route element={authUser ? <AppLayout /> : <Navigate to={PATHS.LOGIN} replace />}>

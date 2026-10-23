@@ -1,7 +1,7 @@
 import express from "express";
 import { checkAuth, login, logout, register, registerCounselor, updateProfile, updatePassword, updateProfileDetails, setPin, verifyPin, removePin, verifyTwoFactor, totpSetup, totpVerify, totpDisable } from "../controllers/auth.controller.js";
 import { forgotPassword, resetPassword, verifyResetCode } from "../controllers/passwordReset.controller.js";
-import { signup, verifyEmail, resendVerification } from "../controllers/signup.controller.js";
+import { verifyEmail, resendVerification } from "../controllers/emailVerification.controller.js";
 import { protectRoute, adminOnly } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
@@ -10,7 +10,6 @@ router.post("/login", login);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.post("/verify-reset-code", verifyResetCode);
-router.post("/signup", signup);
 router.get("/verify-email", verifyEmail);
 router.post("/resend-verification", resendVerification);
 router.post("/logout", logout);

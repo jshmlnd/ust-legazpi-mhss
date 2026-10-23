@@ -132,7 +132,7 @@ export const login = async (req , res) => {
             return res.status(401).json({ message: "Invalid credentials" });
         }
 
-        // Self-signup accounts can't sign in until they click the emailed
+        // Unverified accounts can't sign in until they click the emailed
         // verification link. Pre-existing / admin-registered accounts have no
         // flag (undefined) and pass straight through.
         if (role === "student" && account.emailVerified === false) {

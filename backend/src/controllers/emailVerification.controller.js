@@ -1,22 +1,10 @@
-// ── Student self-signup with email verification ──
-//
-// Flow: student submits the same profile fields the admin registration uses,
-// restricted to @ust-legazpi.edu.ph emails → account is created UNVERIFIED
-// (no session is issued) → a signed link is emailed → clicking it flips
-// emailVerified and the student can sign in. Login rejects unverified
-// students (see auth.controller.js) until then.
-//
-// ponytail: tokens are random 256-bit hex stored hashed, single-use, 24h TTL
-// with a TTL index; resend has a 60s cooldown; per-IP budgets mirror the
-// forgot-password endpoint so this can't be used to flood inboxes.
+// Email verification for legacy unverified accounts.
 import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import EmailVerification from "../models/emailVerification.model.js";
 import { sendMail, verificationEmailTemplate } from "../lib/mailer.js";
 import { maskEmail, assertIpBudget } from "./passwordReset.controller.js";
 
-export const STUDENT_EMAIL_DOMAIN = "ust-legazpi.edu.ph";
 const VERIFY_TTL_HOURS = 24;
 const VERIFY_TTL_MS = VERIFY_TTL_HOURS * 60 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -49,8 +37,6 @@ const publicAppBase = (req) => {
     }
 };
 
-const isStudentEmail = (email) => String(email).trim().toLowerCase().endsWith(`@${STUDENT_EMAIL_DOMAIN}`);
-
 async function issueLink(email, user, req) {
     const now = Date.now();
     const token = crypto.randomBytes(32).toString("hex");
@@ -77,80 +63,6 @@ async function issueLink(email, user, req) {
         text: `Hi ${user.fullName || "there"}, verify your SafeSpace account within ${VERIFY_TTL_HOURS} hours: ${publicApiBase(req)}/api/auth/verify-email?token=${token}`,
     });
 }
-
-// POST /api/auth/signup  { studentId, password, fullName, email, phone, department, program }
-export const signup = async (req, res) => {
-    try {
-        assertIpBudget(req);
-
-        const { studentId, password, fullName, email, phone, department, program } = req.body;
-        if (!studentId || !password || !fullName || !email || !department || !program) {
-            return res.status(400).json({ message: "Please fill in all required fields" });
-        }
-
-        const id = String(studentId).trim();
-        if (id.length !== 7) {
-            return res.status(400).json({ message: "Student ID must be exactly 7 characters" });
-        }
-        if (String(password).length < 8) {
-            return res.status(400).json({ message: "Password must be at least 8 characters long" });
-        }
-        const cleanEmail = String(email).trim().toLowerCase();
-        if (!isStudentEmail(cleanEmail)) {
-            return res.status(400).json({ message: `Sign-up is limited to @${STUDENT_EMAIL_DOMAIN} email addresses` });
-        }
-
-        const existingById = await User.findOne({ studentId: id });
-        if (existingById) {
-            if (existingById.email !== cleanEmail || existingById.emailVerified !== false) {
-                return res.status(400).json({ message: "This Student ID is already registered. Try signing in instead." });
-            }
-
-            const retry = await issueLink(cleanEmail, existingById, req);
-            if (!retry.delivered) {
-                return res.status(503).json({ message: "Your account exists, but the verification email could not be sent. Please try again." });
-            }
-            return res.status(200).json({
-                message: "A new verification link is on its way. Check your university email.",
-                maskedEmail: maskEmail(cleanEmail),
-            });
-        }
-        if (await User.findOne({ email: cleanEmail })) {
-            return res.status(400).json({ message: "This email is already registered. Try signing in instead." });
-        }
-
-        const salt = await bcrypt.genSalt(10);
-        const newUser = new User({
-            studentId: id,
-            password: await bcrypt.hash(String(password), salt),
-            fullName: String(fullName).trim(),
-            email: cleanEmail,
-            phone: phone ? String(phone).trim() : '',
-            userType: "Student",
-            department,
-            program: String(program).trim(),
-            emailVerified: false, // flipped by the emailed link, never here
-        });
-        await newUser.save();
-
-        // Deliberately NO session cookie — the account can't sign in until verified.
-        const delivery = await issueLink(cleanEmail, newUser, req);
-        if (!delivery.delivered) {
-            return res.status(503).json({
-                message: "Your account was created, but the verification email could not be sent. Please try again.",
-                maskedEmail: maskEmail(cleanEmail),
-            });
-        }
-
-        return res.status(201).json({
-            message: "Account created. Check your university email for the verification link.",
-            maskedEmail: maskEmail(cleanEmail),
-        });
-    } catch (error) {
-        console.log("Error in signup controller: ", error.message);
-        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
-    }
-};
 
 // POST /api/auth/resend-verification  { email }
 // Generic response for verified/unknown emails (no account enumeration);
@@ -221,7 +133,7 @@ export const verifyEmail = async (req, res) => {
         const user = await User.findById(doc.userId);
         if (!user) {
             await EmailVerification.deleteOne({ _id: doc._id });
-            return fail("This account no longer exists. Please sign up again.");
+            return fail("This account no longer exists. Please contact support.");
         }
 
         user.emailVerified = true;

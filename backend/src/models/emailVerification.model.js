@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-// Self-signup email verification tokens (hashed at rest). One doc per email
+// Email verification tokens (hashed at rest). One doc per email
 // so requesting a new link invalidates the previous one.
 const emailVerificationSchema = new mongoose.Schema({
     email: { type: String, required: true, unique: true },

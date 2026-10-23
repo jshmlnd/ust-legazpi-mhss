@@ -81,7 +81,7 @@ const LoginPage = () => {
   const { login, verifyTwoFactor, isLoggingIn, requestPasswordReset, verifyResetCode, resetPassword, resendVerification } = useAuthStore();
   const navigate = useNavigate();
 
-  // Unverified self-signup accounts land here after a 403 login: show the
+  // Unverified accounts land here after a 403 login: show the
   // masked inbox + a resend for the verification link.
   const [verifyEmail, setVerifyEmail] = useState('');
   const [verifyMasked, setVerifyMasked] = useState(null);
@@ -463,17 +463,6 @@ const LoginPage = () => {
                       <KeyRound className="size-3.5" aria-hidden="true" />
                       Forgot password?
                     </button>
-                    <p className="text-center text-xs text-ink-muted">
-                      Don&apos;t have an account?{' '}
-                      <button
-                        type="button"
-                        onClick={() => navigate(PATHS.SIGNUP)}
-                        className="inline-flex items-center gap-1 font-semibold text-brand-600
-                          hover:text-brand-700 transition-colors"
-                      >
-                        Sign up
-                      </button>
-                    </p>
                   </form>
                 </>
               )}

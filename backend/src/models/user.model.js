@@ -83,7 +83,7 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: 'Student',
         },
-        // Self-signup accounts start UNVERIFIED until they click the emailed
+        // Email-unverified accounts stay UNVERIFIED until they click the emailed
         // link (login rejects them until then). Default true so existing and
         // admin-registered accounts keep working untouched.
         emailVerified: {

@@ -44,19 +44,6 @@ export const useAuthStore = create((set) => ({
         }
     },
 
-    // Student self-signup (university emails only, enforced server-side).
-    // Creates an UNVERIFIED account and emails the verification link — no
-    // session is issued until the link is clicked.
-    signup: async (payload) => {
-        try {
-            const res = await axiosInstance.post("/auth/signup", payload);
-            return res.data; // { message, maskedEmail }
-        } catch (error) {
-            const message = error.response?.data?.message || "Sign-up failed";
-            throw new Error(message, { cause: error });
-        }
-    },
-
     resendVerification: async (email) => {
         try {
             const res = await axiosInstance.post("/auth/resend-verification", { email });

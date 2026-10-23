@@ -47,7 +47,7 @@ const ipAttempts = new Map();
 const IP_WINDOW_MS = 15 * 60 * 1000;
 const IP_MAX_REQUESTS = 8;
 
-// Shared with the signup controller (same inbox-flooding concern).
+// Shared with the email verification controller (same inbox-flooding concern).
 export function assertIpBudget(req) {
     const key = req.ip || "unknown";
     const now = Date.now();

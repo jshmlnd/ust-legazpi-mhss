@@ -34,7 +34,7 @@ const EntryForm = ({ onSave, onClose }) => {
       description="A private space to reflect on your day."
     >
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-soft p-4 dark:border-brand-700/50">
+        <div className="flex items-start gap-3 rounded-xl border border-brand-200 bg-brand-soft p-4">
           <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-brand-fg">
             <Book size={16} aria-hidden="true" />
           </div>

@@ -36,8 +36,8 @@ const MAP_CENTER = [13.1391, 123.7438];
 const MAP_ZOOM = 12;
 const ALBAY_BOUNDS = L.latLngBounds([12.8, 123.3], [13.6, 124.2]);
 
-// Marker colors track the Evergreen tokens so they stay visible in dark
-// mode; cssRgb reads the live CSS variable at draw time.
+// Marker colors track the Evergreen tokens; cssRgb reads the live CSS
+// variables at draw time.
 const cssRgb = (name, fallback) => {
   if (typeof window === 'undefined') return fallback;
   const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -45,17 +45,16 @@ const cssRgb = (name, fallback) => {
 };
 
 const createMarkerIcon = (type, isSelected) => {
-  const dark = document.documentElement.classList.contains('dark');
   const colors = {
     hotline: `rgb(${cssRgb('--c-ink-muted', '119 130 125')})`,
-    location: dark ? `rgb(${cssRgb('--c-brand-300', '110 231 183')})` : '#171717',
+    location: `rgb(${cssRgb('--c-brand-700', '4 120 87')})`,
     psychologist: `rgb(${cssRgb('--c-ink-soft', '74 85 81')})`,
     psychiatrist: `rgb(${cssRgb('--c-ink-soft', '74 85 81')})`,
   };
   const color = colors[type] || colors.psychologist;
-  const border = isSelected ? (dark ? `rgb(${cssRgb('--c-brand-400', '52 211 153')})` : '#000000') : color;
-  const fill = isSelected ? (dark ? `rgb(${cssRgb('--c-brand-600', '5 150 105')})` : '#171717') : `rgb(${cssRgb('--c-surface', '255 255 255')})`;
-  const ring = dark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.08)';
+  const border = isSelected ? `rgb(${cssRgb('--c-brand-600', '5 150 105')})` : color;
+  const fill = isSelected ? `rgb(${cssRgb('--c-brand-700', '4 120 87')})` : `rgb(${cssRgb('--c-surface', '255 253 247')})`;
+  const ring = 'rgba(38, 91, 61, 0.12)';
   const size = isSelected ? 16 : 12;
   const half = size / 2;
 

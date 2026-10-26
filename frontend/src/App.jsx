@@ -34,17 +34,12 @@ import { useCallStore } from './store/useCallStore';
 import { PATHS } from './lib/routes';
 import { connectSocket, disconnectSocket } from './lib/socket';
 import { registerServiceWorker, requestNotificationPermission } from './lib/notifications';
-import { usePrefs } from './lib/prefs';
 
 const App = () => {
   const { authUser, checkAuth, isCheckingAuth } = useAuthStore();
 
   const { subscribeToMessages, unsubscribeFromMessages, selectedUser } = useChatStore();
   const { subscribeToCallEvents, unsubscribeFromCallEvents, incomingCall } = useCallStore();
-
-  // Toast theme hook — must stay above the early return below.
-  const { prefs } = usePrefs(authUser?._id);
-  const darkToast = !!(prefs.calmMode || prefs.switchmode);
 
   const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
   const peerDisplayName = (() => {
@@ -101,7 +96,7 @@ const App = () => {
         newestOnTop
         closeOnClick
         pauseOnHover
-        theme={darkToast ? 'dark' : 'light'}
+        theme="light"
       />
 
       <Routes>

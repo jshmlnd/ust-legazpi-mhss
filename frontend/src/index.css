@@ -6,14 +6,14 @@
    EVERGREEN DESIGN TOKENS
    All colors are defined once here as RGB triplets and consumed by
    Tailwind semantic utilities (canvas, surface, ink, line, brand…).
-   Dark mode is a single variable flip — no per-utility overrides.
+   The app uses one calm light palette with no per-theme overrides.
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
   /* surfaces */
-  --c-canvas: 242 247 244;        /* page background */
-  --c-surface: 255 255 255;       /* cards, sidebar, inputs */
-  --c-raised: 255 255 255;        /* popovers, dropdowns, modals */
+  --c-canvas: 246 249 243;        /* soft green page background */
+  --c-surface: 255 254 248;       /* warm white cards, inputs */
+  --c-raised: 255 255 251;        /* warm white popovers, modals */
 
   /* text */
   --c-ink: 22 29 26;              /* headings */
@@ -21,28 +21,28 @@
   --c-ink-muted: 119 130 125;     /* meta, captions */
 
   /* borders */
-  --c-line: 220 229 224;
-  --c-line-strong: 190 204 197;
+  --c-line: 215 229 217;
+  --c-line-strong: 176 202 181;
 
   /* brand — Evergreen (emerald ramp) */
-  --c-brand-50: 236 253 245;
-  --c-brand-100: 209 250 229;
-  --c-brand-200: 167 243 208;
-  --c-brand-300: 110 231 183;
-  --c-brand-400: 52 211 153;
-  --c-brand-500: 16 185 129;
-  --c-brand-600: 5 150 105;
-  --c-brand-700: 4 120 87;
-  --c-brand-800: 6 95 70;
-  --c-brand-900: 6 78 59;
-  --c-brand-fg: 255 255 255;      /* text on brand-600 buttons */
-  --c-brand-soft: 236 253 245;    /* tinted backgrounds (badges, active nav) */
-  --c-brand-soft-ink: 6 95 70;    /* text on tinted backgrounds */
+  --c-brand-50: 239 248 240;
+  --c-brand-100: 222 239 225;
+  --c-brand-200: 188 222 198;
+  --c-brand-300: 133 201 155;
+  --c-brand-400: 91 170 120;
+  --c-brand-500: 54 139 94;
+  --c-brand-600: 42 119 78;
+  --c-brand-700: 33 96 63;
+  --c-brand-800: 25 76 49;
+  --c-brand-900: 19 59 38;
+  --c-brand-fg: 255 254 248;      /* text on brand buttons */
+  --c-brand-soft: 231 245 233;    /* tinted backgrounds (badges, active nav) */
+  --c-brand-soft-ink: 33 96 63;   /* text on tinted backgrounds */
 
   /* semantic */
-  --c-success: 5 150 105;
-  --c-success-soft: 209 250 229;
-  --c-success-ink: 6 78 59;
+  --c-success: 42 119 78;
+  --c-success-soft: 222 239 225;
+  --c-success-ink: 25 76 49;
   --c-warning: 180 83 9;
   --c-warning-soft: 254 243 199;
   --c-warning-ink: 120 53 15;
@@ -53,14 +53,14 @@
   --c-info-soft: 224 242 254;
   --c-info-ink: 7 89 133;
 
-  /* sidebar (inverted panel) — hover/active/line are static in tailwind.config */
-  --c-side: 11 31 24;
-  --c-side-ink: 237 242 240;
-  --c-side-ink-soft: 168 180 175;
-  --c-side-ink-muted: 122 134 129;
-  --c-side-hover: 255 255 255;
-  --c-side-active: 255 255 255;
-  --c-side-line: 255 255 255;
+  /* soft green panel — hover/active/line are static in tailwind.config */
+  --c-side: 207 233 214;
+  --c-side-ink: 24 58 39;
+  --c-side-ink-soft: 48 91 62;
+  --c-side-ink-muted: 75 115 86;
+  --c-side-hover: 236 247 237;
+  --c-side-active: 255 254 248;
+  --c-side-line: 184 214 191;
 }
 
 @font-face {
@@ -71,99 +71,38 @@
   font-display: swap;
 }
 
-.dark {
-  /* surfaces */
-  --c-canvas: 12 18 16;
-  --c-surface: 19 26 23;
-  --c-raised: 26 35 31;
-
-  /* text */
-  --c-ink: 231 236 234;
-  --c-ink-soft: 169 180 175;
-  --c-ink-muted: 124 135 130;
-
-  /* borders */
-  --c-line: 38 49 41;
-  --c-line-strong: 57 68 62;
-
-  /* brand — 600–800 stay at the light-mode values so solid buttons keep
-     white-text AA contrast in dark mode; only accents (50–400) lift */
-  --c-brand-50: 2 44 34;
-  --c-brand-100: 6 78 59;
-  --c-brand-200: 6 95 70;
-  --c-brand-300: 110 231 183;
-  --c-brand-400: 52 211 153;
-  --c-brand-500: 16 185 129;
-  --c-brand-600: 4 120 87;
-  --c-brand-700: 6 95 70;
-  --c-brand-800: 6 78 59;
-  --c-brand-900: 209 250 229;
-  --c-brand-fg: 255 255 255;      /* white text on brand-600 buttons */
-  --c-brand-soft: 6 78 59;        /* tinted backgrounds */
-  --c-brand-soft-ink: 167 243 208;
-
-  /* semantic — solids stay at 600-shades for white-text contrast;
-     ink/soft variants lift for dark tinted surfaces */
-  --c-success: 5 150 105;
-  --c-success-soft: 6 60 44;
-  --c-success-ink: 110 231 183;
-  --c-warning: 180 83 9;
-  --c-warning-soft: 69 26 3;
-  --c-warning-ink: 252 211 77;
-  --c-danger: 220 38 38;
-  --c-danger-soft: 69 10 10;
-  --c-danger-ink: 252 165 165;
-  --c-info: 2 132 199;
-  --c-info-soft: 8 47 73;
-  --c-info-ink: 125 211 252;
-
-  /* sidebar — slightly distinct from canvas */
-  --c-side: 9 14 12;
-  --c-side-ink: 237 242 240;
-  --c-side-ink-soft: 168 180 175;
-  --c-side-ink-muted: 112 122 117;
-  --c-side-hover: 255 255 255;
-  --c-side-active: 255 255 255;
-  --c-side-line: 255 255 255;
-}
-
 /* ───────────── BASE ───────────── */
 
 html {
   color-scheme: light;
 }
-html.dark {
-  color-scheme: dark;
-}
-
 body {
   min-height: 100vh;
   background-color: rgb(var(--c-canvas));
   color: rgb(var(--c-ink-soft));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   overflow-x: hidden;
-}
-
-.dark body {
-  background-color: rgb(var(--c-canvas));
-  color: rgb(var(--c-ink-soft));
 }
 
 /* Shared atmospheric backdrop: depth without adding decorative markup to every page. */
 .app-backdrop {
   background:
-    radial-gradient(circle at 8% 2%, rgb(var(--c-brand-200) / 0.32), transparent 28rem),
-    radial-gradient(circle at 96% 18%, rgb(var(--c-warning-soft) / 0.48), transparent 24rem),
+    radial-gradient(circle at 8% 2%, rgb(var(--c-brand-200) / 0.34), transparent 30rem),
+    radial-gradient(circle at 96% 18%, rgb(var(--c-brand-100) / 0.42), transparent 26rem),
     rgb(var(--c-canvas));
 }
 
-.dark .app-backdrop {
-  background:
-    radial-gradient(circle at 8% 2%, rgb(var(--c-brand-800) / 0.22), transparent 28rem),
-    radial-gradient(circle at 96% 18%, rgb(var(--c-warning-soft) / 0.18), transparent 24rem),
-    rgb(var(--c-canvas));
+/* Shared field-sheet treatment for page-owned panels. */
+.bg-surface.border-line {
+  border-radius: 1rem;
+}
+.bg-surface.border-line:not(input):not(select):not(textarea) {
+  box-shadow: 0 2px 6px rgb(25 76 49 / 0.06);
+}
+.bg-raised.border-line {
+  border-radius: 1rem;
 }
 
 /* Brand selection + scrollbars */
@@ -209,9 +148,7 @@ body {
   50% { opacity: 0.55; }
 }
 
-/* ───────────── HERO IMAGES (Home / Login) ─────────────
-   Same photo in both modes: light washes it under the canvas tint,
-   dark dims + desaturates it instead of inverting. */
+/* ───────────── HERO IMAGES (Home / Login) ───────────── */
 
 .home-bg-image,
 .login-bg-image {
@@ -219,47 +156,34 @@ body {
   background-size: cover;
   background-repeat: no-repeat;
 }
-.dark .home-bg-image,
-.dark .login-bg-image {
-  filter: grayscale(40%) brightness(0.32);
-}
 .home-bg-overlay {
   background-color: rgb(var(--c-canvas) / 0.78);
-}
-.dark .home-bg-overlay {
-  background-color: rgb(var(--c-canvas) / 0.55);
 }
 .login-bg-overlay {
   background-color: rgb(var(--c-canvas) / 0.7);
 }
-.dark .login-bg-overlay {
-  background-color: rgb(var(--c-canvas) / 0.5);
-}
 
 /* ───────────── THIRD-PARTY SURFACES ───────────── */
 
-/* Native <select> dropdown popups: Windows/Chromium paints the option list
-   with UA default colors (white background, dim text) unless the popup's
-   color-scheme is pinned. Force Evergreen tokens so the popup matches the
-   app in both themes, and never trust a stale color-scheme. */
+/* Native <select> dropdown popups: keep the option list aligned with the
+   Evergreen light palette instead of the browser's default colors. */
 select {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink));
-  color-scheme: inherit;
+  color-scheme: light;
 }
 select option,
 select optgroup {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink));
-  color-scheme: inherit;
+  color-scheme: light;
 }
 
 /* Recharts: tooltip cursor tracks the surface system */
-.dark .recharts-tooltip-cursor { fill: rgb(var(--c-line)); stroke: rgb(var(--c-line-strong)); }
+.recharts-tooltip-cursor { fill: rgb(var(--c-line)); stroke: rgb(var(--c-line-strong)); }
 
 /* Leaflet map chrome */
 .leaflet-container { background-color: rgb(var(--c-canvas)); }
-.dark .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.92); }
 .leaflet-popup-content-wrapper {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink-soft));
@@ -267,12 +191,7 @@ select optgroup {
   box-shadow: 0 4px 12px -2px rgb(10 18 15 / 0.2);
 }
 .leaflet-popup-tip { background-color: rgb(var(--c-surface)); }
-.dark .leaflet-popup-content-wrapper {
-  background-color: rgb(var(--c-raised)) !important;
-  color: rgb(var(--c-ink-soft)) !important;
-}
-.dark .leaflet-popup-tip { background-color: rgb(var(--c-raised)) !important; }
-.dark .leaflet-popup-close-button { color: rgb(var(--c-ink-muted)) !important; }
+.leaflet-popup-close-button { color: rgb(var(--c-ink-muted)) !important; }
 .leaflet-bar a {
   background-color: rgb(var(--c-surface));
   color: rgb(var(--c-ink-soft));
@@ -284,7 +203,7 @@ select optgroup {
 /* react-toastify: align chrome with tokens */
 .Toastify__toast {
   border-radius: 0.5rem;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   font-size: 0.8125rem;
 }
 

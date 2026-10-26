@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Activity,
-  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MailCheck, MessageSquare, Moon, Sun
+  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MailCheck, MessageSquare
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
 import { toast } from 'react-toastify';
-import { usePrefs } from '../lib/prefs';
 import { Button, Field, PinInput } from '../ui';
 
 const LOGO_URL = 'https://ik.imagekit.io/zjkm666/OGT-Logo.png';
@@ -32,23 +30,6 @@ const LogoTile = ({ size = 'size-24' }) => (
     <img src={LOGO_URL} alt="UST-Legazpi logo" className="size-3/4" />
   </span>
 );
-
-const ThemeToggle = () => {
-  const { prefs, togglePref } = usePrefs(null);
-  const dark = !!(prefs.calmMode || prefs.switchmode);
-  return (
-    <button
-      type="button"
-      onClick={() => togglePref('switchmode')}
-      aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
-      className="absolute right-4 top-4 z-10 flex items-center justify-center size-9 rounded-md
-        text-ink-muted hover:text-ink hover:bg-line transition-colors"
-    >
-      {dark ? <Sun size={18} /> : <Moon size={18} />}
-    </button>
-  );
-};
 
 const LoginPage = () => {
   const [studentId, setStudentId] = useState('');
@@ -334,7 +315,7 @@ const LoginPage = () => {
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
           <div className="absolute -right-32 -top-32 size-96 rounded-full bg-side-active blur-3xl" />
           <div className="absolute -bottom-40 -left-24 size-80 rounded-full bg-side-hover blur-3xl" />
-          <Activity className="absolute -bottom-10 -right-10 size-64 text-side-line" strokeWidth={1} />
+           <span className="absolute -bottom-5 -right-8 font-script text-[8rem] leading-none text-side-active/70" aria-hidden="true">SafeSpace</span>
         </div>
 
         <div className="relative flex items-center gap-3">
@@ -347,7 +328,7 @@ const LoginPage = () => {
 
         <div className="relative max-w-md">
           <h2 className="text-4xl font-medium leading-[1.1] tracking-tight text-side-ink xl:text-6xl">
-            Welcome to <span className="text-brand-300 font-script">SafeSpace</span>
+             Welcome to <span className="text-brand-700 font-script">SafeSpace</span>
           </h2>
           <p className="mt-5 text-sm leading-[1.7] text-side-ink-soft">
             A University of Santo Tomas - Legazpi Mental Health Support website, a safe, anonymous
@@ -379,8 +360,6 @@ const LoginPage = () => {
 
       {/* ── Form panel ── */}
       <section className="relative flex flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:py-16">
-        <ThemeToggle />
-
         <div className="w-full max-w-sm animate-fade-in">
           <div className="rounded-2xl border border-line bg-surface p-6 shadow-e2 sm:p-8">
             <div key={step} className="animate-fade-in">

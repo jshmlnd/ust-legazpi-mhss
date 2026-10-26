@@ -415,7 +415,7 @@ const StudentChatView = () => {
   const noActiveSession = !!counselor && !appointmentLoading && !hasActiveSession;
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] bg-surface">
+    <div className="flex h-[calc(100dvh-4.5rem)] bg-surface">
       {/* ─── Chat ─── */}
       <div className="flex flex-1 flex-col min-w-0">
       <div className="border-b border-line px-6 py-4 bg-surface shrink-0">
@@ -719,7 +719,7 @@ const CounselorChatView = () => {
   };
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] bg-surface">
+    <div className="flex h-[calc(100dvh-4.5rem)] bg-surface">
       {/* ─── Sidebar ─── */}
       <div className={`w-full lg:w-80 border-r border-line flex flex-col shrink-0 ${
         showMobileList ? 'block' : 'hidden lg:block'

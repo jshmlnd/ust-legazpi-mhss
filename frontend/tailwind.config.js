@@ -10,12 +10,12 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['ui-sans-serif', 'system-ui', 'sans-serif'],
         script: ['"KG Second Chances"', 'cursive'],
       },
       // ── Evergreen semantic tokens ─────────────────────────────
-      // Values come from CSS variables in src/index.css that flip
-      // automatically under `.dark`. rgb triplets enable /alpha ops.
+      // Values come from CSS variables in src/index.css. rgb triplets enable
+      // /alpha ops.
       colors: {
         canvas: 'rgb(var(--c-canvas) / <alpha-value>)',
         surface: 'rgb(var(--c-surface) / <alpha-value>)',
@@ -77,9 +77,9 @@ export default {
         },
       },
       boxShadow: {
-        'e1': '0 1px 2px rgb(10 18 15 / 0.05)',
-        'e2': '0 4px 12px -2px rgb(10 18 15 / 0.10), 0 2px 4px -2px rgb(10 18 15 / 0.06)',
-        'e3': '0 20px 40px -12px rgb(10 18 15 / 0.25), 0 8px 16px -8px rgb(10 18 15 / 0.12)',
+        'e1': '0 2px 6px rgb(25 76 49 / 0.06)',
+        'e2': '0 8px 20px -8px rgb(25 76 49 / 0.16), 0 2px 6px -2px rgb(25 76 49 / 0.08)',
+        'e3': '0 24px 50px -18px rgb(25 76 49 / 0.22), 0 10px 22px -10px rgb(25 76 49 / 0.12)',
       },
       keyframes: {
         'fade-in': {
@@ -105,16 +105,16 @@ export default {
           "color-scheme": "light",
           "primary": "oklch(76.662% 0.135 153.45)",
           "primary-content": "oklch(33.387% 0.04 162.24)",
-          "secondary": "oklch(82% 0.111 230.318)",
-          "secondary-content": "oklch(100% 0 0)",
-          "accent": "oklch(83% 0.145 321.434)",
-          "accent-content": "oklch(0% 0 0)",
-          "neutral": "oklch(35.519% 0.032 262.988)",
-          "neutral-content": "oklch(98.462% 0.001 247.838)",
-          "base-100": "oklch(100% 0 0)",
-          "base-200": "oklch(93% 0 0)",
-          "base-300": "oklch(86% 0 0)",
-          "base-content": "oklch(35.519% 0.032 262.988)",
+          "secondary": "oklch(96% 0.018 95)",
+          "secondary-content": "oklch(35% 0.04 155)",
+          "accent": "oklch(88% 0.08 145)",
+          "accent-content": "oklch(35% 0.04 155)",
+          "neutral": "oklch(35% 0.04 155)",
+          "neutral-content": "oklch(98% 0.012 95)",
+          "base-100": "oklch(99% 0.012 95)",
+          "base-200": "oklch(96% 0.018 145)",
+          "base-300": "oklch(91% 0.025 145)",
+          "base-content": "oklch(35% 0.04 155)",
           "info": "oklch(72.06% 0.191 231.6)",
           "info-content": "oklch(0% 0 0)",
           "success": "oklch(64.8% 0.15 160)",
@@ -128,34 +128,6 @@ export default {
           "--rounded-badge": "0.5rem",
         }
       },
-      {
-        "emerald-dark": {
-          "color-scheme": "dark",
-          "primary": "oklch(80% 0.14 153.45)",
-          "primary-content": "oklch(20% 0.04 162.24)",
-          "secondary": "oklch(82% 0.111 230.318)",
-          "secondary-content": "oklch(20% 0.04 162.24)",
-          "accent": "oklch(83% 0.145 321.434)",
-          "accent-content": "oklch(0% 0 0)",
-          "neutral": "oklch(35.519% 0.032 262.988)",
-          "neutral-content": "oklch(98.462% 0.001 247.838)",
-          "base-100": "oklch(21% 0 0)",
-          "base-200": "oklch(16% 0 0)",
-          "base-300": "oklch(12% 0 0)",
-          "base-content": "oklch(93% 0 0)",
-          "info": "oklch(72.06% 0.191 231.6)",
-          "info-content": "oklch(20% 0.04 162.24)",
-          "success": "oklch(64.8% 0.15 160)",
-          "success-content": "oklch(20% 0.04 162.24)",
-          "warning": "oklch(82% 0.189 84.429)",
-          "warning-content": "oklch(20% 0.04 162.24)",
-          "error": "oklch(71.76% 0.221 22.18)",
-          "error-content": "oklch(20% 0.04 162.24)",
-          "--rounded-box": "0.5rem",
-          "--rounded-btn": "0.5rem",
-          "--rounded-badge": "0.5rem",
-        }
-      }
     ]
   }
 }

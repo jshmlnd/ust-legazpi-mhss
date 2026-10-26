@@ -54,20 +54,20 @@ const ICON_MAP = {
 
 const ICON_BG_COLORS = [
   'bg-line',
-  'bg-rose-50 dark:bg-rose-950',
+  'bg-rose-50',
   'bg-warning-soft',
   'bg-brand-soft',
   'bg-info-soft',
-  'bg-violet-50 dark:bg-violet-950',
+  'bg-violet-50',
 ];
 
 const ICON_FG_COLORS = [
   'text-ink-muted',
-  'text-rose-500 dark:text-rose-300',
+  'text-rose-500',
   'text-warning',
   'text-brand-500',
   'text-info',
-  'text-violet-500 dark:text-violet-300',
+  'text-violet-500',
 ];
 
 const getIconColors = (name) => {

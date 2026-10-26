@@ -20,13 +20,13 @@ const ActionChooserModal = ({ actionModal, onClose, onOpenBooking, hasActiveChat
           <CalendarDays size={20} className="text-brand-600" />
           <h3 className="mt-3 text-sm font-semibold text-ink">Face-to-face</h3>
           <p className="mt-1 text-xs leading-5 text-ink-muted">Choose an available counselor, date, and time.</p>
-          <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300">View availability <ArrowUpRight size={13} /></span>
+          <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700">View availability <ArrowUpRight size={13} /></span>
         </button>
         <button type="button" onClick={() => onOpenBooking('Chat')} className="group rounded-xl border border-line p-4 text-left hover:border-brand-400 hover:bg-brand-soft transition-colors">
           <MessageCircle size={20} className="text-brand-600" />
           <h3 className="mt-3 text-sm font-semibold text-ink">Chat session</h3>
           <p className="mt-1 text-xs leading-5 text-ink-muted">Request a private online conversation with a counselor.</p>
-          <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700 dark:text-brand-300">Request session <ArrowUpRight size={13} /></span>
+          <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-brand-700">Request session <ArrowUpRight size={13} /></span>
         </button>
       </div>
     ) : hasActiveChatSession ? (

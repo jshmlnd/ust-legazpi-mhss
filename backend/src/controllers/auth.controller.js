@@ -56,7 +56,7 @@ const serializeUser = (user, role) => ({
 
 // App preferences synced to the account (see frontend lib/prefs.js). Anything
 // else in the request body is ignored — the client cannot inject extra keys.
-const SYNCED_PREF_KEYS = ['sessionReminders', 'messageNotifications', 'switchmode'];
+const SYNCED_PREF_KEYS = ['sessionReminders', 'messageNotifications'];
 
 const getModel = (req) => (req.user.constructor.modelName === "Counselor" ? Counselor : User);
 

@@ -231,7 +231,7 @@ const UniversityUpdates = ({ embedded = false, limit = 3, notice = null }) => {
       <section aria-labelledby="ogt-updates-heading" className="mt-10 sm:mt-12">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 dark:text-brand-300">Stay informed</span>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">Stay informed</span>
             <h2 id="ogt-updates-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink">OGT Updates</h2>
             <p className="mt-1 text-sm text-ink-muted">Announcements and wellness updates from the Office of Guidance & Testing.</p>
             {notice && (
@@ -242,7 +242,7 @@ const UniversityUpdates = ({ embedded = false, limit = 3, notice = null }) => {
             )}
           </div>
           {updates.length > limit && (
-            <Link to="/university-updates" className="hidden sm:inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300">
+            <Link to="/university-updates" className="hidden sm:inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline">
               View all <ArrowRight size={14} />
             </Link>
           )}
@@ -259,7 +259,7 @@ const UniversityUpdates = ({ embedded = false, limit = 3, notice = null }) => {
         )}
 
         {updates.length > limit && (
-          <Link to="/university-updates" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline dark:text-brand-300 sm:hidden">
+          <Link to="/university-updates" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline sm:hidden">
             View all updates <ArrowRight size={14} />
           </Link>
         )}

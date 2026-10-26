@@ -570,7 +570,6 @@ const PreferencesCard = () => {
   const items = [
     { key: 'sessionReminders', title: 'Session Reminders', desc: 'Email me before scheduled counseling sessions.' },
     { key: 'messageNotifications', title: 'Message Notifications', desc: 'Notify me when I receive new chat messages.' },
-    { key: 'switchmode', title: 'Dark Mode', desc: 'Switch between light and dark appearance.' },
   ];
 
   return (

@@ -6,7 +6,7 @@ const VARIANTS = {
   secondary:
     'bg-surface text-ink border border-line-strong hover:border-ink-muted hover:bg-canvas active:bg-line disabled:opacity-50 disabled:pointer-events-none',
   tertiary:
-    'bg-transparent text-brand-soft-ink hover:bg-brand-soft active:bg-brand-100 disabled:opacity-50 disabled:pointer-events-none dark:hover:bg-brand-soft/60',
+    'bg-transparent text-brand-soft-ink hover:bg-brand-soft active:bg-brand-100 disabled:opacity-50 disabled:pointer-events-none',
   destructive:
     'bg-danger text-white hover:bg-danger/90 active:bg-danger/80 disabled:opacity-50 disabled:pointer-events-none',
   'danger-outline':
@@ -14,9 +14,9 @@ const VARIANTS = {
 };
 
 const SIZES = {
-  sm: 'h-8 px-3 text-xs gap-1.5 rounded-md',
-  md: 'h-10 px-4 text-sm gap-2 rounded-lg',
-  lg: 'h-11 px-5 text-sm gap-2 rounded-lg',
+    sm: 'h-8 px-3 text-xs gap-1.5 rounded-lg',
+    md: 'h-10 px-4 text-sm gap-2 rounded-xl',
+    lg: 'h-11 px-5 text-sm gap-2 rounded-xl',
 };
 
 const Button = ({

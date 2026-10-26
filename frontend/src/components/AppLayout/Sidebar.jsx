@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { NAV_SECTIONS, ACCOUNT_ITEM } from '../../lib/routes';
 
 const Logo = () => (
-  <img src="https://ik.imagekit.io/zjkm666/OGT-Logo.png" alt="OGT UST - Legazpi logo" className="size-9 shrink-0" />
+  <img src="https://ik.imagekit.io/zjkm666/OGT-Logo.png" alt="OGT UST - Legazpi logo" className="size-10 shrink-0 rounded-xl bg-side-active p-1 shadow-e1" />
 );
 
 /* Home route per role — students get the marketing/home page, everyone else
@@ -21,7 +21,7 @@ const NavItem = ({ item, collapsed, onNavigate }) => {
         end={item.path === '/'}
         onClick={onNavigate}
         className={({ isActive }) =>
-          `group relative flex items-center gap-3 rounded-lg px-3 py-2 my-1 min-h-[44px] text-sm font-medium
+          `group relative flex items-center gap-3 rounded-xl px-3 py-2 my-1 min-h-[44px] text-sm font-medium
            transition-colors duration-150 outline-none
            ${collapsed ? 'justify-center px-0' : ''}
            ${isActive
@@ -33,7 +33,7 @@ const NavItem = ({ item, collapsed, onNavigate }) => {
           <>
             {isActive && (
               <span
-                className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-brand-400"
+                className="absolute left-1 top-1/2 -translate-y-1/2 h-5 w-1 rounded-full bg-brand-600"
                 aria-hidden="true"
               />
             )}
@@ -86,9 +86,9 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
   })).filter((s) => s.items.length > 0);
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-side before:pointer-events-none before:absolute before:-right-20 before:-top-20 before:size-56 before:rounded-full before:bg-brand-500/10 before:blur-3xl">
+    <div className="relative flex h-full flex-col overflow-hidden bg-side before:pointer-events-none before:absolute before:-right-20 before:-top-20 before:size-56 before:rounded-full before:bg-brand-400/20 before:blur-3xl">
       {/* brand */}
-      <div className={`relative flex items-center gap-3 h-16 shrink-0 border-b border-side-line ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
+      <div className={`relative flex items-center gap-3 h-[4.5rem] shrink-0 border-b border-side-line ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
         <Link
           to={homePath}
           onClick={onNavigate}

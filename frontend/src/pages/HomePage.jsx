@@ -63,42 +63,48 @@ const HomePage = () => {
     <main className="relative overflow-hidden">
       <div className="home-bg-overlay absolute inset-0 -z-10 bg-surface/70" />
       <div className="mx-auto max-w-[1200px] px-4 pb-20 pt-6 sm:px-6 sm:pt-8 lg:px-10">
-        <section className="relative overflow-hidden rounded-3xl bg-side px-6 py-8 shadow-e3 sm:px-8 lg:px-10">
+        <section className="relative min-h-[360px] overflow-hidden rounded-3xl bg-side px-6 py-9 shadow-e3 sm:px-10 sm:py-10 lg:px-12 lg:py-12">
           <div className="pointer-events-none absolute -right-20 -top-32 size-80 rounded-full bg-brand-400/20 blur-3xl" aria-hidden="true" />
-          <div className="pointer-events-none absolute -bottom-32 left-1/3 size-72 rounded-full bg-warning/10 blur-3xl" aria-hidden="true" />
+          <div className="pointer-events-none absolute -bottom-32 left-1/3 size-72 rounded-full bg-brand-200/35 blur-3xl" aria-hidden="true" />
+          <span className="pointer-events-none absolute -bottom-5 right-[-1rem] font-script text-[7.5rem] leading-none text-side-line/60" aria-hidden="true">SafeSpace</span>
 
-          <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="relative grid min-h-[276px] items-center gap-10 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div>
-              <span className="inline-flex rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-side-ink">
+              <span className="inline-flex rounded-full border border-side-line bg-side-active/70 px-3 py-1 text-xs font-semibold text-side-ink">
                 Session ID : STU-{genid}
               </span>
-              <h1 className="mt-4 max-w-2xl text-[clamp(2rem,4vw,3rem)] font-semibold leading-[1.08] tracking-[-0.035em] text-side-ink">
+              <h1 className="mt-5 max-w-2xl text-[clamp(2.25rem,4.5vw,3.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-side-ink">
                 {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}, {firstName}.
               </h1>
               <p className="mt-3 max-w-xl text-sm leading-6 text-side-ink-soft sm:text-base">
                 Use this space to connect with counselors, schedule sessions, and find support for your well-being.
               </p>
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button type="button" onClick={() => setActionModal('book')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-400 px-5 py-2.5 text-sm font-semibold text-side hover:bg-brand-300 transition-colors">
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                 <button type="button" onClick={() => setActionModal('book')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-700 px-5 py-2.5 text-sm font-semibold text-brand-fg shadow-e1 hover:bg-brand-800 transition-colors">
                   Book a session <ArrowUpRight size={16} />
                 </button>
-                <button type="button" onClick={() => setActionModal('message')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-2.5 text-sm font-semibold text-side-ink hover:bg-white/10 transition-colors">
+                 <button type="button" onClick={() => setActionModal('message')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-side-line bg-side-active/70 px-5 py-2.5 text-sm font-semibold text-side-ink hover:bg-side-active transition-colors">
                   Message a counselor
                 </button>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-5 backdrop-blur-sm lg:p-6">
-              <div className="flex size-10 items-center justify-center rounded-xl bg-brand-400/15 text-brand-300">
-                <ShieldCheck size={20} />
-              </div>
-              <h2 className="mt-4 text-sm font-semibold text-side-ink">Your privacy matters</h2>
-              <p className="mt-2 text-xs leading-6 text-side-ink-soft">
-                Counselors only see your name when you allow it in your account preferences.
-              </p>
-              <Link to={`${PATHS.MY_ACCOUNT}?tab=preferences`} className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-300 hover:text-brand-200">
-                View preferences <MoveRight size={14} />
-              </Link>
+              <div className="relative flex min-h-[236px] flex-col justify-between rounded-2xl border border-side-line bg-side-active/75 p-6 shadow-e1 lg:p-7">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex size-12 items-center justify-center rounded-2xl bg-brand-soft text-brand-700">
+                    <ShieldCheck size={24} />
+                  </div>
+                  <span className="pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-side-ink-muted">Private space</span>
+                </div>
+                <div>
+                  <h2 className="mt-7 text-base font-semibold text-side-ink">Your privacy matters</h2>
+                  <p className="mt-2 text-xs leading-6 text-side-ink-soft">
+                    Counselors only see your name when you allow it in your account preferences.
+                  </p>
+                  <Link to={`${PATHS.MY_ACCOUNT}?tab=preferences`} className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 hover:text-brand-800">
+                    View preferences <MoveRight size={14} />
+                  </Link>
+                </div>
             </div>
           </div>
         </section>

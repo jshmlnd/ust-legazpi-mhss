@@ -1,0 +1,27 @@
+{
+  "name": "SafeSpace",
+  "colors": {
+    "primary": "#2A774E",
+    "primary-deep": "#21603F",
+    "green-soft": "#E7F5E9",
+    "green-panel": "#CFE9D6",
+    "canvas": "#F6F9F3",
+    "warm-white": "#FFFEF8",
+    "raised": "#FFFFFB",
+    "ink": "#161D1A",
+    "ink-soft": "#4A5551",
+    "line": "#D7E5D9"
+  },
+  "rounded": {
+    "sm": "0.75rem",
+    "md": "1rem",
+    "lg": "1.5rem"
+  },
+  "elevation": {
+    "e1": "0 2px 6px rgb(25 76 49 / 0.06)",
+    "e2": "0 8px 20px -8px rgb(25 76 49 / 0.16), 0 2px 6px -2px rgb(25 76 49 / 0.08)",
+    "e3": "0 24px 50px -18px rgb(25 76 49 / 0.22), 0 10px 22px -10px rgb(25 76 49 / 0.12)"
+  },
+  "northStar": "SafeSpace",
+  "surfaceMode": "operate"
+}

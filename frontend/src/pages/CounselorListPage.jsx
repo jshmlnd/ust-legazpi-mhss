@@ -12,41 +12,45 @@ import BookingModal from '../components/modals/BookingModal';
 const DEPARTMENT = 'Office of Guidance and Testing';
 
 /* "Busy" from /message/users means the counselor is currently inside a
-   face-to-face session — phrase it the way a student would read it.
-   Card = portrait photo with a frosted-glass details panel over the bottom. */
+   face-to-face session — phrase it the way a student would read it. */
 const CounselorCard = ({ counselor, onBook }) => {
   const inSession = counselor.status === 'Busy';
   return (
-    <article className="group relative isolate flex min-h-[390px] flex-col overflow-hidden rounded-2xl border border-line bg-line shadow-e1 transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-e2 sm:aspect-[4/5] sm:min-h-0">
-      {counselor.profilePic ? (
-        <img
-          src={counselor.profilePic}
-          alt={`${counselor.fullName} profile photo`}
-          loading="lazy"
-          className="absolute inset-0 size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand-600 to-brand-800">
-          <User size={48} className="text-brand-fg/40" aria-hidden="true" />
-        </div>
-      )}
+    <article className="group overflow-hidden rounded-2xl border border-line bg-surface shadow-e1 transition-[transform,box-shadow] duration-200 hover:-translate-y-1 hover:shadow-e2">
+      <div className="relative h-28 overflow-hidden bg-gradient-to-br from-brand-50 via-brand-soft to-brand-100">
+        <div className="absolute inset-x-6 top-1/2 h-px bg-brand-200/80" aria-hidden="true" />
+        <div className="absolute left-8 top-1/2 size-2 -translate-y-1/2 rounded-full bg-brand-500" aria-hidden="true" />
+        <div className="absolute right-8 top-1/2 size-2 -translate-y-1/2 rounded-full bg-brand-300" aria-hidden="true" />
+        <span className="absolute right-4 top-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-700/70">Support route</span>
+      </div>
 
-      {/* Keep the details legible without hiding the counselor's portrait. */}
-      <div className="absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/10 to-transparent" aria-hidden="true" />
-
-      <div className="relative mt-auto mx-3 mb-3 rounded-xl border border-line-strong/50 bg-surface/80 p-4 shadow-e1 backdrop-blur-xs sm:p-5">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Counselor</p>
-            <h3 className="mt-1 truncate text-base font-semibold tracking-[-0.01em] text-ink">{counselor.fullName}</h3>
-          </div>
+      <div className="relative px-5 pb-5">
+        <div className="-mt-10 flex items-end justify-between gap-3">
+          {counselor.profilePic ? (
+            <img
+              src={counselor.profilePic}
+              alt={`${counselor.fullName} profile photo`}
+              loading="lazy"
+              className="size-24 rounded-2xl border-4 border-surface object-cover shadow-e1"
+            />
+          ) : (
+            <div className="flex size-24 items-center justify-center rounded-2xl border-4 border-surface bg-brand-600 text-brand-fg shadow-e1">
+              <User size={30} aria-hidden="true" />
+            </div>
+          )}
           <StatusBadge tone={inSession ? 'warning' : 'success'}>
             {inSession ? 'In session' : 'Available'}
           </StatusBadge>
         </div>
-        <p className="mt-3 text-xs font-medium leading-relaxed text-ink-soft">{counselor.department || DEPARTMENT} Department</p>
-        <p className="mt-1 text-xs text-ink-muted">{inSession ? 'May respond after the current session.' : 'Ready to support your next step.'}</p>
-        <Button size="md" variant="primary" icon={CalendarPlus} onClick={() => onBook()} className="mt-4 w-full">
+
+        <div className="mt-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Counselor</p>
+          <h3 className="mt-1 truncate text-lg font-semibold tracking-[-0.02em] text-ink">{counselor.fullName}</h3>
+          <p className="mt-2 text-xs font-medium leading-relaxed text-ink-soft">{counselor.department || DEPARTMENT} Department</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-muted">{inSession ? 'May respond after the current session.' : 'Ready to support your next step.'}</p>
+        </div>
+
+        <Button size="md" variant="primary" icon={CalendarPlus} onClick={() => onBook()} className="mt-5 w-full">
           Book session
         </Button>
       </div>

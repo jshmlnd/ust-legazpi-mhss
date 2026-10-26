@@ -65,12 +65,11 @@ const userSchema = new mongoose.Schema(
         },
         // Account-level app preferences, synced from the Profile page so they
         // follow the user across devices. Keys must match lib/prefs.js on the
-        // frontend (SYNCED_PREFS): sessionReminders, messageNotifications,
-        // switchmode (dark mode). calmMode/sidebarCollapsed stay device-local.
+         // frontend (SYNCED_PREFS): sessionReminders and messageNotifications.
+         // calmMode/sidebarCollapsed stay device-local.
         preferences: {
             sessionReminders: { type: Boolean, default: true },
             messageNotifications: { type: Boolean, default: true },
-            switchmode: { type: Boolean, default: false },
         },
         // OGT Updates newsletter opt-in. Default ON: students receive
         // announcement emails unless they opt out in Preferences. Admin-

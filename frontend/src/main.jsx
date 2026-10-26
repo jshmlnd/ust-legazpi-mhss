@@ -6,7 +6,7 @@ import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import { applyStartupTheme } from './lib/prefs.js'
 
-// Restore the saved theme before first paint to avoid a light-mode flash.
+// Restore the saved UI preferences before first paint.
 applyStartupTheme();
 
 createRoot(document.getElementById('root')).render(

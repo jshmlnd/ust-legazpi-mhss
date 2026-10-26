@@ -8,14 +8,13 @@ export const DEFAULT_PREFS = {
   sessionReminders: true,
   messageNotifications: true,
   calmMode: false,
-  switchmode: false,
   sidebarCollapsed: false,
 };
 
 // Keys that follow the account (User/Counselor.preferences, synced through
 // /auth/profile-details). calmMode and sidebarCollapsed stay device-local —
 // they are per-screen UI state.
-const SYNCED_PREFS = ['sessionReminders', 'messageNotifications', 'switchmode'];
+const SYNCED_PREFS = ['sessionReminders', 'messageNotifications'];
 
 const keyFor = (userId) => String(userId || 'guest');
 
@@ -37,7 +36,6 @@ const pushPref = (key, value) => {
 };
 
 export const LIGHT_THEME = 'emerald';
-export const DARK_THEME = 'emerald-dark';
 
 const applySideEffects = (next) => {
   if (typeof document === 'undefined') return;
@@ -45,12 +43,8 @@ const applySideEffects = (next) => {
   if ('calmMode' in next) {
     root.classList.toggle('calm-mode', !!next.calmMode);
   }
-  if ('switchmode' in next || 'calmMode' in next) {
-    // Calm mode implies the dark theme; the standalone dark toggle (switchmode) is additive.
-    const dark = !!(next.calmMode || next.switchmode);
-    root.classList.toggle('dark', dark);
-    root.setAttribute('data-theme', dark ? DARK_THEME : LIGHT_THEME);
-  }
+  root.classList.remove('dark');
+  root.setAttribute('data-theme', LIGHT_THEME);
 };
 
 const usePrefsStore = create(persist((set) => ({
@@ -100,9 +94,8 @@ export const getPrefs = (userId) => ({
 });
 
 /**
- * Apply the persisted theme synchronously at startup (before React renders)
- * so a saved dark mode paints immediately instead of flashing light until
- * AppLayout mounts. persist rehydrates synchronously from localStorage.
+ * Apply persisted UI preferences synchronously before React renders.
+ * persist rehydrates synchronously from localStorage.
  */
 export const applyStartupTheme = () => {
   if (typeof document === 'undefined') return;
@@ -117,8 +110,7 @@ export const usePrefs = (userId) => {
   const togglePref = usePrefsStore((state) => state.togglePref);
 
   useEffect(() => {
-    // Remember whose prefs are active so the next cold start can restore
-    // the theme before first paint (see applyStartupTheme).
+    // Remember whose preferences are active for the next cold start.
     if (usePrefsStore.getState().activeKey !== key) {
       usePrefsStore.setState({ activeKey: key });
     }

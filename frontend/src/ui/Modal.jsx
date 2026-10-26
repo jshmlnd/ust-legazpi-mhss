@@ -55,7 +55,7 @@ const Modal = ({ isOpen, onClose, title, description, children, footer, wide = f
         aria-label={title}
         tabIndex={-1}
           className={`relative w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} max-h-[calc(100dvh-2rem)] sm:max-h-[84vh] flex flex-col bg-raised border border-line
-          rounded-xl shadow-e3 animate-modal-in focus:outline-none`}
+          rounded-2xl shadow-e3 animate-modal-in focus:outline-none`}
       >
         <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-line">
           <div className="min-w-0">

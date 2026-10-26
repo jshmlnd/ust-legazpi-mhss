@@ -63,7 +63,6 @@ const counselorSchema = new mongoose.Schema(
         preferences: {
             sessionReminders: { type: Boolean, default: true },
             messageNotifications: { type: Boolean, default: true },
-            switchmode: { type: Boolean, default: false },
         },
 
     },

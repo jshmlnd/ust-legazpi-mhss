@@ -22,7 +22,7 @@ export const Field = ({ label, htmlFor, required, error, helper, children, class
 );
 
 const CONTROL_BASE =
-  'w-full rounded-lg border bg-surface text-sm text-ink placeholder:text-ink-muted ' +
+  'w-full rounded-xl border bg-surface text-sm text-ink placeholder:text-ink-muted ' +
   'transition-colors duration-150 outline-none ' +
   'focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20 ' +
   'disabled:opacity-50 disabled:cursor-not-allowed';

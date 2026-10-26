@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import { getIO } from "../socket/socket.js";
 import cloudinary from "../lib/cloudinary.js";
 import { sendMail, newsletterEmailTemplate } from "../lib/mailer.js";
+import { MediaRejectedError, scanMediaFile } from "../lib/mediaModeration.js";
 
 // Announcement → newsletter email. Sent in background batches so a slow SMTP
 // round-trip never blocks the HTTP response; failures are logged only.
@@ -65,28 +66,52 @@ export class UploadConfigError extends Error {
   }
 }
 
-const uploadImages = async (images) => {
-  if (!images || images.length === 0) return [];
-  const pending = images.filter(Boolean);
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    const hasUploadable = pending.some((img) => !/^https?:\/\//i.test(img));
-    if (hasUploadable) throw new UploadConfigError();
+export const parseRetainedImages = (value, allowedImages = []) => {
+  if (!value) return [];
+  let images;
+  try {
+    images = Array.isArray(value) ? value : JSON.parse(value);
+  } catch {
+    throw new MediaRejectedError();
   }
-  const uploads = await Promise.all(
-    pending.map((img) => {
-      // Already-hosted URLs (re-saving an existing announcement) are kept
-      // as-is; only new files (data URIs) are uploaded to Cloudinary.
-      if (/^https?:\/\//i.test(img)) return Promise.resolve(img);
-      // Note: the SDK's `v2` export rejects named qualities like 'good'
-      // inside a transformation; 'auto' (adaptive quality) is accepted.
-      return cloudinary.uploader.upload(img, {
+  if (!Array.isArray(images)) throw new MediaRejectedError();
+  const allowed = new Set(allowedImages);
+  if (images.some((image) => !/^https:\/\/res\.cloudinary\.com\//i.test(image) || !allowed.has(image))) {
+    throw new MediaRejectedError();
+  }
+  return images.filter(Boolean);
+};
+
+const destroyUploadedImages = async (uploads) => {
+  await Promise.allSettled(uploads.map((upload) => (
+    cloudinary.uploader.destroy(upload.public_id, { resource_type: upload.resource_type || "image", invalidate: true })
+  )));
+};
+
+const uploadImages = async (retainedImages, mediaFiles) => {
+  const pending = mediaFiles || [];
+  if (pending.length === 0) return { images: retainedImages, uploads: [] };
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+    throw new UploadConfigError();
+  }
+
+  const uploadedAssets = [];
+  try {
+    const scans = await Promise.all(pending.map((file) => scanMediaFile(file)));
+    if (scans.some((scan) => scan.resourceType !== "image")) throw new MediaRejectedError();
+    for (const file of pending) {
+      const upload = await cloudinary.uploader.upload(file.path, {
         folder: "Announcement Photos",
-        resource_type: 'auto',
-        transformation: [{ width: 800, crop: 'limit', quality: 'auto' }],
-      }).then((u) => u.secure_url);
-    })
-  );
-  return uploads;
+        resource_type: "image",
+        transformation: [{ width: 800, crop: "limit", quality: "auto" }],
+      });
+      uploadedAssets.push(upload);
+    }
+  } catch (error) {
+    await destroyUploadedImages(uploadedAssets);
+    throw error;
+  }
+  return { images: [...retainedImages, ...uploadedAssets.map((upload) => upload.secure_url)], uploads: uploadedAssets };
 };
 
 export const getAnnouncements = async (req, res) => {
@@ -102,10 +127,17 @@ export const getAnnouncements = async (req, res) => {
 
 export const createAnnouncement = async (req, res) => {
   try {
-    const { images, ...rest } = req.body;
-    const uploadedImages = await uploadImages(images);
-    const announcement = new Announcement({ ...rest, images: uploadedImages });
-    await announcement.save();
+    const { images, existingImages, ...rest } = req.body;
+    const retainedImages = parseRetainedImages(existingImages || images);
+    const uploadResult = await uploadImages(retainedImages, req.mediaFiles);
+    let announcement;
+    try {
+      announcement = new Announcement({ ...rest, images: uploadResult.images });
+      await announcement.save();
+    } catch (error) {
+      await destroyUploadedImages(uploadResult.uploads);
+      throw error;
+    }
     emitAnnouncementsUpdated();
     // Newsletter is auxiliary: respond first, send in the background.
     dispatchNewsletter(announcement);
@@ -115,22 +147,39 @@ export const createAnnouncement = async (req, res) => {
     if (error instanceof UploadConfigError) {
       return res.status(503).json({ error: error.message });
     }
+    if (error instanceof MediaRejectedError) {
+      return res.status(400).json({ error: "Media could not be uploaded" });
+    }
+    if (req.mediaFiles?.length) {
+      return res.status(503).json({ error: "Media moderation is temporarily unavailable" });
+    }
     if (error.name === "ValidationError") {
       return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    await req.cleanupMediaFiles?.();
   }
 };
 
 export const updateAnnouncement = async (req, res) => {
   try {
-    const { images, ...rest } = req.body;
-    const updateData = { ...rest };
-    if (images !== undefined) {
-      updateData.images = await uploadImages(images);
-    }
-    const announcement = await Announcement.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
+    const announcement = await Announcement.findById(req.params.id);
     if (!announcement) return res.status(404).json({ error: "Announcement not found" });
+    const { images, existingImages, ...rest } = req.body;
+    const updateData = { ...rest };
+    let uploadResult = { uploads: [] };
+    if (images !== undefined || existingImages !== undefined || req.mediaFiles?.length) {
+      uploadResult = await uploadImages(parseRetainedImages(existingImages || images, announcement.images || []), req.mediaFiles);
+      updateData.images = uploadResult.images;
+    }
+    try {
+      Object.assign(announcement, updateData);
+      await announcement.save();
+    } catch (error) {
+      await destroyUploadedImages(uploadResult.uploads);
+      throw error;
+    }
     emitAnnouncementsUpdated();
     res.json(announcement);
     return;
@@ -139,6 +188,12 @@ export const updateAnnouncement = async (req, res) => {
     if (error instanceof UploadConfigError) {
       return res.status(503).json({ error: error.message });
     }
+    if (error instanceof MediaRejectedError) {
+      return res.status(400).json({ error: "Media could not be uploaded" });
+    }
+    if (req.mediaFiles?.length) {
+      return res.status(503).json({ error: "Media moderation is temporarily unavailable" });
+    }
     if (error.name === "ValidationError") {
       return res.status(400).json({ error: error.message });
     }
@@ -146,6 +201,8 @@ export const updateAnnouncement = async (req, res) => {
       return res.status(400).json({ error: "Invalid announcement id" });
     }
     res.status(500).json({ error: "Internal server error" });
+  } finally {
+    await req.cleanupMediaFiles?.();
   }
 };
 

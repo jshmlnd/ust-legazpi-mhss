@@ -94,6 +94,8 @@ feat:
 - Daily mood streak HomePage card (students): "How are you today?" → 1-tap mood creates a JournalEntry titled "Daily mood check-in" — no schema change. Streak = consecutive days with entries ending today (or yesterday, so it breaks only after a full skipped day), computed frontend-only. Card shows 🔥 N-day streak; buttons disable once today is logged.
 - Real sessionReminders On login/app-open: the student's next confirmed/active appointment inside 24h fires showNotification() through the service worker; a 5-min re-poll catches sessions crossing the window while open. On notification permission granted, the browser also subscribes to background push.
 
+Media uploads are scanned locally by the backend with NSFWJS before Cloudinary or MongoDB persistence. Render deployments must use the native Node runtime so `ffmpeg` and `ffprobe` are available for video scanning; temporary scan files do not require a persistent disk.
+
 #### Upcoming
 
 - Point System: adds a feature where Counselor can evaluate how much point a student gains per session from `1-10`.

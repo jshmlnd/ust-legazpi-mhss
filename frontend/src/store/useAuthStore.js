@@ -102,7 +102,10 @@ export const useAuthStore = create((set) => ({
     updateProfile: async (profilePic) => {
         set({ isUpdating: true });
         try {
-            const res = await axiosInstance.put("/auth/profile", { profilePic });
+            const payload = typeof File !== "undefined" && profilePic instanceof File
+                ? (() => { const form = new FormData(); form.append("profilePic", profilePic); return form; })()
+                : { profilePic };
+            const res = await axiosInstance.put("/auth/profile", payload);
             set({ authUser: res.data });
             return res.data;
         } catch (error) {

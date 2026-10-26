@@ -15,6 +15,7 @@ import {
 } from "../lib/totp.js";
 import { sendMail, passwordChangedEmailTemplate } from "../lib/mailer.js";
 import { maskEmail } from "./passwordReset.controller.js";
+import { MediaRejectedError, scanMediaFile } from "../lib/mediaModeration.js";
 
 const generateToken = (userId, res) => {
     const token = jwt.sign({userId}, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -354,29 +355,49 @@ export const updatePassword = async (req, res) => {
 }
 
 export const updateProfile = async (req, res) => {
+    let uploadedAsset;
     try {
-        const { profilePic } = req.body;
+        const { profilePic } = req.body || {};
+        const profileFile = req.mediaFiles?.[0];
         const userId = req.user._id;
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
-
-        if(profilePic === undefined) {
+        if(profilePic === undefined && !profileFile) {
             return res.status(400).json({ message: "Profile picture is required" });
         }
-
         if(profilePic === '') {
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
         return res.status(200).json(serializeUser(updatedUser));
         }
 
-        const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
+        if (!profileFile) {
+            return res.status(400).json({ message: "Profile picture file is required" });
+        }
 
+        const scan = await scanMediaFile(profileFile);
+        if (scan.resourceType !== "image") {
+            throw new MediaRejectedError();
+        }
+        const uploadResponse = await cloudinary.uploader.upload(profileFile.path, { folder: "Profile Pictures" });
+        uploadedAsset = uploadResponse;
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
+        uploadedAsset = null;
 
         res.status(200).json(serializeUser(updatedUser));
 
     } catch (error) {
         console.log("Error in updateProfile controller: ", error.message);
+        if (uploadedAsset?.public_id) {
+            await cloudinary.uploader.destroy(uploadedAsset.public_id, { resource_type: uploadedAsset.resource_type || "image", invalidate: true }).catch(() => {});
+        }
+        if (error instanceof MediaRejectedError) {
+            return res.status(400).json({ message: "Media could not be uploaded" });
+        }
+        if (req.mediaFiles?.length) {
+            return res.status(503).json({ message: "Media moderation is temporarily unavailable" });
+        }
         return res.status(500).json({ message: "Internal server error" });
+    } finally {
+        await req.cleanupMediaFiles?.();
     }
 }
 

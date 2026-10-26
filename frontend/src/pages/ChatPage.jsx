@@ -169,7 +169,7 @@ const MessageInput = ({ onSend, disabled, receiverId, placeholder }) => {
   const { emitTyping, emitStopTyping } = useChatStore();
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024;
-  const MAX_VIDEO_SIZE = 5 * 1024 * 1024 * 1024;
+  const MAX_VIDEO_SIZE = 250 * 1024 * 1024;
 
   const handleChange = (e) => {
     setText(e.target.value);
@@ -190,7 +190,7 @@ const MessageInput = ({ onSend, disabled, receiverId, placeholder }) => {
     const maxSize = isVideo ? MAX_VIDEO_SIZE : MAX_FILE_SIZE;
 
     if (file.size > maxSize) {
-      toast.error(isVideo ? 'Video exceeds 5GB limit' : 'File exceeds 10MB limit');
+      toast.error(isVideo ? 'Video exceeds 250MB limit' : 'File exceeds 10MB limit');
       return;
     }
 
@@ -213,21 +213,14 @@ const MessageInput = ({ onSend, disabled, receiverId, placeholder }) => {
     if (selectedFile) {
       setUploading(true);
       try {
-        const reader = new FileReader();
-        const base64 = await new Promise((resolve, reject) => {
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedFile);
-        });
-
         const isVideo = selectedFile.type.startsWith('video/');
         const isImage = selectedFile.type.startsWith('image/');
 
         if (isImage) {
-          onSend({ text: text.trim() || undefined, image: base64 });
+          onSend({ text: text.trim() || undefined, file: selectedFile, type: 'image' });
         } else {
           const type = isVideo ? 'video' : 'file';
-          onSend({ text: text.trim() || undefined, type, fileUrl: base64, fileName: selectedFile.name, fileSize: selectedFile.size });
+          onSend({ text: text.trim() || undefined, type, file: selectedFile });
         }
 
         setSelectedFile(null);

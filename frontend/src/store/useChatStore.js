@@ -109,7 +109,14 @@ export const useChatStore = create((set, get) => ({
     const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
     const text = messageData.text || '';
     try {
-      const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, messageData);
+      let payload = messageData;
+      if (messageData.file) {
+        payload = new FormData();
+        payload.append('media', messageData.file);
+        if (messageData.text) payload.append('text', messageData.text);
+        if (messageData.type) payload.append('type', messageData.type);
+      }
+      const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, payload);
       set({ messages: [...messages, res.data] });
 
       if (!isCounselor && text) {

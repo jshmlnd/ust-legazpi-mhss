@@ -151,7 +151,13 @@ const CounselorAnnouncementManagerPage = () => {
 
   const handleCreate = async (data) => {
     try {
-      const res = await axiosInstance.post('/announcements', { ...data, author: 'Counseling Office' });
+      const payload = new FormData();
+      payload.append('title', data.title);
+      payload.append('body', data.body);
+      payload.append('author', 'Counseling Office');
+      payload.append('existingImages', JSON.stringify(data.existingImages || []));
+      (data.files || []).forEach((file) => payload.append('images', file));
+      const res = await axiosInstance.post('/announcements', payload);
       setAnnouncements((prev) => [res.data, ...prev]);
       setCreateModalOpen(false);
       toast.success('Announcement created');
@@ -166,7 +172,12 @@ const CounselorAnnouncementManagerPage = () => {
   const handleEdit = async (data) => {
     if (!editingAnnouncement) return;
     try {
-      const res = await axiosInstance.put(`/announcements/${editingAnnouncement._id}`, data);
+      const payload = new FormData();
+      payload.append('title', data.title);
+      payload.append('body', data.body);
+      payload.append('existingImages', JSON.stringify(data.existingImages || []));
+      (data.files || []).forEach((file) => payload.append('images', file));
+      const res = await axiosInstance.put(`/announcements/${editingAnnouncement._id}`, payload);
       setAnnouncements((prev) => prev.map((a) => (a._id === editingAnnouncement._id ? res.data : a)));
       setEditModalOpen(false);
       setEditingAnnouncement(null);

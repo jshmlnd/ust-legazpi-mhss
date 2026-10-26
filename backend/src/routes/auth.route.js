@@ -3,6 +3,8 @@ import { checkAuth, login, logout, register, registerCounselor, updateProfile, u
 import { forgotPassword, resetPassword, verifyResetCode } from "../controllers/passwordReset.controller.js";
 import { verifyEmail, resendVerification } from "../controllers/emailVerification.controller.js";
 import { protectRoute, adminOnly } from "../middleware/auth.middleware.js";
+import { mediaMultipart } from "../middleware/mediaUpload.middleware.js";
+import { MAX_IMAGE_SIZE } from "../lib/mediaModeration.js";
 
 const router = express.Router();
 
@@ -16,7 +18,7 @@ router.post("/logout", logout);
 router.post("/register", adminOnly, register);
 router.post("/register-counselor", adminOnly, registerCounselor);
 
-router.put("/profile", protectRoute, updateProfile);
+router.put("/profile", protectRoute, mediaMultipart({ maxFiles: 1, maxFileSize: MAX_IMAGE_SIZE, maxTotalSize: MAX_IMAGE_SIZE }), updateProfile);
 router.put("/password", protectRoute, updatePassword);
 router.put("/profile-details", protectRoute, updateProfileDetails);
 router.post("/pin", protectRoute, setPin);

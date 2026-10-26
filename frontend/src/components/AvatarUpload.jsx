@@ -3,7 +3,7 @@ import { User, Camera, X, Loader, Check } from 'lucide-react';
 
 const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' }) => {
   const [preview, setPreview] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -29,12 +29,12 @@ const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' })
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) return;
+    if (!file.type.startsWith('image/') || file.size > 10 * 1024 * 1024) return;
 
     const reader = new FileReader();
     reader.onloadend = () => {
       setPreview(reader.result);
-      setSelectedFile(true);
+      setSelectedFile(file);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -44,8 +44,8 @@ const AvatarUpload = ({ profilePic, fullName, onUpload, onRemove, size = 'lg' })
     if (!preview) return;
     setLoading(true);
     try {
-      await onUpload(preview);
-      setSelectedFile(false);
+      await onUpload(selectedFile);
+      setSelectedFile(null);
       setPreview(null);
     } finally {
       setLoading(false);

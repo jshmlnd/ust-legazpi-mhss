@@ -711,9 +711,9 @@ const ProfilePage = () => {
     { icon: BookOpen, label: 'Program', value: authUser.program },
   ];
 
-  const handleUpload = async (base64) => {
+  const handleUpload = async (file) => {
     try {
-      await updateProfile(base64);
+      await updateProfile(file);
       toast.success('Profile picture updated');
     } catch {
       toast.error('Failed to update profile picture');

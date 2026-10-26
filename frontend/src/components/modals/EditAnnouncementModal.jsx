@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { Image, X } from 'lucide-react';
-import { compressImage } from '../../lib/compressImage';
 import Modal from '../../ui/Modal';
 
 const MAX_IMAGES = 4;
@@ -14,15 +13,11 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
   const handleImageSelect = async (e) => {
     const files = Array.from(e.target.files || []);
     const remaining = MAX_IMAGES - images.length;
-    const toAdd = files.slice(0, remaining);
-    const compressed = await Promise.all(
-      toAdd.map((file) => new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target.result);
-        reader.readAsDataURL(file);
-      })).map((p) => p.then(compressImage))
-    );
-    setImages((prev) => [...prev, ...compressed]);
+    const toAdd = files
+      .filter((file) => file.type.startsWith('image/') && file.size <= 10 * 1024 * 1024)
+      .slice(0, remaining)
+      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    setImages((prev) => [...prev, ...toAdd]);
     e.target.value = '';
   };
 
@@ -33,7 +28,12 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
-    await onSave({ title: title.trim(), body: body.trim(), images });
+    await onSave({
+      title: title.trim(),
+      body: body.trim(),
+      existingImages: images.filter((image) => typeof image === 'string'),
+      files: images.filter((image) => typeof image !== 'string').map((image) => image.file),
+    });
   };
 
   const isCreate = !announcement;
@@ -66,9 +66,9 @@ const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
           </label>
           {images.length > 0 && (
             <div className="grid grid-cols-2 gap-2 mb-2">
-              {images.map((img, i) => (
+              {images.map((image, i) => (
                 <div key={i} className="relative group rounded-lg overflow-hidden border border-line">
-                  <img src={img} alt="" className="w-full h-28 object-cover" />
+                  <img src={typeof image === 'string' ? image : image.preview} alt="" className="w-full h-28 object-cover" />
                   <button
                     type="button"
                     onClick={() => removeImage(i)}

@@ -9,6 +9,7 @@ import { getSocket } from '../lib/socket';
 import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 import SessionFeedbackModal from '../components/SessionFeedbackModal';
+import CrisisSupportModal from '../components/modals/CrisisSupportModal';
 
 const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerPic, ownName, peerName }) => {
   if (message.callerId !== undefined) {
@@ -296,7 +297,7 @@ const StudentChatView = () => {
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
     getUsers, setSelectedUser, sendMessage, getMessages, subscribeToMessages, unsubscribeFromMessages,
-    isSocketConnected, typingUsers, crisisMessageMap,
+    isSocketConnected, typingUsers, crisisMessageMap, flaggedMessage, clearFlaggedMessage,
   } = useChatStore();
   const { callState, initiateCall } = useCallStore();
   const messagesEndRef = useRef(null);
@@ -517,6 +518,8 @@ const StudentChatView = () => {
         counselorName={counselor?.fullName || selectedUser?.fullName}
         isStudent
       />
+
+      <CrisisSupportModal isOpen={!!flaggedMessage} onClose={clearFlaggedMessage} />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Plus, FileText, Phone, ExternalLink, MapPin, LayoutGrid, Map as MapIcon,
   Columns2, Trash2, Pencil, ArrowUpToLine, ArrowDownToLine, CalendarDays,
-  Search, X, Clock, Globe, Brain, Stethoscope,
+  Search, X, Clock, Globe, Brain, Stethoscope, Check,
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -74,7 +74,7 @@ const createMarkerIcon = (type, isSelected) => {
   });
 };
 
-const MapBoundsUpdater = ({ resources, selectedId }) => {
+const MapBoundsUpdater = ({ resources, selectedId, markerRefs }) => {
   const map = useMap();
   const prevSelected = useRef(null);
 
@@ -83,15 +83,18 @@ const MapBoundsUpdater = ({ resources, selectedId }) => {
     prevSelected.current = selectedId;
     const res = resources.find((r) => r._id === selectedId);
     if (res?.lat != null && res?.lng != null) {
+      // Open the details popup once the fly-to settles; opening it mid-flight makes the autopan fight the animation.
+      map.once('moveend', () => markerRefs.current[selectedId]?.openPopup());
       map.flyTo([res.lat, res.lng], 15, { duration: 0.6 });
     }
-  }, [selectedId, resources, map]);
+  }, [selectedId, resources, map, markerRefs]);
 
   return null;
 };
 
 const ResourceMap = ({ resources, selectedId, onSelect }) => {
   const locations = resources.filter((r) => r.lat != null && r.lng != null);
+  const markerRefs = useRef({});
 
   return (
     <div className="h-full w-full rounded-xl overflow-hidden border border-line relative z-0 shadow-e1">
@@ -109,10 +112,11 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2ewm_1_565ab8c78182c1772fdc12fc"
         />
-        <MapBoundsUpdater resources={resources} selectedId={selectedId} />
+        <MapBoundsUpdater resources={resources} selectedId={selectedId} markerRefs={markerRefs} />
         {locations.map((r) => (
           <Marker
             key={r._id}
+            ref={(m) => { markerRefs.current[r._id] = m; }}
             position={[r.lat, r.lng]}
             icon={createMarkerIcon(r.type, r._id === selectedId)}
             eventHandlers={{ click: () => onSelect(r) }}
@@ -123,7 +127,9 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
                 {r.description && <p className="text-ink-soft mt-1">{r.description}</p>}
                 {r.address && <p className="text-ink-muted mt-1">{r.address}</p>}
                 {r.hours && <p className="text-ink-muted mt-0.5">{r.hours}</p>}
-                {r.contact && <p className="text-ink-muted mt-0.5">{r.contact}</p>}
+                {r.contact && (
+                  <a href={`tel:${r.contact.replace(/\s/g, '')}`} className="block text-ink-soft font-medium mt-0.5 hover:underline">{r.contact}</a>
+                )}
                 <p className="text-ink-muted mt-1.5 text-xs">{TYPE_LABELS[r.type]}</p>
               </div>
             </Popup>
@@ -141,14 +147,25 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
 const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCounselor, onMoveUp, onMoveDown }) => {
   const Icon = TYPE_ICONS[resource.type] || FileText;
   const isMappable = resource.lat != null && resource.lng != null;
+  // Selected sits on a tinted surface, so secondary text steps up to ink-soft to keep contrast.
+  const muted = isSelected ? 'text-ink-soft' : 'text-ink-muted';
 
   return (
     <article
       onClick={() => onSelect(resource)}
-      className={`group bg-surface border rounded-xl relative transition-all duration-150 p-5 h-full flex flex-col cursor-default ${
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onSelect(resource);
+        }
+      }}
+      aria-current={isSelected || undefined}
+      className={`group border rounded-xl relative transition-all duration-200 p-5 h-full flex flex-col cursor-default
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
         isSelected
-          ? 'border-brand-600 ring-2 ring-brand-600/15 shadow-e2'
-          : 'border-line hover:border-line-strong hover:shadow-e1'
+          ? 'bg-brand-50 border-brand-600 ring-1 ring-brand-600 shadow-e2'
+          : 'bg-surface border-line hover:border-line-strong hover:shadow-e1'
       }`}
     >
       {isCounselor && (
@@ -194,17 +211,25 @@ const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCoun
 
       <div className="flex items-center gap-2.5 mb-3">
         <div
-          className={`size-8 rounded-lg flex items-center justify-center transition-colors ${TYPE_ICON_COLORS[resource.type] || 'bg-line text-ink-muted'}`}
+          className={`size-8 rounded-lg flex items-center justify-center transition-colors ${
+            isSelected ? 'bg-brand-700 text-brand-fg' : TYPE_ICON_COLORS[resource.type] || 'bg-line text-ink-muted'
+          }`}
         >
           <Icon size={15} />
         </div>
-        <span className="text-xs font-semibold text-ink-muted uppercase tracking-wide">
+        <span className={`text-xs font-semibold ${isSelected ? 'text-brand-soft-ink' : 'text-ink-muted'} uppercase tracking-wide`}>
           {TYPE_LABELS[resource.type]}
         </span>
+        {isSelected && (
+          <span className="ml-auto size-5 shrink-0 rounded-full bg-brand-700 text-brand-fg flex items-center justify-center">
+            <Check size={12} strokeWidth={3} aria-hidden="true" />
+            <span className="sr-only">Selected</span>
+          </span>
+        )}
       </div>
 
       <h3 className="text-sm font-medium text-ink mb-1.5">{resource.title}</h3>
-      <p className="text-xs text-ink-muted leading-relaxed flex-1 line-clamp-3">{resource.description}</p>
+      <p className={`text-xs ${muted} leading-relaxed flex-1 line-clamp-3`}>{resource.description}</p>
 
       {(resource.contact || resource.address || resource.hours) && (
         <div className="mt-3 space-y-1.5">
@@ -218,20 +243,20 @@ const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCoun
             </a>
           )}
           {resource.address && (
-            <p className="flex items-center gap-1.5 text-xs text-ink-muted">
-              <MapPin size={12} className="text-ink-muted shrink-0" /> <span className="truncate">{resource.address}</span>
+            <p className={`flex items-center gap-1.5 text-xs ${muted}`}>
+              <MapPin size={12} className="shrink-0" /> <span className="truncate">{resource.address}</span>
             </p>
           )}
           {resource.hours && (
-            <p className="flex items-center gap-1.5 text-xs text-ink-muted">
-              <CalendarDays size={12} className="text-ink-muted shrink-0" /> {resource.hours}
+            <p className={`flex items-center gap-1.5 text-xs ${muted}`}>
+              <CalendarDays size={12} className="shrink-0" /> {resource.hours}
             </p>
           )}
         </div>
       )}
 
-      <div className="flex items-center justify-between mt-4 pt-3 border-t border-line">
-        {resource.date && <span className="text-xs text-ink-muted">{formatDate(resource.date)}</span>}
+      <div className={`flex items-center justify-between mt-4 pt-3 border-t ${isSelected ? 'border-brand-200' : 'border-line'}`}>
+        {resource.date && <span className={`text-xs ${muted}`}>{formatDate(resource.date)}</span>}
         <div className="flex items-center gap-2.5">
           {isMappable && (
             <span title="Shown on map">

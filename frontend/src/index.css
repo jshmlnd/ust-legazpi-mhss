@@ -229,3 +229,24 @@ svg { max-width: 100%; height: auto; }
     content: ''; position: absolute; inset: -10px;
   }
 }
+
+/* ───────────── HOME HERO ENTRANCE ───────────── */
+
+@keyframes hero-focus { from { opacity: 0; filter: blur(8px); transform: scale(1.015); } }
+@keyframes hero-rise { from { opacity: 0; transform: translateY(var(--rise, 10px)); } }
+@keyframes hero-drift { from { opacity: 0; transform: translate(24px, -18px) scale(0.9); } }
+@keyframes hero-draw { from { stroke-dasharray: 10; stroke-dashoffset: 10; } to { stroke-dasharray: 10; stroke-dashoffset: 0; } }
+@keyframes hero-pulse { 40% { transform: scale(1.12); } }
+
+.hero-grid { animation: hero-focus 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.hero-card { --rise: 10px; animation: hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s backwards; }
+.hero-shield { animation: hero-pulse 0.6s ease-in-out 1s; }
+.hero-shield svg path:last-child { animation: hero-draw 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.85s backwards; }
+.hero-blob { animation: hero-drift 1.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.hero-word { --rise: 30px; animation: hero-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards; }
+
+/* the global reduced-motion rule shortens durations but keeps delays, which would leave these hidden; show them at once */
+@media (prefers-reduced-motion: reduce) {
+  .hero-grid, .hero-card, .hero-shield, .hero-shield svg path:last-child, .hero-blob, .hero-word { animation: none; }
+}
+.calm-mode .hero-grid, .calm-mode .hero-card, .calm-mode .hero-shield, .calm-mode .hero-shield svg path:last-child, .calm-mode .hero-blob, .calm-mode .hero-word { animation: none; }

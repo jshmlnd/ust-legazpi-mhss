@@ -128,8 +128,8 @@ export const useChatStore = create((set, get) => ({
             crisisMessageMap: { ...state.crisisMessageMap, [res.data._id]: analysis.severity.level },
           }));
           logCrisisAudit({
-            studentId: selectedUser._id,
-            counselorId: authUser?._id,
+            studentId: authUser?._id,
+            counselorId: selectedUser._id,
             messageId: res.data._id,
             analysis,
           });

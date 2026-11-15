@@ -8,7 +8,7 @@ export const logCrisisDetection = async (req, res) => {
       return res.status(400).json({ error: "studentId is required" });
     }
 
-    const entry = await AuditTrail.create({
+    const doc = {
       studentId,
       counselorId: counselorId || null,
       type: "crisis_detected",
@@ -17,7 +17,16 @@ export const logCrisisDetection = async (req, res) => {
       messageText: messageText || "",
       messageId: messageId || null,
       metadata: { matches: matches || [], language: language || "english" },
-    });
+    };
+
+    // Student and counselor clients both report the same message; keep the first.
+    const entry = messageId
+      ? await AuditTrail.findOneAndUpdate(
+        { messageId, type: "crisis_detected" },
+        { $setOnInsert: doc },
+        { upsert: true, new: true },
+      )
+      : await AuditTrail.create(doc);
 
     res.status(201).json(entry);
   } catch (error) {

@@ -60,6 +60,7 @@ const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
           className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
           <ModuleIcon name={module.icon} />
@@ -95,13 +96,21 @@ const ModuleCard = ({ module, onEdit, onDelete, isCounselor }) => {
         </div>
       </div>
 
-      {total > 0 && open && (
-        <div className="border-t border-line px-5 py-3 bg-canvas/60">
-          <ul className="space-y-0">
-            {module.activities.map((a) => (
-              <ActivityItem key={a._id || a.id} activity={a} />
-            ))}
-          </ul>
+      {total > 0 && (
+        // grid 0fr -> 1fr animates height without measuring; inert keeps collapsed links out of tab order
+        <div
+          inert={!open}
+          className={`grid transition-[grid-template-rows] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className={`border-t border-line px-5 py-3 bg-canvas/60 rounded-b-lg transition-opacity duration-200 ${open ? 'opacity-100' : 'opacity-0'}`}>
+              <ul className="space-y-0">
+                {module.activities.map((a) => (
+                  <ActivityItem key={a._id || a.id} activity={a} />
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </div>

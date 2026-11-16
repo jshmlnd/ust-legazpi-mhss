@@ -21,7 +21,7 @@ const CounselorCard = ({ counselor, onBook }) => {
         <div className="absolute inset-x-6 top-1/2 h-px bg-brand-200/80" aria-hidden="true" />
         <div className="absolute left-8 top-1/2 size-2 -translate-y-1/2 rounded-full bg-brand-500" aria-hidden="true" />
         <div className="absolute right-8 top-1/2 size-2 -translate-y-1/2 rounded-full bg-brand-300" aria-hidden="true" />
-        <span className="absolute right-4 top-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-700/70">Support route</span>
+        <span className="absolute right-4 top-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-700/70"></span>
       </div>
 
       <div className="relative px-5 pb-5">

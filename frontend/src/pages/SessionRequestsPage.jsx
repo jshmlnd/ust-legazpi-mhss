@@ -168,23 +168,23 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
         />
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden md:block overflow-x-auto">
+          {/* Table needs ~930px (+ Concern at 2xl); below xl the card list is used. */}
+          <div className="hidden xl:block overflow-x-auto">
             <table className="w-full table-fixed text-left">
               <colgroup>
-                <col className="w-32" />
                 <col className="w-36" />
-                <col />
+                <col className="w-36" />
+                <col className="hidden 2xl:table-column" />
                 <col className="w-24" />
                 <col className="w-44" />
-                <col className="w-72" />
                 <col className="w-52" />
+                <col className="w-40" />
               </colgroup>
               <thead>
                 <tr className="border-b border-line">
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Student</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Type</th>
-                  <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Concern</th>
+                  <th scope="col" className="hidden 2xl:table-cell px-5 py-3 text-xs font-semibold text-ink-muted">Concern</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Risk</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Time</th>
                   <th scope="col" className="px-5 py-3 text-xs font-semibold text-ink-muted">Action taken</th>
@@ -197,9 +197,11 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
                     <td className="px-5 py-3.5">
                       <p className="text-sm font-medium text-ink">{session.studentName || session.id}</p>
                       {session.studentName && <p className="text-xs text-ink-muted">{session.id}</p>}
+                      {/* Concern column is hidden below 2xl; show it here instead */}
+                      {session.concern && <p className="mt-0.5 truncate text-xs text-ink-soft 2xl:hidden" title={session.concern}>{session.concern}</p>}
                     </td>
                     <td className="px-5 py-3.5"><TypeBadge type={session.type} /></td>
-                    <td className="px-5 py-3.5 max-w-56 text-sm text-ink-soft truncate" title={session.concern}>{session.concern || '—'}</td>
+                    <td className="hidden 2xl:table-cell px-5 py-3.5 max-w-56 text-sm text-ink-soft truncate" title={session.concern}>{session.concern || '—'}</td>
                     <td className="px-5 py-3.5"><RiskBadge risk={session.concernRisk} /></td>
                     <td className="px-5 py-3.5 text-sm text-ink-soft whitespace-nowrap">{session.date} {session.time}</td>
                     <td className="px-5 py-3.5 whitespace-nowrap overflow-hidden">{renderActionTaken(session)}</td>
@@ -211,7 +213,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
           </div>
 
           {/* Mobile cards */}
-          <div className="md:hidden divide-y divide-line">
+          <div className="xl:hidden divide-y divide-line">
             {sessions.map((session) => (
               <div key={`card-${session._id}`} className="p-4 space-y-2.5">
                 <div className="flex items-start justify-between gap-3">

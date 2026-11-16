@@ -1,5 +1,5 @@
 import express from "express";
-import { protectRoute } from "../middleware/auth.middleware.js";
+import { protectRoute, counselorOnly } from "../middleware/auth.middleware.js";
 import {
   getResources, createResource,
   updateResource, deleteResource, reorderResources,
@@ -8,9 +8,9 @@ import {
 const router = express.Router();
 
 router.get("/", protectRoute, getResources);
-router.post("/", protectRoute, createResource);
-router.patch("/reorder", protectRoute, reorderResources);
-router.patch("/:id", protectRoute, updateResource);
-router.delete("/:id", protectRoute, deleteResource);
+router.post("/", counselorOnly, createResource);
+router.patch("/reorder", counselorOnly, reorderResources);
+router.patch("/:id", counselorOnly, updateResource);
+router.delete("/:id", counselorOnly, deleteResource);
 
 export default router;

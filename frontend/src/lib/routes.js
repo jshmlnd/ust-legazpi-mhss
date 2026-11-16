@@ -63,7 +63,6 @@ export const NAV_SECTIONS = [
     id: 'wellbeing',
     label: 'Personal',
     items: [
-      { label: 'Self-Care', path: PATHS.SELF_CARE, icon: Heart, roles: ['student'] },
       { label: 'My Diary', path: PATHS.DIARY, icon: Book, roles: ['student'] },
     ],
   },
@@ -72,6 +71,7 @@ export const NAV_SECTIONS = [
     label: 'Explore',
     items: [
       { label: 'Resources', path: PATHS.RESOURCES, icon: MapPinned, roles: ['student'] },
+      { label: 'Self-Care', path: PATHS.SELF_CARE, icon: Heart, roles: ['student'] },
     ],
   },
   {

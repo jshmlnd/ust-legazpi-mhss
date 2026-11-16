@@ -261,7 +261,7 @@ const CounselorAnnouncementManagerPage = () => {
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b border-line">
-                  <th className="px-6 py-3.5 w-10">
+                  <th className="px-3 py-3.5 sm:px-6 w-10">
                     <input
                       type="checkbox"
                       checked={selected.size === filtered.length && filtered.length > 0}
@@ -272,17 +272,17 @@ const CounselorAnnouncementManagerPage = () => {
                       className="size-3.5 rounded-lg border-line-strong text-ink focus:ring-0"
                     />
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold text-ink-muted">Title</th>
-                  <th className="px-6 py-3.5 text-xs font-semibold text-ink-muted">Author</th>
-                  <th className="px-6 py-3.5 text-xs font-semibold text-ink-muted">Date</th>
-                  <th className="px-6 py-3.5 text-xs font-semibold text-ink-muted">
+                  <th className="px-3 py-3.5 sm:px-6 min-w-44 text-xs font-semibold text-ink-muted">Title</th>
+                  <th className="hidden lg:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">Author</th>
+                  <th className="hidden lg:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">Date</th>
+                  <th className="hidden xl:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">
                     <span className="inline-flex items-center gap-1"><Eye size={11} /> Views</span>
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold text-ink-muted">
+                  <th className="hidden xl:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">
                     <span className="inline-flex items-center gap-1"><Heart size={11} /> Reactions</span>
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-semibold text-ink-muted">Engagement</th>
-                  <th className="px-6 py-3.5 w-32" />
+                  <th className="hidden xl:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">Engagement</th>
+                  <th className="px-3 py-3.5 sm:px-6 w-24 sm:w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -291,7 +291,7 @@ const CounselorAnnouncementManagerPage = () => {
                   const engagement = a.views > 0 ? Math.min((totalReactionCount / (a.views * 5)) * 100, 100).toFixed(1) : '0.0';
                   return (
                     <tr key={a._id} className="border-b border-line last:border-b-0 hover:bg-canvas transition-colors">
-                      <td className="px-6 py-3.5">
+                      <td className="px-3 py-3.5 sm:px-6">
                         <input
                           type="checkbox"
                           checked={selected.has(a._id)}
@@ -299,20 +299,27 @@ const CounselorAnnouncementManagerPage = () => {
                           className="size-3.5 rounded-lg border-line-strong text-ink focus:ring-0"
                         />
                       </td>
-                      <td className="px-6 py-3.5">
+                      <td className="px-3 py-3.5 sm:px-6">
                         <span className="text-sm font-medium text-ink">{a.title}</span>
                         <TextWithLinks text={a.body} maxLines={1} className="mt-0.5" />
+                        {/* columns hidden below lg/xl collapse into this line */}
+                        <span className="mt-1 block text-xs text-ink-muted lg:hidden">
+                          {a.author} · {a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-ink-muted xl:hidden">
+                          {a.views || 0} views · {totalReactionCount} reactions · {engagement}%
+                        </span>
                       </td>
-                      <td className="px-6 py-3.5 text-sm text-ink-soft">{a.author}</td>
-                      <td className="px-6 py-3.5 text-sm text-ink-muted">{a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}</td>
-                      <td className="px-6 py-3.5">
+                      <td className="hidden lg:table-cell px-6 py-3.5 text-sm text-ink-soft">{a.author}</td>
+                      <td className="hidden lg:table-cell px-6 py-3.5 text-sm text-ink-muted">{a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}</td>
+                      <td className="hidden xl:table-cell px-6 py-3.5">
                         <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><Eye size={12} className="text-ink-muted" /> {a.views || 0}</span>
                       </td>
-                      <td className="px-6 py-3.5">
+                      <td className="hidden xl:table-cell px-6 py-3.5">
                         <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><Heart size={12} className="text-ink-muted" /> {totalReactionCount}</span>
                       </td>
-                      <td className="px-6 py-3.5 text-sm text-ink-muted">{engagement}%</td>
-                      <td className="px-6 py-3.5 text-right">
+                      <td className="hidden xl:table-cell px-6 py-3.5 text-sm text-ink-muted">{engagement}%</td>
+                      <td className="px-3 py-3.5 sm:px-6 text-right">
                         {showDeleted ? (
                           <div className="flex items-center gap-2 justify-end">
                             <button

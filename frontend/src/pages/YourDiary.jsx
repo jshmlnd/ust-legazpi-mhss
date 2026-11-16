@@ -52,7 +52,7 @@ const MoodOverview = ({ entries }) => {
 
   return (
     <div className="bg-surface border border-line rounded-lg p-5">
-      <span className="text-xs font-semibold text-ink-muted block mb-4">Total Mood Overview</span>
+      <span className="text-xs font-semibold text-ink-muted block mb-4">Total Entries</span>
       <div className="space-y-3">
         {MOODS.map((m) => {
           const Icon = m.icon;
@@ -257,11 +257,11 @@ const YourDiary = () => {
     }
   };
 
-  if (loading) return <PageShell title="Your Diary" description="A private space for your thoughts and reflections"><PageShellSkeleton showSidebar count={3} /></PageShell>;
+  if (loading) return <PageShell title="My Diary" description="A private space for your thoughts and reflections"><PageShellSkeleton showSidebar count={3} /></PageShell>;
 
   return (
     <PageShell
-      title="Your Diary"
+      title="My Diary"
       description="A private space for your thoughts and reflections"
       actions={
         <button

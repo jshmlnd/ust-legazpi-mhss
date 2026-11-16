@@ -12,8 +12,9 @@ const Logo = () => (
    their dashboard (same mapping as RoleRoute). */
 const ROLE_HOME = { student: '/', counselor: '/dashboard', administrator: '/admin' };
 
-const NavItem = ({ item, collapsed, onNavigate }) => {
+const NavItem = ({ item, collapsed, onNavigate, count = 0 }) => {
   const Icon = item.icon;
+  const countLabel = count > 99 ? '99+' : count;
   return (
     <li>
       <NavLink
@@ -39,6 +40,18 @@ const NavItem = ({ item, collapsed, onNavigate }) => {
             )}
             <Icon size={18} className="shrink-0" aria-hidden="true" />
             <span className={`truncate ${collapsed ? 'hidden' : ''}`}>{item.label}</span>
+            {count > 0 && (
+              <>
+                <span
+                  aria-hidden="true"
+                  className={`flex items-center justify-center rounded-full bg-brand-700 font-semibold leading-none text-brand-fg tabular-nums
+                    ${collapsed ? 'absolute right-1.5 top-1.5 min-w-4 h-4 px-1 text-[10px]' : 'ml-auto min-w-5 h-5 px-1.5 text-[11px]'}`}
+                >
+                  {countLabel}
+                </span>
+                <span className="sr-only">, {count} new</span>
+              </>
+            )}
             {collapsed && (
               <span
                 role="tooltip"
@@ -68,7 +81,7 @@ const GroupDivider = ({ label, collapsed }) => (
   </li>
 );
 
-const SidebarContent = ({ collapsed, onNavigate }) => {
+const SidebarContent = ({ collapsed, onNavigate, badges = {} }) => {
   const { authUser, logout } = useAuthStore();
   const navigate = useNavigate();
   const role = authUser?.userType?.toLowerCase();
@@ -112,7 +125,7 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
             <div key={section.id} className="contents">
               <GroupDivider label={section.label} collapsed={collapsed} />
               {section.items.map((item) => (
-                <NavItem key={item.path} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+                <NavItem key={item.path} item={item} collapsed={collapsed} onNavigate={onNavigate} count={badges[item.path]} />
               ))}
             </div>
           ))}
@@ -151,17 +164,17 @@ const SidebarContent = ({ collapsed, onNavigate }) => {
 };
 
 /* ── Desktop rail ── */
-export const DesktopSidebar = ({ collapsed }) => (
+export const DesktopSidebar = ({ collapsed, badges }) => (
   <aside
     className={`hidden md:flex fixed left-0 top-0 bottom-0 z-40 flex-col transition-[width] duration-200 ease-out
       border-r border-side-line ${collapsed ? 'w-[76px]' : 'w-[260px]'}`}
   >
-    <SidebarContent collapsed={collapsed} />
+    <SidebarContent collapsed={collapsed} badges={badges} />
   </aside>
 );
 
 /* ── Mobile drawer ── */
-export const MobileSidebar = ({ open, onClose }) => {
+export const MobileSidebar = ({ open, onClose, badges }) => {
   useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -182,7 +195,7 @@ export const MobileSidebar = ({ open, onClose }) => {
         className={`absolute left-0 top-0 bottom-0 w-[280px] max-w-[85vw] flex flex-col shadow-e3 border-r border-side-line
           transition-transform duration-200 ease-out ${open ? 'translate-x-0 visible' : '-translate-x-full invisible'}`}
       >
-        <SidebarContent collapsed={false} onNavigate={onClose} />
+        <SidebarContent collapsed={false} onNavigate={onClose} badges={badges} />
       </aside>
     </div>
   );

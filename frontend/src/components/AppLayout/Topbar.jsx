@@ -46,9 +46,9 @@ const Topbar = ({ authUser, onOpenSidebar, collapsed, onToggleCollapse }) => {
       </button>
 
       {/* current section label */}
-      <span className="hidden sm:flex items-center gap-2 truncate text-sm font-semibold text-ink">
-        <span className="h-4 w-1 rounded-full bg-brand-500" aria-hidden="true" />
-        {title}
+      <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-ink">
+        <span className="h-4 w-1 shrink-0 rounded-full bg-brand-500" aria-hidden="true" />
+        <span className="truncate">{title}</span>
       </span>
 
       <div className="ml-auto flex items-center gap-1">

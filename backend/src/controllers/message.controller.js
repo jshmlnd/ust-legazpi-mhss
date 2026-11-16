@@ -86,6 +86,20 @@ export const getUsersForSidebar = async (req, res) => {
     }
 };
 
+export const getUnreadCount = async (req, res) => {
+    try {
+        const count = await Message.countDocuments({
+            receiverId: req.user._id,
+            receiverModel: req.user.constructor.modelName,
+            read: false,
+        });
+        res.status(200).json({ count });
+    } catch (error) {
+        console.error("Error in getUnreadCount:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
 export const getMessages = async (req, res) => {
     try {
         const { id: userToChatId } = req.params;

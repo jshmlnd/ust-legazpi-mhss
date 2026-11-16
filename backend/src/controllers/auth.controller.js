@@ -95,6 +95,28 @@ export const updateProfileDetails = async (req, res) => {
     }
 };
 
+// Brute-force guard for password login. Per-account, in-memory — same
+// trade-off as the reset-code and 2FA budgets. 5 wrong passwords locks that
+// account's password login for 15 min; a correct password clears it.
+// shortcut: per-process counters reset on restart, move to Mongo/Redis if the API runs on several instances.
+const loginAttempts = new Map(); // key: `${role}:${accountId}` → { count, resetAt }
+export const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function loginLockedFor(key) {
+    const entry = loginAttempts.get(key);
+    if (!entry) return 0;
+    const now = Date.now();
+    if (now > entry.resetAt) { loginAttempts.delete(key); return 0; }
+    return entry.count >= LOGIN_MAX_ATTEMPTS ? Math.ceil((entry.resetAt - now) / 1000) : 0;
+}
+
+function noteLoginFailure(key) {
+    const entry = loginAttempts.get(key);
+    if (entry) entry.count += 1;
+    else loginAttempts.set(key, { count: 1, resetAt: Date.now() + LOGIN_WINDOW_MS });
+}
+
 export const login = async (req , res) => {
     const { studentId, counselorId, password } = req.body;
 
@@ -127,11 +149,19 @@ export const login = async (req , res) => {
             await account.save();
         }
 
+        const attemptKey = `${role}:${account._id}`;
+        const lockedSecs = loginLockedFor(attemptKey);
+        if (lockedSecs) {
+            return res.status(429).json({ message: `Too many failed attempts. Try again in ${Math.ceil(lockedSecs / 60)} min.` });
+        }
+
         const isPasswordCorrect = await bcrypt.compare(password, account.password);
 
         if (!isPasswordCorrect) {
+            noteLoginFailure(attemptKey);
             return res.status(401).json({ message: "Invalid credentials" });
         }
+        loginAttempts.delete(attemptKey);
 
         // Unverified accounts can't sign in until they click the emailed
         // verification link. Pre-existing / admin-registered accounts have no

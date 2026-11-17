@@ -123,6 +123,11 @@ const TypingBubble = ({ pic }) => (
   </div>
 );
 
+const SEVERITY_RANK = { low: 1, medium: 2, high: 3, critical: 4 };
+// A later, milder message must not hide the reveal button for an earlier high one.
+const topSeverity = (levels) =>
+  levels.filter(Boolean).sort((a, b) => (SEVERITY_RANK[b] || 0) - (SEVERITY_RANK[a] || 0))[0];
+
 const EmergencyBanner = ({ onReveal, onDismiss, severity }) => {
   const severityConfig = {
     critical: { bg: 'bg-danger-soft', border: 'border-danger/30', iconBg: 'bg-danger-soft', iconColor: 'text-danger-ink', title: 'text-danger-ink', subtitle: 'text-danger-ink', btn: 'bg-danger hover:bg-danger/90' },
@@ -676,9 +681,14 @@ const CounselorChatView = () => {
     setSearchParams({ user: user._id }, { replace: true });
   };
 
+  const alertSeverity = topSeverity([
+    flaggedMessage?.severity,
+    crisisAnalysis?.severity?.level,
+    ...Object.values(crisisMessageMap),
+  ]);
+
   const handleReveal = () => {
-    const severity = flaggedMessage?.severity || crisisAnalysis?.severity?.level;
-    if (flaggedMessage && ['high', 'critical'].includes(String(severity || '').toLowerCase())) {
+    if (flaggedMessage && ['high', 'critical'].includes(String(alertSeverity || '').toLowerCase())) {
       navigate(`/identity/user/${flaggedMessage.userId}`);
     }
   };
@@ -849,7 +859,7 @@ const CounselorChatView = () => {
                 studentName={selectedUser.showNameToCounselor ? selectedUser.fullName : `STU-${selectedUser.dynamicId || selectedUser._id}`}
                 onReveal={handleReveal}
                 onDismiss={clearFlaggedMessage}
-                severity={flaggedMessage.severity || crisisAnalysis?.severity?.level}
+                severity={alertSeverity}
               />
             )}
 

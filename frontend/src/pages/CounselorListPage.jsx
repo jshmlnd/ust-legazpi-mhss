@@ -8,7 +8,7 @@ import { PageShellSkeleton } from '../components/skeleton';
 import { axiosInstance } from '../lib/axios';
 import BookingModal from '../components/modals/BookingModal';
 
-/* Fallback for counselors an admin hasn't assigned a college to yet. */
+/* Fallback for counselors with no college assigned yet. */
 const DEPARTMENT = 'Office of Guidance and Testing';
 
 /* "Busy" from /message/users means the counselor is currently inside a
@@ -25,17 +25,17 @@ const CounselorCard = ({ counselor, onBook }) => {
       </div>
 
       <div className="relative px-5 pb-5">
-        <div className="-mt-10 flex items-end justify-between gap-3">
+        <div className="-mt-16 flex items-end justify-between gap-3">
           {counselor.profilePic ? (
             <img
               src={counselor.profilePic}
               alt={`${counselor.fullName} profile photo`}
               loading="lazy"
-              className="size-24 rounded-2xl border-4 border-surface object-cover shadow-e1"
+              className="size-32 rounded-3xl border-4 border-surface object-cover shadow-e1"
             />
           ) : (
-            <div className="flex size-24 items-center justify-center rounded-2xl border-4 border-surface bg-brand-600 text-brand-fg shadow-e1">
-              <User size={30} aria-hidden="true" />
+            <div className="flex size-32 items-center justify-center rounded-3xl border-4 border-surface bg-brand-600 text-brand-fg shadow-e1">
+              <User size={40} aria-hidden="true" />
             </div>
           )}
           <StatusBadge tone={inSession ? 'warning' : 'success'}>

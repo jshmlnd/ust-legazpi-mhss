@@ -57,9 +57,13 @@ const Topbar = ({ authUser, onOpenSidebar, collapsed, onToggleCollapse }) => {
           className="flex items-center gap-2 rounded-xl py-1.5 pl-1 pr-2 min-h-[40px] hover:bg-line transition-colors"
           aria-label="My Account"
         >
-          <span className="size-8 rounded-full bg-brand-600 text-brand-fg flex items-center justify-center text-xs font-semibold">
-            {authUser?.fullName?.[0]?.toUpperCase() || 'U'}
-          </span>
+          {authUser?.profilePic ? (
+            <img src={authUser.profilePic} alt="" className="size-8 rounded-full object-cover" />
+          ) : (
+            <span className="size-8 rounded-full bg-brand-600 text-brand-fg flex items-center justify-center text-xs font-semibold">
+              {authUser?.fullName?.[0]?.toUpperCase() || 'U'}
+            </span>
+          )}
           <span className="hidden lg:block text-xs font-medium text-ink max-w-[140px] truncate">
             {authUser?.fullName}
           </span>

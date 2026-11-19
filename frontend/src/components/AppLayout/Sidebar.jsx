@@ -10,7 +10,7 @@ const Logo = () => (
 
 /* Home route per role — students get the marketing/home page, everyone else
    their dashboard (same mapping as RoleRoute). */
-const ROLE_HOME = { student: '/', counselor: '/dashboard', administrator: '/admin' };
+const ROLE_HOME = { student: '/', counselor: '/dashboard' };
 
 const NavItem = ({ item, collapsed, onNavigate, count = 0 }) => {
   const Icon = item.icon;
@@ -140,9 +140,13 @@ const SidebarContent = ({ collapsed, onNavigate, badges = {} }) => {
           className={`flex items-center gap-3 rounded-lg p-2 min-h-[44px] transition-colors hover:bg-side-hover
             ${collapsed ? 'justify-center' : ''}`}
         >
-          <span className="size-9 shrink-0 rounded-full bg-brand-600 text-brand-fg flex items-center justify-center text-sm font-semibold">
-            {authUser?.fullName?.[0]?.toUpperCase() || 'U'}
-          </span>
+          {authUser?.profilePic ? (
+            <img src={authUser.profilePic} alt="" className="size-9 shrink-0 rounded-full object-cover" />
+          ) : (
+            <span className="size-9 shrink-0 rounded-full bg-brand-600 text-brand-fg flex items-center justify-center text-sm font-semibold">
+              {authUser?.fullName?.[0]?.toUpperCase() || 'U'}
+            </span>
+          )}
           {!collapsed && (
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-side-ink truncate">{authUser?.fullName}</span>

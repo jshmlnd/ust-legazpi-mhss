@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useChatStore } from '../../store/useChatStore';
 import { usePrefs, getPrefs } from '../../lib/prefs';
 import { connectSocket } from '../../lib/socket';
 import { axiosInstance } from '../../lib/axios';
@@ -91,7 +92,7 @@ const AppLayout = () => {
     loadCounts.current = async () => {
       const [pending, unread, appts] = await Promise.allSettled([
         isCounselor ? axiosInstance.get('/analytics/upcoming-sessions') : null,
-        axiosInstance.get('/messages/unread-count'),
+        axiosInstance.get('/message/unread-count'),
         axiosInstance.get('/appointments'),
       ]);
       if (cancelled) return;
@@ -116,8 +117,10 @@ const AppLayout = () => {
       clearInterval(poll);
     };
   }, [authUser]);
-  // refetch on navigation (reading a chat marks it read server-side)
-  useEffect(() => { loadCounts.current(); }, [pathname]);
+  // Refetch on navigation (reading a chat marks it read server-side) and the
+  // moment the chat store counts a new message for a chat that isn't open.
+  const unreadCounts = useChatStore((s) => s.unreadCounts);
+  useEffect(() => { loadCounts.current(); }, [pathname, unreadCounts]);
   const badges = {
     [PATHS.SESSION_REQUESTS]: counts.requests,
     [PATHS.MESSAGES]: counts.messages,

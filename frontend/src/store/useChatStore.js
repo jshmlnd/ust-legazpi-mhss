@@ -117,7 +117,7 @@ export const useChatStore = create((set, get) => ({
         if (messageData.type) payload.append('type', messageData.type);
       }
       const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, payload);
-      set({ messages: [...messages, res.data] });
+      set({ messages: [...messages, { ...res.data, _fresh: true }] }); // _fresh: play the send animation once
 
       if (!isCounselor && text) {
         const analysis = await analyzeCrisis(text);

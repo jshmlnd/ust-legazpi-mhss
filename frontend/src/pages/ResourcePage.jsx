@@ -2,8 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   Plus, FileText, Phone, ExternalLink, MapPin, LayoutGrid, Map as MapIcon,
   Columns2, Trash2, Pencil, ArrowUpToLine, ArrowDownToLine, CalendarDays,
-  Search, X, Clock, Globe, Brain, Stethoscope, Check,
-} from 'lucide-react';
+  Search, X, Clock, Globe, Brain, Stethoscope } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -77,14 +76,28 @@ const createMarkerIcon = (type, isSelected) => {
 const MapBoundsUpdater = ({ resources, selectedId, markerRefs }) => {
   const map = useMap();
   const prevSelected = useRef(null);
+  const pendingOpen = useRef(null);
+
+  // Drop a still-waiting popup opener when the map goes away.
+  useEffect(() => () => { if (pendingOpen.current) map.off('moveend', pendingOpen.current); }, [map]);
 
   useEffect(() => {
     if (!selectedId || selectedId === prevSelected.current) return;
     prevSelected.current = selectedId;
+    // Only the latest selection may open its popup: stacked openers fired on the
+    // same moveend closed each other mid-open and crashed Leaflet's autopan.
+    if (pendingOpen.current) map.off('moveend', pendingOpen.current);
+    pendingOpen.current = null;
     const res = resources.find((r) => r._id === selectedId);
     if (res?.lat != null && res?.lng != null) {
       // Open the details popup once the fly-to settles; opening it mid-flight makes the autopan fight the animation.
-      map.once('moveend', () => markerRefs.current[selectedId]?.openPopup());
+      const open = () => {
+        pendingOpen.current = null;
+        const marker = markerRefs.current[selectedId];
+        if (marker && map.hasLayer(marker) && !marker.isPopupOpen()) marker.openPopup();
+      };
+      pendingOpen.current = open;
+      map.once('moveend', open);
       map.flyTo([res.lat, res.lng], 15, { duration: 0.6 });
     }
   }, [selectedId, resources, map, markerRefs]);
@@ -92,12 +105,12 @@ const MapBoundsUpdater = ({ resources, selectedId, markerRefs }) => {
   return null;
 };
 
-const ResourceMap = ({ resources, selectedId, onSelect }) => {
+const ResourceMap = ({ resources, selectedId, onSelect, joined = false }) => {
   const locations = resources.filter((r) => r.lat != null && r.lng != null);
   const markerRefs = useRef({});
 
   return (
-    <div className="h-full w-full rounded-xl overflow-hidden border border-line relative z-0 shadow-e1">
+    <div className={`h-full w-full overflow-hidden relative z-0 ${joined ? '' : 'rounded-xl border border-line shadow-e1'}`}>
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
@@ -211,21 +224,15 @@ const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCoun
 
       <div className="flex items-center gap-2.5 mb-3">
         <div
-          className={`size-8 rounded-lg flex items-center justify-center transition-colors ${
+          className={`size-8 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
             isSelected ? 'bg-brand-700 text-brand-fg' : TYPE_ICON_COLORS[resource.type] || 'bg-line text-ink-muted'
           }`}
         >
-          <Icon size={15} />
+          <Icon size={15} aria-hidden="true" />
         </div>
-        <span className={`text-xs font-semibold ${isSelected ? 'text-brand-soft-ink' : 'text-ink-muted'} uppercase tracking-wide`}>
+        <span className={`min-w-0 truncate text-xs font-semibold ${isSelected ? 'text-brand-soft-ink' : 'text-ink-muted'} uppercase tracking-wide`}>
           {TYPE_LABELS[resource.type]}
         </span>
-        {isSelected && (
-          <span className="ml-auto size-5 shrink-0 rounded-full bg-brand-700 text-brand-fg flex items-center justify-center">
-            <Check size={12} strokeWidth={3} aria-hidden="true" />
-            <span className="sr-only">Selected</span>
-          </span>
-        )}
       </div>
 
       <h3 className="text-sm font-medium text-ink mb-1.5">{resource.title}</h3>
@@ -319,14 +326,14 @@ const DetailRow = ({ icon: Icon, children, href }) => {
   );
 };
 
-const DetailPanel = ({ resource, onEdit, onDelete, isCounselor, onClose }) => {
+const DetailPanel = ({ resource, onEdit, onDelete, isCounselor, onClose, joined = false }) => {
   if (!resource) return null;
   const Icon = TYPE_ICONS[resource.type] || FileText;
   const isMappable = resource.lat != null && resource.lng != null;
 
   return (
     <aside
-      className="bg-surface border border-line rounded-xl shadow-e1 flex flex-col h-auto lg:h-full min-h-0 overflow-hidden"
+      className={`bg-surface flex flex-col min-h-0 overflow-hidden ${joined ? 'h-full' : 'border border-line rounded-xl shadow-e1 h-auto lg:h-full'}`}
       aria-label={`Details for ${resource.title}`}
     >
       <div className="relative shrink-0 overflow-hidden bg-side p-5">
@@ -650,9 +657,9 @@ const ResourcePage = () => {
             type="button"
             onClick={() => setTypeFilter('all')}
             aria-pressed={typeFilter === 'all'}
-            className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
               typeFilter === 'all'
-                ? 'bg-ink text-canvas border-ink'
+                ? 'bg-brand-600 text-brand-fg border-brand-600'
                 : 'border-line-strong text-ink-muted hover:text-ink hover:border-ink-muted bg-surface'
             }`}
           >
@@ -664,9 +671,9 @@ const ResourcePage = () => {
               type="button"
               onClick={() => setTypeFilter(typeFilter === t.value ? 'all' : t.value)}
               aria-pressed={typeFilter === t.value}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
                 typeFilter === t.value
-                  ? 'bg-ink text-canvas border-ink'
+                  ? 'bg-brand-600 text-brand-fg border-brand-600'
                   : 'border-line-strong text-ink-muted hover:text-ink hover:border-ink-muted bg-surface'
               }`}
             >
@@ -682,13 +689,15 @@ const ResourcePage = () => {
       ) : viewMode === 'grid' ? (
         renderGrid()
       ) : viewMode === 'map' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-stretch">
-          <div className="h-[45vh] min-h-[280px] max-h-[420px] lg:h-[65vh] lg:max-h-none">
-            <ResourceMap resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
+        /* Map + details read as one card: a shared frame with a hairline divider. */
+        <div className="isolate grid grid-cols-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-e1 sm:h-[60vh] sm:grid-cols-[minmax(0,1fr)_minmax(200px,38%)] lg:h-[65vh] lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="h-[45vh] min-h-[280px] max-h-[420px] sm:h-full sm:min-h-0 sm:max-h-none">
+            <ResourceMap joined resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
           </div>
-          <div className="h-auto lg:h-[65vh]">
+          <div className="min-h-0 min-w-0 overflow-y-auto border-t border-line sm:h-full sm:border-t-0 sm:border-l">
             {selectedResource ? (
               <DetailPanel
+                joined
                 resource={selectedResource}
                 onEdit={openEdit}
                 onDelete={handleDelete}
@@ -696,7 +705,7 @@ const ResourcePage = () => {
                 onClose={() => setSelectedId(null)}
               />
             ) : (
-              <aside className="flex h-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line-strong bg-surface/50 p-6 text-center" aria-label="Resource details">
+              <aside className="flex h-full min-h-[160px] flex-col items-center justify-center gap-2 bg-canvas/40 p-6 text-center" aria-label="Resource details">
                 <MapPin size={20} className="text-ink-muted" aria-hidden="true" />
                 <p className="text-xs font-medium text-ink">Select a pin on the map</p>
                 <p className="text-xs text-ink-muted max-w-[220px]">Full details for the selected resource will appear here.</p>

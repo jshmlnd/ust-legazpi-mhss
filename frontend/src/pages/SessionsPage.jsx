@@ -119,8 +119,24 @@ const getSessionOutcome = (session) => {
   return null;
 };
 
+// Local start of "YYYY-MM-DD" + "09:00 AM", or null when unparsable.
+const sessionStart = ({ date, time }) => {
+  const t = String(time || '').trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
+  const [y, m, d] = String(date || '').split('-').map(Number);
+  if (!t || !y || !m || !d) return null;
+  let h = Number(t[1]);
+  if (t[3]) h = (h % 12) + (t[3].toUpperCase() === 'PM' ? 12 : 0);
+  return new Date(y, m - 1, d, h, Number(t[2]));
+};
+
 // Mirrors isStudentCancellable in appointment.controller.js.
-const canCancel = (s) => s.status === 'pending' || (s.type === 'Face-To-Face' && ['confirmed', 'active'].includes(s.status));
+const canCancel = (s) => {
+  if (s.type === 'Face-To-Face') {
+    const start = sessionStart(s);
+    return !!start && start > new Date() && ['pending', 'confirmed', 'active'].includes(s.status);
+  }
+  return s.status === 'pending';
+};
 
 const SessionCard = ({ session, type, onCancel, cancelling }) => {
   const isUpcoming = type === 'upcoming';
@@ -157,29 +173,35 @@ const SessionCard = ({ session, type, onCancel, cancelling }) => {
             {!isUpcoming && session.notes && (
               <p className="text-xs text-ink-muted mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
             )}
-            {isUpcoming && onCancel && canCancel(session) && (
+          </div>
+        </div>
+
+        {/* Card actions share the top-right slot so every card keeps the same height. */}
+        {isUpcoming && (session.type === 'Chat' || (onCancel && canCancel(session))) && (
+          <div className="flex shrink-0 items-center gap-2">
+            {onCancel && canCancel(session) && (
               <button
                 type="button"
                 onClick={() => onCancel(session)}
                 disabled={cancelling}
-                className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-danger/40 px-3 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger-soft disabled:opacity-50"
+                aria-label={`${session.status === 'pending' ? 'Cancel request' : 'Cancel session'} with ${counselorLabel}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-danger/40 px-3 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger-soft disabled:opacity-50"
               >
-                {cancelling ? <Loader size={12} className="animate-spin" aria-hidden="true" /> : <X size={12} aria-hidden="true" />}
-                {session.status === 'pending' ? 'Cancel request' : 'Cancel session'}
+                {cancelling ? <Loader size={13} className="animate-spin" aria-hidden="true" /> : <X size={13} aria-hidden="true" />}
+                Cancel
               </button>
             )}
+            {session.type === 'Chat' && (
+              <Link
+                to={PATHS.MESSAGES}
+                aria-label={`Open chat with ${counselorLabel}`}
+                title={`Open chat with ${counselorLabel}`}
+                className="size-9 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink hover:border-line-strong transition-colors"
+              >
+                <ArrowUpRight size={15} />
+              </Link>
+            )}
           </div>
-        </div>
-
-        {isUpcoming && session.type === 'Chat' && (
-          <Link
-            to={PATHS.MESSAGES}
-            aria-label={`Open chat with ${counselorLabel}`}
-            title={`Open chat with ${counselorLabel}`}
-            className="shrink-0 size-9 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink hover:border-line-strong transition-colors"
-          >
-            <ArrowUpRight size={15} />
-          </Link>
         )}
       </div>
     </div>

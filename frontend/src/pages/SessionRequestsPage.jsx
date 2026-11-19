@@ -75,13 +75,14 @@ const RiskBadge = ({ risk = 'Minimal' }) => (
   <StatusBadge tone={risk === 'Urgent' ? 'danger' : risk === 'High' ? 'warning' : 'neutral'}>{risk}</StatusBadge>
 );
 
-const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSummary, busy, onClearAll, clearingAll }) => {
+const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSummary, busy, onClearAll, clearingAll, readOnly = false }) => {
   const navigate = useNavigate();
   const pendingCount = sessions.filter((s) => s.status === 'pending').length;
 
   const renderActions = (session) => {
-    const actions = getRowActions(session);
-    if (!actions) return null;
+    // Archived rows can still be documented, but not admitted or joined.
+    const actions = readOnly ? getRowActions(session)?.filter((a) => a.key === 'summary') : getRowActions(session);
+    if (!actions?.length) return readOnly ? <StatusBadge status={session.status} /> : null;
     const isBusy = busy?.id === session._id;
     return (
       <div className="flex items-center justify-end gap-2">
@@ -109,7 +110,7 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
   const renderActionTaken = (session) => {
     const label = actionTakenLabel(session);
     const shortLabel = actionTakenShortLabel(session);
-    const editable = ACTIONABLE.includes(session.status);
+    const editable = !readOnly && ACTIONABLE.includes(session.status);
     return (
       <div className="flex min-w-0 items-center gap-1.5">
         {label ? (
@@ -140,12 +141,14 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
 
   return (
     <Card
-      title="Session Requests"
-      description={sessions.length > 0 ? `${pendingCount} pending · ${sessions.length} total` : 'Appointment and chat requests from students'}
+      title={readOnly ? 'Archived Requests' : 'Session Requests'}
+      description={readOnly
+        ? (sessions.length > 0 ? `${sessions.length} archived · cleared from your list, records kept` : 'Requests and sessions you clear or archive appear here')
+        : (sessions.length > 0 ? `${pendingCount} pending · ${sessions.length} total` : 'Appointment and chat requests from students')}
       actions={
-        sessions.length > 0 && (
+        !readOnly && sessions.length > 0 && (
           <Button size="sm" variant="danger-outline" icon={Trash2} loading={clearingAll} onClick={onClearAll}>
-            Clear All
+            Clear finished
           </Button>
         )
       }
@@ -163,8 +166,8 @@ const RequestsTable = ({ sessions, error, onRetry, onAdmit, onEditLevel, onSumma
         <EmptyState
           compact
           icon={CalendarDays}
-          title="No session requests"
-          description="Requests will appear here when students book appointments or start chats."
+          title={readOnly ? 'No archived requests' : 'No session requests'}
+          description={readOnly ? 'Nothing has been cleared or archived yet.' : 'Requests will appear here when students book appointments or start chats.'}
         />
       ) : (
         <>
@@ -260,6 +263,23 @@ const SessionRequestsPage = () => {
   const [error, setError] = useState(null);
 
   const [busy, setBusy] = useState(null);
+  const [view, setView] = useState('active');
+  const [archivedSessions, setArchivedSessions] = useState(null);
+  const [archivedError, setArchivedError] = useState(null);
+
+  const loadArchived = async () => {
+    try {
+      const res = await axiosInstance.get('/analytics/upcoming-sessions?archived=1');
+      setArchivedSessions(sortSessions(res.data ?? []));
+      setArchivedError(null);
+    } catch {
+      setArchivedError('Could not load archived requests.');
+    }
+  };
+  const showView = (next) => {
+    setView(next);
+    if (next === 'archived') loadArchived();
+  };
   const [clearingAll, setClearingAll] = useState(false);
 
   const [counselors, setCounselors] = useState([]);
@@ -363,12 +383,13 @@ const SessionRequestsPage = () => {
   };
 
   const handleClearAll = async () => {
-    if (!window.confirm('Clear all requests? This will hide them for you but keep student records intact.')) return;
+    if (!window.confirm('Clear finished requests? Completed, ended, cancelled and declined requests move to Archived. Pending and active ones stay here, and student records are kept.')) return;
     setClearingAll(true);
     try {
       await axiosInstance.post('/appointments/clear-all');
-      setSessions([]);
-      toast.success('All requests cleared');
+      await loaders.current.requests?.();
+      setArchivedSessions(null);
+      toast.success('Finished requests moved to Archived');
     } catch {
       toast.error('Failed to clear requests.');
     } finally {
@@ -377,7 +398,7 @@ const SessionRequestsPage = () => {
   };
 
   const handleSummarySaved = (saved) => {
-    setSessions((prev) => prev.map((session) => (
+    const patch = (list) => list?.map((session) => (
       session._id === summarySession?._id
         ? {
           ...session,
@@ -387,7 +408,9 @@ const SessionRequestsPage = () => {
           summaryGeneratedByAi: saved.generatedByAi,
         }
         : session
-    )));
+    ));
+    setArchivedSessions((prev) => patch(prev) ?? prev);
+    setSessions((prev) => patch(prev));
   };
 
   if (loading) {
@@ -408,17 +431,48 @@ const SessionRequestsPage = () => {
         </Button>
       }
     >
-      <RequestsTable
-        sessions={sessions}
-        error={error && sessions.length === 0 ? error : null}
-        onRetry={retryRequests}
-        onAdmit={handleAdmit}
-        onEditLevel={openLevelEditor}
-        onSummary={setSummarySession}
-        busy={busy}
-        onClearAll={handleClearAll}
-        clearingAll={clearingAll}
-      />
+      <div className="mb-4 flex items-center gap-4" role="tablist" aria-label="Request list">
+        {[['active', 'Active'], ['archived', 'Archived']].map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => showView(key)}
+            className={`border-b-2 pb-1 text-xs font-semibold transition-colors outline-none focus-visible:text-ink ${
+              view === key ? 'border-brand-600 text-ink' : 'border-transparent text-ink-muted hover:text-ink-soft'
+            }`}
+          >
+            {label}{key === 'archived' && archivedSessions ? ` (${archivedSessions.length})` : ''}
+          </button>
+        ))}
+      </div>
+
+      {view === 'archived' ? (
+        archivedSessions === null && !archivedError ? (
+          <PageShellSkeleton count={2} />
+        ) : (
+          <RequestsTable
+            readOnly
+            sessions={archivedSessions ?? []}
+            error={archivedError}
+            onRetry={loadArchived}
+            onSummary={setSummarySession}
+          />
+        )
+      ) : (
+        <RequestsTable
+          sessions={sessions}
+          error={error && sessions.length === 0 ? error : null}
+          onRetry={retryRequests}
+          onAdmit={handleAdmit}
+          onEditLevel={openLevelEditor}
+          onSummary={setSummarySession}
+          busy={busy}
+          onClearAll={handleClearAll}
+          clearingAll={clearingAll}
+        />
+      )}
 
       <ActionLevelModal
         isOpen={!!levelSession}

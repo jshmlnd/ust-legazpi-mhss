@@ -1,46 +1,105 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Book, Plus, Trash2, Clock, Meh, CalendarDays } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Book, Plus, Pencil, Trash2, Clock, Meh } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import EmptyState from '../ui/EmptyState';
 import { toast } from 'react-toastify';
-import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-} from 'recharts';
-import { useChartTheme } from '../lib/useChartTheme';
 import EntryForm, { MOODS } from '../components/modals/EntryForm';
+import Modal from '../ui/Modal';
+import Button from '../ui/Button';
 
-/* Days without entries are pushed with `empty: true` and no score, so
-   recharts (with connectNulls=false on <Area>) renders a gap in the line
-   instead of dragging the trend down to zero. */
+// Entries store "MM-DD-YYYY"; show "Nov 16, 2026". Falls back to createdAt.
+const formatEntryDate = (raw, createdAt) => {
+  const mdy = String(raw || '').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  const d = mdy ? new Date(Number(mdy[3]), Number(mdy[1]) - 1, Number(mdy[2])) : new Date(raw || createdAt || NaN);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
-const EntryCard = ({ entry, onDelete }) => {
+const PAGE_SIZE = 5;
+
+const Pagination = ({ page, totalPages, total, onChange }) => {
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+  const btn = 'h-8 min-w-8 px-2.5 rounded-lg text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-40 disabled:pointer-events-none';
+  return (
+    <nav aria-label="Diary pages" className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs text-ink-muted">Showing {from}–{to} of {total}</p>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => onChange(page - 1)} disabled={page === 1} className={`${btn} text-ink-soft hover:bg-line`}>
+          Previous
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            aria-current={n === page ? 'page' : undefined}
+            className={`${btn} ${n === page ? 'bg-brand-600 text-brand-fg' : 'text-ink-soft hover:bg-line'}`}
+          >
+            {n}
+          </button>
+        ))}
+        <button type="button" onClick={() => onChange(page + 1)} disabled={page === totalPages} className={`${btn} text-ink-soft hover:bg-line`}>
+          Next
+        </button>
+      </div>
+    </nav>
+  );
+};
+
+const EntryCard = ({ entry, onEdit, onDelete }) => {
   const mood = MOODS.find((m) => m.key === entry.mood);
   const MoodIcon = mood?.icon || Meh;
 
+  const shownDate = formatEntryDate(entry.date, entry.createdAt);
+
   return (
-    <div className="bg-surface p-5 hover:bg-canvas transition-colors">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`size-8 rounded-lg flex items-center justify-center shrink-0 ${mood?.color || 'bg-line text-ink-muted'}`}>
-            {MoodIcon && <MoodIcon size={15} />}
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium text-ink truncate">{entry.title}</h3>
-            <div className="flex items-center gap-2 text-xs text-ink-muted mt-0.5">
-              <span>{entry.date}</span>
-              <span className="text-ink-muted">·</span>
-              <Clock size={10} /> {entry.time || '—'}
+    <article className="!rounded-[1.25rem] border border-line bg-surface p-5 shadow-e1 transition-colors hover:border-line-strong">
+      <div className="flex items-start gap-3">
+        <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${mood?.color || 'bg-line text-ink-muted'}`}>
+          {MoodIcon && <MoodIcon size={18} aria-hidden="true" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-semibold text-ink truncate">{entry.title}</h3>
+              {(shownDate || entry.time) && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+                  {shownDate && <span>{shownDate}</span>}
+                  {shownDate && entry.time && <span aria-hidden="true">·</span>}
+                  {entry.time && <span className="inline-flex items-center gap-1"><Clock size={11} aria-hidden="true" />{entry.time}</span>}
+                  {mood && <span className="sr-only">Mood: {mood.label || mood.key}</span>}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onEdit(entry)}
+              aria-label={`Edit entry "${entry.title}"`}
+              title="Edit"
+              className="size-8 flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-line transition-colors"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(entry)}
+              aria-label={`Delete entry "${entry.title}"`}
+              title="Delete"
+              className="size-8 flex items-center justify-center rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-soft transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
             </div>
           </div>
+          {entry.content && (
+            <p className="mt-3 text-sm text-ink-soft leading-relaxed whitespace-pre-line line-clamp-3">{entry.content}</p>
+          )}
         </div>
-        <button onClick={() => onDelete(entry._id)} className="shrink-0 size-7 flex items-center justify-center rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-soft transition-colors" title="Delete">
-          <Trash2 size={12} />
-        </button>
       </div>
-      <p className="text-xs text-ink-soft leading-relaxed whitespace-pre-line line-clamp-3">{entry.content}</p>
-    </div>
+    </article>
   );
 };
 
@@ -67,10 +126,7 @@ const MoodOverview = ({ entries }) => {
                 <span className="text-ink-muted">{count}</span>
               </div>
               <div className="h-1 bg-line rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${
-                  m.key === 'great' ? 'bg-brand-soft0' : m.key === 'good' ? 'bg-info-soft0' :
-                  m.key === 'okay' ? 'bg-warning' : m.key === 'low' ? 'bg-orange-500' : 'bg-danger-soft0'
-                }`} style={{ width: `${pct}%` }} />
+                <div className={`h-full rounded-full transition-all duration-500 ${m.bar}`} style={{ width: `${pct}%` }} />
               </div>
             </div>
           );
@@ -80,145 +136,15 @@ const MoodOverview = ({ entries }) => {
   );
 };
 
-const MoodTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  const point = payload[0];
-  if (point?.payload?.empty) {
-    return (
-      <div className="bg-surface border border-line px-4 py-3 rounded-lg">
-        <p className="text-xs font-semibold text-ink-muted mb-0.5">{label}</p>
-        <p className="text-xs text-ink-muted">No entries this day</p>
-      </div>
-    );
-  }
-  if (point?.value == null) return null;
-  return (
-    <div className="bg-surface border border-line px-4 py-3 rounded-lg">
-      <p className="text-xs font-semibold text-ink-muted mb-1">{label}</p>
-      <p className="text-sm font-medium text-ink">Mood Score: {point.value}</p>
-    </div>
-  );
-};
-
-const WeeklyMoodChart = ({ data }) => {
-  const theme = useChartTheme();
-  const daysWithEntries = data.filter((d) => !d.empty);
-  const weekAvg = daysWithEntries.length > 0
-    ? Math.round(
-        (daysWithEntries.reduce((sum, d) => sum + d.score, 0) / daysWithEntries.length) * 10,
-      ) / 10
-    : null;
-
-  return (
-    <div className="bg-surface border border-line rounded-lg">
-      <div className="px-6 pt-6 pb-2 flex items-start justify-between gap-3">
-        <div>
-          <span className="text-xs font-semibold text-ink-muted">Weekly Mood Trend</span>
-          <h3 className="mt-1 text-sm font-medium text-ink">Last 7 days</h3>
-        </div>
-        {weekAvg != null && (
-          <div className="text-right">
-            <span className="text-lg font-semibold text-ink">{weekAvg}</span>
-            <span className="block text-xs text-ink-muted">week average</span>
-          </div>
-        )}
-      </div>
-      <div className="px-2 pb-4 h-52">
-        {daysWithEntries.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center gap-2 text-center">
-            <CalendarDays size={20} className="text-ink-muted" aria-hidden="true" />
-            <p className="text-sm font-medium text-ink">No entries in the last 7 days</p>
-            <p className="text-xs text-ink-muted max-w-[260px]">
-              Write an entry and your daily mood average will chart here.
-            </p>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="moodFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={theme.brand} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={theme.brand} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={theme.tick} dy={8} />
-              <YAxis
-                domain={[0, 10]}
-                ticks={[0, 5, 10]}
-                axisLine={false}
-                tickLine={false}
-                tick={theme.tick}
-                width={32}
-              />
-              <Tooltip
-                content={<MoodTooltip />}
-                cursor={{ stroke: theme.muted, strokeWidth: 1 }}
-              />
-              <Area
-                type="monotone"
-                dataKey="score"
-                stroke={theme.brand}
-                strokeWidth={2}
-                fill="url(#moodFill)"
-                connectNulls={false}
-                dot={(props) => {
-                  const { cx, cy, payload } = props;
-                  if (payload?.empty || cx == null || cy == null) return null;
-                  return <circle cx={cx} cy={cy} r={3} fill={theme.brand} stroke={theme.dotStroke} strokeWidth={2} />;
-                }}
-                activeDot={{ r: 5, fill: theme.brand, stroke: theme.dotStroke, strokeWidth: 2 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
-
-// The backend stores entry.date as MM-DD-YYYY, but older entries (or any
-// ISO date) may be YYYY-MM-DD. Normalize both to YYYY-MM-DD so the weekly
-// chart actually matches entries to days.
-const toISODate = (raw) => {
-  if (!raw) return null;
-  const mdy = String(raw).match(/^(\d{2})-(\d{2})-(\d{4})$/);
-  if (mdy) return `${mdy[3]}-${mdy[1]}-${mdy[2]}`;
-  const iso = String(raw).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime())
-    ? null
-    : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
 const YourDiary = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-
-  const weeklyMoodData = useMemo(() => {
-    const today = new Date();
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const result = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      const dayMoods = entries.filter((e) => toISODate(e.date) === dateStr);
-      if (dayMoods.length === 0) {
-        result.push({ day: dayNames[date.getDay()], date: dateStr, empty: true });
-        continue;
-      }
-      const avgScore = Math.round(
-        (dayMoods.reduce((sum, e) => sum + (MOOD_SCORE[e.mood] || 5), 0) / dayMoods.length) * 10,
-      ) / 10;
-      result.push({ day: dayNames[date.getDay()], date: dateStr, score: avgScore });
-    }
-    return result;
-  }, [entries]);
+  const [editing, setEditing] = useState(null);
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  // Clamp after deletes so the last page never comes up empty.
+  const currentPage = Math.min(page, totalPages);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -236,6 +162,12 @@ const YourDiary = () => {
 
   const handleSave = async (entry) => {
     try {
+      if (editing) {
+        const res = await axiosInstance.patch(`/journal/${editing._id}`, entry);
+        setEntries((prev) => prev.map((e) => (e._id === editing._id ? res.data : e)));
+        toast.success('Entry updated');
+        return true;
+      }
       const res = await axiosInstance.post('/journal', entry);
       setEntries((prev) => [res.data, ...prev]);
       toast.success('Entry saved');
@@ -247,13 +179,21 @@ const YourDiary = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await axiosInstance.delete(`/journal/${id}`);
-      setEntries((prev) => prev.filter((e) => e._id !== id));
+      await axiosInstance.delete(`/journal/${pendingDelete._id}`);
+      setEntries((prev) => prev.filter((e) => e._id !== pendingDelete._id));
       toast.success('Entry deleted');
+      setPendingDelete(null);
     } catch {
       toast.error('Failed to delete entry');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -274,9 +214,6 @@ const YourDiary = () => {
     >
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
-          <div className="mb-6">
-            <WeeklyMoodChart data={weeklyMoodData} />
-          </div>
           {entries.length === 0 ? (
             <EmptyState icon={Book} title="No journal entries yet" description="Start writing to track your emotions and thoughts over time." action={
               <button onClick={() => setModalOpen(true)} className="px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg">
@@ -284,9 +221,16 @@ const YourDiary = () => {
               </button>
             } />
           ) : (
-            <div className="space-y-px bg-line rounded-lg overflow-hidden">
-              {entries.map((e) => <EntryCard key={e._id} entry={e} onDelete={handleDelete} />)}
-            </div>
+            <>
+              <div className="space-y-3">
+                {entries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((e) => (
+                  <EntryCard key={e._id} entry={e} onEdit={(entry) => { setEditing(entry); setModalOpen(true); }} onDelete={setPendingDelete} />
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <Pagination page={currentPage} totalPages={totalPages} total={entries.length} onChange={setPage} />
+              )}
+            </>
           )}
         </div>
         <div className="lg:col-span-1 space-y-6">
@@ -294,7 +238,23 @@ const YourDiary = () => {
         </div>
       </div>
 
-      {modalOpen && <EntryForm onSave={handleSave} onClose={() => setModalOpen(false)} />}
+      <Modal
+        isOpen={!!pendingDelete}
+        onClose={() => { if (!deleting) setPendingDelete(null); }}
+        title="Delete this entry?"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPendingDelete(null)} disabled={deleting}>Keep entry</Button>
+            <Button variant="destructive" icon={Trash2} onClick={confirmDelete} loading={deleting}>Delete</Button>
+          </div>
+        }
+      >
+        <p className="text-sm leading-relaxed text-ink-soft">
+          <span className="font-semibold text-ink">{pendingDelete?.title}</span> will be permanently removed. This can&apos;t be undone.
+        </p>
+      </Modal>
+
+      {modalOpen && <EntryForm key={editing?._id ?? 'new'} initial={editing} onSave={handleSave} onClose={() => { setModalOpen(false); setEditing(null); }} />}
     </PageShell>
   );
 };

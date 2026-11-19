@@ -250,3 +250,98 @@ svg { max-width: 100%; height: auto; }
   .hero-grid, .hero-card, .hero-shield, .hero-shield svg path:last-child, .hero-blob, .hero-word { animation: none; }
 }
 .calm-mode .hero-grid, .calm-mode .hero-card, .calm-mode .hero-shield, .calm-mode .hero-shield svg path:last-child, .calm-mode .hero-blob, .calm-mode .hero-word { animation: none; }
+
+/* ───────────── COUNSELOR GRID ENTRANCE ───────────── */
+/* Cards rise into place one after another; the delay stops growing after the 9th card. */
+.counselor-grid > article { animation: counselor-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--card-i, 0) * 70ms); }
+.counselor-grid > article:nth-child(2) { --card-i: 1; }
+.counselor-grid > article:nth-child(3) { --card-i: 2; }
+.counselor-grid > article:nth-child(4) { --card-i: 3; }
+.counselor-grid > article:nth-child(5) { --card-i: 4; }
+.counselor-grid > article:nth-child(6) { --card-i: 5; }
+.counselor-grid > article:nth-child(7) { --card-i: 6; }
+.counselor-grid > article:nth-child(8) { --card-i: 7; }
+.counselor-grid > article:nth-child(n+9) { --card-i: 8; }
+@keyframes counselor-rise { from { opacity: 0; translate: 0 16px; } to { opacity: 1; translate: 0 0; } }
+/* the global reduced-motion rule keeps delays, which would leave later cards hidden; show them at once */
+@media (prefers-reduced-motion: reduce) { .counselor-grid > article { animation: none; } }
+.calm-mode .counselor-grid > article { animation: none; }
+
+/* ───────────── CHAT: SEND ───────────── */
+/* A just-sent bubble grows out of its corner beside the composer. */
+.msg-send-in { transform-origin: right bottom; animation: msg-send-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes msg-send-in { from { opacity: 0; translate: 0 12px; scale: 0.9; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .msg-send-in { animation: msg-fade 160ms ease-out both; } }
+.calm-mode .msg-send-in { animation: none; }
+@keyframes msg-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ───────────── REACTIONS ───────────── */
+/* Calm, quick feedback: a press dip, a soft pop on add, a gentle settle on remove. */
+.react-btn { transition: background-color 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out, transform 120ms ease-out; }
+.react-btn:active { transform: scale(0.94); }
+.react-emoji { display: inline-block; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.react-btn:hover .react-emoji { transform: translateY(-1px); }
+.react-added { animation: react-ring 560ms ease-out; }
+.react-added .react-emoji { animation: react-pop 420ms cubic-bezier(0.16, 1, 0.3, 1); }
+.react-removed .react-emoji { animation: react-settle 220ms ease-out; }
+.react-count { display: inline-block; animation: react-count 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes react-pop { 0% { transform: scale(1); } 40% { transform: scale(1.32); } 70% { transform: scale(0.94); } 100% { transform: scale(1); } }
+@keyframes react-settle { from { transform: scale(0.86); } to { transform: scale(1); } }
+@keyframes react-ring { from { box-shadow: 0 0 0 0 rgb(var(--c-brand-400) / 0.35); } to { box-shadow: 0 0 0 6px rgb(var(--c-brand-400) / 0); } }
+@keyframes react-count { from { opacity: 0.3; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .react-btn:active, .react-btn:hover .react-emoji { transform: none; }
+  .react-added, .react-added .react-emoji, .react-removed .react-emoji, .react-count { animation: none; }
+}
+.calm-mode .react-btn:active, .calm-mode .react-btn:hover .react-emoji { transform: none; }
+.calm-mode .react-added, .calm-mode .react-added .react-emoji, .calm-mode .react-removed .react-emoji, .calm-mode .react-count { animation: none; }
+
+/* ───────────── TABS ───────────── */
+/* A gliding underline and a short, calm slide toward the tab you picked. */
+.tab-btn { transition: color 180ms ease-out, background-color 180ms ease-out, transform 120ms ease-out; }
+.tab-btn:active { transform: scale(0.97); }
+.tab-indicator { transition: transform 340ms cubic-bezier(0.16, 1, 0.3, 1), width 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tab-slide-next { animation: tab-slide-next 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tab-slide-prev { animation: tab-slide-prev 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes tab-slide-next { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tab-slide-prev { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tab-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .tab-btn:active { transform: none; }
+  .tab-indicator { transition: none; }
+  .tab-slide-next, .tab-slide-prev { animation: tab-fade 160ms ease-out; }
+}
+.calm-mode .tab-btn:active { transform: none; }
+.calm-mode .tab-indicator { transition: none; }
+.calm-mode .tab-slide-next, .calm-mode .tab-slide-prev { animation: none; }
+
+/* ───────────── PAGE MOTION (PageShell) ───────────── */
+/* Calm entrance: header, then content, rise 8px and fade in. Fill-mode
+   "backwards" drops the transform afterwards, so fixed dialogs inside the
+   page are never trapped by a leftover transform. */
+.page-enter { animation: page-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.page-enter-late { animation-delay: 70ms; }
+@keyframes page-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Satisfying click: a small dip on press, colour changes eased. */
+.page-motion button:not(:disabled) {
+  transition-property: color, background-color, border-color, opacity, box-shadow, scale;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+.page-motion button:not(:disabled):active { scale: 0.97; } /* `scale` composes with any positioning transform */
+
+/* Helpful focus: text fields glow softly in brand green while you type. */
+.page-motion :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.page-motion :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus {
+  box-shadow: 0 0 0 3px rgb(var(--c-brand-500) / 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+  .page-motion button:not(:disabled):active { scale: none; }
+}
+.calm-mode .page-enter { animation: none; }
+.calm-mode .page-motion button:not(:disabled):active { scale: none; }

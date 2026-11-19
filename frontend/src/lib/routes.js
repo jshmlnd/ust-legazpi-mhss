@@ -71,13 +71,6 @@ export const NAV_SECTIONS = [
     ],
   },
   {
-    id: 'support',
-    label: 'Support',
-    items: [
-      { label: 'Help Desk', path: PATHS.SUGGESTIONS, icon: MessageCircleQuestionMark, roles: ['student'] },
-    ]
-  },
-  {
     id: 'content',
     label: 'Content Management',
     items: [
@@ -85,6 +78,13 @@ export const NAV_SECTIONS = [
       { label: 'Resources', path: PATHS.MANAGE_RESOURCES, icon: MapPinned, roles: ['counselor'] },
       { label: 'Self-Care Library', path: PATHS.MANAGE_SELF_CARE, icon: Heart, roles: ['counselor'] },
     ],
+  },
+  {
+    id: 'support',
+    label: 'Support',
+    items: [
+      { label: 'Help Desk', path: PATHS.SUGGESTIONS, icon: MessageCircleQuestionMark, roles: ['student', 'counselor'] },
+    ]
   },
 ];
 

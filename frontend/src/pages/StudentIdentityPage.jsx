@@ -30,21 +30,12 @@ const StudentIdentityPage = () => {
     const fetchStudent = async () => {
       setLoading(true);
       try {
-        const res = await axiosInstance.get(`/message/users`);
-        const found = res.data.find((u) => String(u._id) === String(id));
-        if (found) {
-          setStudent(found);
-          try {
-            await axiosInstance.post('/audit-trails/identity-reveal', {
-              studentId: id,
-              counselorId: authUser._id,
-            });
-          } catch { /* audit logging should not block UI */ }
-        } else {
-          setError('Student not found');
-        }
-      } catch {
-        setError('Failed to load student information');
+        // One audited request: the server checks the session link and logs the reveal.
+        const res = await axiosInstance.get(`/audit-trails/identity/${id}`);
+        setStudent(res.data);
+      } catch (err) {
+        setError(err.response?.status === 404 ? 'Student not found'
+          : err.response?.data?.error || 'Failed to load student information');
       } finally {
         setLoading(false);
         sessionStorage.setItem(SESSION_KEY, 'true');

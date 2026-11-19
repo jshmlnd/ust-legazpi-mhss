@@ -91,7 +91,7 @@ const CounselorListPage = () => {
 
   if (loading) {
     return (
-      <PageShell title="Meet our Counselors" description="The counselors of the Office of Guidance and Testing">
+      <PageShell motion={false} title="Meet our Counselors" description="The counselors of the Office of Guidance and Testing">
         <PageShellSkeleton count={3} />
       </PageShell>
     );
@@ -105,6 +105,7 @@ const CounselorListPage = () => {
 
   return (
     <PageShell
+      motion={false}
       title="Meet our Counselors"
       description="Book a chat or face-to-face session with the counselor you're most comfortable with — sessions start once your request is admitted."
     >
@@ -122,7 +123,7 @@ const CounselorListPage = () => {
           description="Counselor accounts will appear here once the Office of Guidance and Testing registers them."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3 counselor-grid">
           {sorted.map((counselor) => (
             <CounselorCard
               key={counselor._id}

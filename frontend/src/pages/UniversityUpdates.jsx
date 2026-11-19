@@ -21,6 +21,7 @@ const REACTIONS = [
 ];
 
 const UpdateCard = ({ update, currentUserId, onReact }) => {
+  const [popped, setPopped] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const date = update.createdAt ? new Date(update.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : update.date;
   const time = update.createdAt ? new Date(update.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -96,16 +97,24 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
               return (
                 <button
                   key={r.key}
-                  onClick={() => onReact(update._id, r.key)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border transition-colors ${
-                    isActive
-                      ? 'bg-line border-line-strong text-ink'
-                      : 'border-line text-ink-muted hover:border-line-strong hover:text-ink-soft'
-                  }`}
+                  type="button"
+                  onClick={() => { setPopped({ key: r.key, adding: !isActive }); onReact(update._id, r.key); }}
+                  aria-pressed={isActive}
+                  aria-label={`${r.label}, ${count} reaction${count === 1 ? '' : 's'}${isActive ? ', you reacted' : ''}`}
                   title={r.label}
+                  className={`react-btn group/react inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 focus-visible:ring-offset-surface ${
+                    isActive
+                      ? 'bg-brand-soft border-brand-300 text-brand-soft-ink'
+                      : 'border-line text-ink-muted hover:border-line-strong hover:text-ink-soft'
+                  } ${popped?.key === r.key ? (popped.adding ? 'react-added' : 'react-removed') : ''}`}
+                  onAnimationEnd={(e) => {
+                    // Added: wait for the ring on the button; removed: the emoji's settle is the only animation.
+                    const done = popped?.adding ? e.target === e.currentTarget : e.target.classList?.contains('react-emoji');
+                    if (done) setPopped(null);
+                  }}
                 >
-                  <span className="text-sm leading-none">{r.emoji}</span>
-                  {count > 0 && <span className="font-medium text-[11px]">{count}</span>}
+                  <span className="react-emoji text-sm leading-none" aria-hidden="true">{r.emoji}</span>
+                  {count > 0 && <span key={count} className="react-count font-medium text-[11px] tabular-nums" aria-hidden="true">{count}</span>}
                 </button>
               );
             })}
@@ -204,13 +213,22 @@ const UniversityUpdates = ({ embedded = false, limit = 3, notice = null }) => {
     }
   };
 
+  // Toggle at once so the click feels instant; the server reply then wins,
+  // and a failure puts the previous reactions back.
+  const toggleLocal = (u, emoji) => {
+    const users = u.reactions?.[emoji] || [];
+    const next = users.includes(currentUserId) ? users.filter((x) => x !== currentUserId) : [...users, currentUserId];
+    return { ...u, reactions: { ...u.reactions, [emoji]: next } };
+  };
   const handleReact = async (id, emoji) => {
+    const before = updates.find((u) => u._id === id);
+    setUpdates((prev) => prev.map((u) => (u._id === id ? toggleLocal(u, emoji) : u)));
     try {
       const res = await axiosInstance.post(`/announcements/${id}/react`, { emoji });
       setUpdates((prev) => prev.map((u) => (u._id === id ? res.data : u)));
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to update reaction';
-      toast.error(msg);
+      if (before) setUpdates((prev) => prev.map((u) => (u._id === id ? before : u)));
+      toast.error(err.response?.data?.error || 'Failed to update reaction');
     }
   };
 

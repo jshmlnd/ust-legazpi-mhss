@@ -45,19 +45,9 @@ const BookingDetailModal = ({ isOpen, onClose, date, bookings, onRefresh }) => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {/* The server starts approved sessions at their time and ends them an hour later. */}
                 {b.type === 'Face-To-Face' && (b.status === 'confirmed' || b.status === 'active') && (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await axiosInstance.patch(`/appointments/${b._id}`, { status: 'on-going' });
-                        toast.success('F2F session started');
-                        onRefresh();
-                      } catch { toast.error('Failed to start session'); }
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-ink bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
-                  >
-                    Start
-                  </button>
+                  <span className="text-xs text-ink-muted">Starts automatically at {b.time}</span>
                 )}
                 <span className={`px-2.5 py-1 text-xs font-semibold rounded-lg border ${status.style}`}>
                   {status.label}

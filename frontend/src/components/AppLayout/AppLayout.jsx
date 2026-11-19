@@ -78,8 +78,8 @@ const AppLayout = () => {
     return () => socket.off('appointment:updated', handler);
   }, [authUser]);
 
-  // Sidebar badges: pending requests (counselor), unread messages, and today's
-  // live sessions. Refetched on appointment socket events, route changes
+  // Sidebar badges: pending requests (counselor), unread messages, and today's face-to-face
+  // sessions (approved or in progress). Refetched on appointment socket events, route changes
   // (reading a chat marks it read server-side) and a 15s poll.
   const { pathname } = useLocation();
   const [counts, setCounts] = useState({ requests: 0, messages: 0, today: 0 });
@@ -102,7 +102,7 @@ const AppLayout = () => {
         requests: n(pending) ? (n(pending).data ?? []).filter((s) => s.status === 'pending').length : prev.requests,
         messages: n(unread) ? n(unread).data.count : prev.messages,
         today: n(appts)
-          ? (n(appts).data ?? []).filter((a) => a.date === today && ['confirmed', 'active', 'on-going', 'paused'].includes(a.status)).length
+          ? (n(appts).data ?? []).filter((a) => a.type === 'Face-To-Face' && a.date === today && ['confirmed', 'active', 'on-going', 'paused'].includes(a.status)).length
           : prev.today,
       }));
     };

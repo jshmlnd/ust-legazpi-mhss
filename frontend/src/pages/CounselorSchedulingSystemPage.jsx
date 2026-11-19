@@ -18,6 +18,9 @@ const SLOTS = [
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDay = (year, month) => new Date(year, month, 1).getDay();
 
+// The schedule tracks in-person sessions only; chats live in Messages and Requests.
+const faceToFaceOnly = (appointments) => (appointments ?? []).filter((a) => a.type === 'Face-To-Face');
+
 const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates, multiMode, selectedDates, onToggleDate }) => {
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDay(year, month);
@@ -37,17 +40,18 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates,
   return (
     <div className="grid grid-cols-7 gap-px bg-line">
       {WEEKDAYS.map((wd) => (
-        <div key={wd} className="bg-canvas px-3 py-2 text-xs font-semibold text-ink-muted text-center">{wd}</div>
+        <div key={wd} className="bg-canvas px-1 sm:px-3 py-2 text-[11px] sm:text-xs font-semibold text-ink-muted text-center">{wd}</div>
       ))}
       {cells.map((cell, i) => {
-        if (!cell) return <div key={`empty-${i}`} className="bg-surface min-h-[100px]" />;
+        if (!cell) return <div key={`empty-${i}`} className="bg-surface min-h-[52px] sm:min-h-[100px]" />;
         const hasSlots = slotDates && slotDates.has(cell.dateStr);
         const isSelected = multiMode && selectedDates?.has(cell.dateStr);
         return (
           <button
             key={cell.dateStr}
             onClick={() => multiMode ? onToggleDate?.(cell.dateStr) : onDateClick(cell)}
-            className={`bg-surface min-h-[100px] p-2 text-left transition-colors relative ${
+            aria-label={`${cell.dateStr}${cell.bookings.length ? `, ${cell.bookings.length} session${cell.bookings.length > 1 ? 's' : ''}` : ''}${cell.isHoliday ? ', holiday' : ''}`}
+            className={`bg-surface min-h-[52px] sm:min-h-[100px] p-1.5 sm:p-2 text-left transition-colors relative ${
               multiMode ? 'hover:bg-line cursor-pointer' : 'hover:bg-canvas'
             } ${
               isSelected ? 'bg-line ring-2 ring-inset ring-brand-600' : ''
@@ -55,15 +59,19 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates,
               cell.isHoliday ? 'bg-line/50' : ''
             }`}
           >
-            <span className={`text-xs font-medium ${cell.isToday ? 'bg-brand-600 text-ink size-5 inline-flex items-center justify-center rounded-full' : cell.isHoliday ? 'text-ink-muted line-through' : 'text-ink-soft'}`}>
+            <span className={`text-xs font-medium ${cell.isToday ? 'bg-brand-600 text-brand-fg size-5 inline-flex items-center justify-center rounded-full' : cell.isHoliday ? 'text-ink-muted line-through' : 'text-ink-soft'}`}>
               {cell.day}
             </span>
-            {cell.isHoliday && <span className="block text-xs text-ink-muted mt-1">Holiday</span>}
-            <div className="mt-1.5 space-y-0.5">
+            {cell.isHoliday && <span className="hidden sm:block text-xs text-ink-muted mt-1">Holiday</span>}
+            {/* Phones: a count badge instead of chips that would not fit a ~50px column. */}
+            {cell.bookings.length > 0 && (
+              <span aria-hidden="true" className="sm:hidden mt-1 flex h-4 w-fit min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-brand-fg">
+                {cell.bookings.length}
+              </span>
+            )}
+            <div className="hidden sm:block mt-1.5 space-y-0.5">
               {cell.bookings.slice(0, 3).map((b) => (
-                <div key={b._id} className={`text-xs font-medium px-1 py-0.5 rounded-lg truncate ${
-                  b.type === 'Chat' ? 'bg-brand-soft text-brand-soft-ink' : 'bg-line text-ink-soft'
-                }`}>
+                <div key={b._id} className="text-xs font-medium px-1 py-0.5 rounded-lg truncate bg-line text-ink-soft">
                   {b.time} {b.studentName || `STU-${b.studentDynamicId || b.studentId}`}
                 </div>
               ))}
@@ -74,7 +82,7 @@ const CalendarGrid = ({ year, month, bookings, holidays, onDateClick, slotDates,
             )}
             {isSelected && (
               <span className="absolute top-1.5 right-1.5 size-4 rounded-full bg-brand-600 flex items-center justify-center">
-                <Check size={10} className="text-ink" />
+                <Check size={10} className="text-brand-fg" />
               </span>
             )}
           </button>
@@ -149,7 +157,7 @@ const CounselorSchedulingSystemPage = () => {
           axiosInstance.get('/appointments'),
         ]);
         if (cancelled) return;
-        setBookings(bookRes.data);
+        setBookings(faceToFaceOnly(bookRes.data));
         // Deep link (?date=…) — auto-open that day's bookings now that data is in.
         const linkedDate = deepLinkDate.current;
         deepLinkDate.current = null;
@@ -208,7 +216,7 @@ const CounselorSchedulingSystemPage = () => {
   const refreshBookings = async () => {
     try {
       const res = await axiosInstance.get('/appointments');
-      setBookings(res.data);
+      setBookings(faceToFaceOnly(res.data));
     } catch (err) {
       console.error('Failed to refresh bookings:', err);
     }
@@ -285,9 +293,6 @@ const CounselorSchedulingSystemPage = () => {
           <div className="bg-surface border border-line rounded-lg p-5">
             <span className="text-xs font-semibold text-ink-muted block mb-3">Legend</span>
             <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5 text-xs text-ink-soft">
-                <span className="size-3 rounded-lg bg-brand-soft border border-brand-200" /> Chat Session
-              </div>
               <div className="flex items-center gap-2.5 text-xs text-ink-soft">
                 <span className="size-3 rounded-lg bg-line border border-line" /> Face-to-Face
               </div>

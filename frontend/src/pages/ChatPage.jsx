@@ -10,8 +10,27 @@ import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 import SessionFeedbackModal from '../components/SessionFeedbackModal';
 import CrisisSupportModal from '../components/modals/CrisisSupportModal';
+import SessionBookingModal from '../components/modals/SessionBookingModal';
 
-const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerPic, ownName, peerName }) => {
+const GROUP_GAP_MS = 5 * 60 * 1000;
+const TIME_GAP_MS = 15 * 60 * 1000;
+const isCallLog = (m) => m?.callerId !== undefined;
+const sameGroup = (a, b) => !!a && !!b && !isCallLog(a) && !isCallLog(b)
+  && a.senderId === b.senderId && new Date(b.createdAt) - new Date(a.createdAt) < GROUP_GAP_MS;
+
+// Where a message sits in its run of consecutive same-sender messages.
+const bubbleLayout = (messages, i, myId) => {
+  const m = messages[i];
+  const prev = messages[i - 1];
+  return {
+    isFirst: !sameGroup(prev, m),
+    isLast: !sameGroup(m, messages[i + 1]),
+    showTime: !prev || new Date(m.createdAt) - new Date(prev.createdAt) >= TIME_GAP_MS,
+    showStatus: m.senderId === myId && !messages.slice(i + 1).some((x) => !isCallLog(x) && x.senderId === myId),
+  };
+};
+
+const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerPic, ownName, peerName, isFirst = true, isLast = true, showTime = false, showStatus = false }) => {
   if (message.callerId !== undefined) {
     const mins = Math.floor((message.duration || 0) / 60);
     const secs = (message.duration || 0) % 60;
@@ -40,84 +59,89 @@ const MessageBubble = ({ message, isOwn, isCrisis, crisisSeverity, ownPic, peerP
 
   const avatarPic = isOwn ? ownPic : peerPic;
   const senderName = isOwn ? ownName : peerName;
+  const sentAt = new Date(message.createdAt);
 
-  /* daisyUI: Chat with image, header and footer */
+  // Messenger-style pills: inner corners tighten where bubbles from the same
+  // sender stack, and the peer's avatar sits only beside the last one.
+  const side = isOwn
+    ? `${isFirst ? '' : 'rounded-tr-md'} ${isLast ? '' : 'rounded-br-md'}`
+    : `${isFirst ? '' : 'rounded-tl-md'} ${isLast ? '' : 'rounded-bl-md'}`;
+
   return (
-    <div className={`chat ${isOwn ? 'chat-end' : 'chat-start'} mb-3`}>
-      {/* chat-image: avatar beside the bubble */}
-      <div className="chat-image avatar">
-        <figure className="size-10 rounded-full overflow-hidden bg-line flex items-center justify-center">
-          {avatarPic ? (
-            <img src={avatarPic} alt={senderName || 'avatar'} className="w-full h-full object-cover" />
-          ) : (
-            <User size={20} className="text-ink-muted" />
-          )}
-        </figure>
-      </div>
-
-      {/* chat-header: sender name + timestamp */}
-      <div className="chat-header text-xs font-medium text-ink-soft">
-        {senderName}
-        <time className="ml-1.5 text-xs opacity-50">
-          {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </time>
-      </div>
-
-      <div
-        className={`chat-bubble max-w-[85%] sm:max-w-[60%] text-sm leading-relaxed ${
-          isOwn ? 'bg-brand-600 text-ink' : 'bg-line text-ink'
-        }`}
-      >
-        {message.image && (
-          <img src={message.image} alt="attachment" className="max-w-full rounded-lg mb-2" />
+    <>
+      {showTime && (
+        <p className="my-4 text-center text-[11px] font-medium text-ink-muted">
+          {sentAt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+        </p>
+      )}
+      <div className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isLast ? 'mb-3' : 'mb-0.5'}`}>
+        {!isOwn && (
+          <div className="size-7 shrink-0">
+            {isLast && (
+              <figure className="size-7 rounded-full overflow-hidden bg-line flex items-center justify-center">
+                {avatarPic ? (
+                  <img src={avatarPic} alt={senderName || 'avatar'} className="w-full h-full object-cover" />
+                ) : (
+                  <User size={14} className="text-ink-muted" />
+                )}
+              </figure>
+            )}
+          </div>
         )}
-        {message.type === 'file' && message.fileUrl && (
-          <a href={message.fileUrl} target="_blank" rel="noopener noreferrer"
-            className={`flex items-center gap-2 p-2 rounded-lg mb-2 ${isOwn ? 'bg-raised' : 'bg-line'}`}>
-            <File size={16} />
-            <div className="min-w-0">
-              <p className="text-xs font-medium truncate">{message.fileName}</p>
-              <p className="text-xs opacity-60">{formatFileSize(message.fileSize)}</p>
+
+        <div className={`flex min-w-0 max-w-[78%] sm:max-w-[60%] flex-col ${isOwn ? 'items-end' : 'items-start'}`}>
+          <div
+            title={sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            className={`rounded-[20px] px-4 py-2 text-sm leading-relaxed break-words ${side} ${
+              isOwn ? 'bg-brand-600 text-brand-fg' : 'bg-line text-ink'
+            } ${isOwn && message._fresh ? 'msg-send-in' : ''}`}
+          >
+            {message.image && (
+              <img src={message.image} alt="attachment" className="max-w-full rounded-xl mb-2" />
+            )}
+            {message.type === 'file' && message.fileUrl && (
+              <a href={message.fileUrl} target="_blank" rel="noopener noreferrer"
+                className={`flex items-center gap-2 p-2 rounded-xl mb-2 ${isOwn ? 'bg-brand-700 text-brand-fg' : 'bg-surface text-ink'}`}>
+                <File size={16} />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium truncate">{message.fileName}</p>
+                  <p className="text-xs opacity-70">{formatFileSize(message.fileSize)}</p>
+                </div>
+              </a>
+            )}
+            {message.type === 'video' && message.fileUrl && (
+              <video src={message.fileUrl} controls className="max-w-full rounded-xl mb-2 max-h-64" />
+            )}
+            {message.text && <p>{message.text}</p>}
+          </div>
+
+          {/* delivery status only under your latest message; crisis flag under each flagged one */}
+          {isOwn && showStatus ? (
+            <div className="mt-1 flex items-center gap-0.5 text-[11px] text-ink-muted">
+              {message.read ? <><CheckCheck size={12} className="text-info" />Read</> : <><Check size={12} />Sent</>}
             </div>
-          </a>
-        )}
-        {message.type === 'video' && message.fileUrl && (
-          <video src={message.fileUrl} controls className="max-w-full rounded-lg mb-2 max-h-64" />
-        )}
-        {message.text && <p>{message.text}</p>}
+          ) : !isOwn && isCrisis ? (
+            <div className="mt-1 flex items-center gap-1 text-[11px] text-ink-muted">
+              <AlertTriangle size={10} />
+              <span className="font-semibold">Flagged · {crisisSeverity || 'review'}</span>
+            </div>
+          ) : null}
+        </div>
       </div>
-
-      {/* chat-footer: delivery status / crisis flag (monochrome — severity as text, not color) */}
-      {isOwn ? (
-        <div className="chat-footer flex items-center gap-1 text-xs text-ink-muted opacity-50">
-          {message.read ? (
-            <span className="inline-flex items-center gap-0.5 text-info"><CheckCheck size={12} />Read</span>
-          ) : (
-            <span className="inline-flex items-center gap-0.5"><Check size={12} />Sent</span>
-          )}
-        </div>
-      ) : isCrisis ? (
-        <div className="chat-footer flex items-center gap-1 text-xs text-ink-muted opacity-70">
-          <AlertTriangle size={10} />
-          <span className="font-semibold">Flagged · {crisisSeverity || 'review'}</span>
-        </div>
-      ) : null}
-    </div>
+    </>
   );
 };
 
 const TypingBubble = ({ pic }) => (
-  <div className="chat chat-start mb-3">
-    <div className="chat-image avatar">
-      <figure className="size-10 rounded-full overflow-hidden bg-line flex items-center justify-center">
-        {pic ? (
-          <img src={pic} alt="avatar" className="w-full h-full object-cover" />
-        ) : (
-          <User size={20} className="text-ink-muted" />
-        )}
-      </figure>
-    </div>
-    <div className="chat-bubble bg-line">
+  <div className="flex items-end gap-2 mb-3">
+    <figure className="size-7 shrink-0 rounded-full overflow-hidden bg-line flex items-center justify-center">
+      {pic ? (
+        <img src={pic} alt="avatar" className="w-full h-full object-cover" />
+      ) : (
+        <User size={14} className="text-ink-muted" />
+      )}
+    </figure>
+    <div className="rounded-[20px] bg-line px-4 py-2">
       <p className="text-xs text-ink-muted animate-pulse">typing...</p>
     </div>
   </div>
@@ -298,6 +322,7 @@ const MessageInput = ({ onSend, disabled, receiverId, placeholder }) => {
 
 const StudentChatView = () => {
   const navigate = useNavigate();
+  const [bookingChat, setBookingChat] = useState(false);
   const { authUser } = useAuthStore();
   const {
     users, messages, selectedUser, isUsersLoading, isMessagesLoading,
@@ -421,7 +446,8 @@ const StudentChatView = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-full bg-line flex items-center justify-center overflow-hidden shrink-0">
-              {counselor?.profilePic ? (
+              {/* Match the name: no session means no counselor photo either. */}
+              {!noActiveSession && counselor?.profilePic ? (
                 <img src={counselor.profilePic} alt="" className="w-full h-full object-cover" />
               ) : (
                 <User size={16} className="text-ink-muted" />
@@ -435,11 +461,9 @@ const StudentChatView = () => {
               <p className="text-xs text-danger font-medium">Session has ended</p>
             ) : noActiveSession ? (
               <p className="text-xs text-ink-muted">No active session</p>
-            ) : (
-              <p className="text-xs text-ink-muted">
-                {counselor ? counselor.department || '—' : '—'}
-              </p>
-            )}
+            ) : counselor?.department ? (
+              <p className="text-xs text-ink-muted">{counselor.department}</p>
+            ) : null}
           </div>
         </div>
         {counselor && !sessionEnded && hasActiveSession && callState === 'idle' && (
@@ -468,7 +492,13 @@ const StudentChatView = () => {
           </div>
         ) : !counselor ? (
           <div className="flex items-center justify-center h-full">
-            <p className="text-xs text-ink-muted">No counselor assigned yet.</p>
+            <button
+              type="button"
+              onClick={() => setBookingChat(true)}
+              className="text-sm font-semibold text-brand-700 hover:text-brand-800 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+            >
+              Book a chat session
+            </button>
           </div>
         ) : isMessagesLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -479,10 +509,11 @@ const StudentChatView = () => {
             <p className="text-xs text-ink-muted">No messages yet. Start a conversation.</p>
           </div>
         ) : (
-          messages.map((msg) => (
+          messages.map((msg, i) => (
             <MessageBubble
               key={msg._id}
               message={msg}
+              {...bubbleLayout(messages, i, authUser._id)}
               isOwn={msg.senderId === authUser._id}
               ownPic={authUser.profilePic}
               peerPic={counselor?.profilePic}
@@ -525,6 +556,9 @@ const StudentChatView = () => {
       />
 
       <CrisisSupportModal isOpen={!!flaggedMessage} onClose={clearFlaggedMessage} />
+      {bookingChat && (
+        <SessionBookingModal initialType="Chat" onClose={() => { setBookingChat(false); getUsers(); }} />
+      )}
       </div>
     </div>
   );
@@ -727,8 +761,9 @@ const CounselorChatView = () => {
   return (
     <div className="flex h-[calc(100dvh-4.5rem)] bg-surface">
       {/* ─── Sidebar ─── */}
+      {/* Phones show one pane: the list until a student is picked (or after Back). */}
       <div className={`w-full lg:w-80 border-r border-line flex flex-col shrink-0 ${
-        showMobileList ? 'block' : 'hidden lg:block'
+        showMobileList || !selectedUser ? 'block' : 'hidden lg:block'
       }`}>
         <div className="px-5 py-[24px] border-b border-line">
           <h2 className="text-sm font-medium text-ink tracking-[-0.01em]">Active Conversations</h2>
@@ -777,14 +812,16 @@ const CounselorChatView = () => {
 
       {/* ─── Chat Area ─── */}
       <div className={`flex-1 flex flex-col min-w-0 ${
-        !showMobileList ? 'block' : 'hidden lg:flex'
+        !showMobileList && selectedUser ? 'flex' : 'hidden lg:flex'
       }`}>
         {selectedUser ? (
           <>
             {/* Header */}
             <div className="border-b border-line px-6 py-4 bg-surface shrink-0 flex items-center gap-3">
               <button
+                type="button"
                 onClick={() => setShowMobileList(true)}
+                aria-label="Back to conversations"
                 className="lg:hidden size-8 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors"
               >
                 <ChevronLeft size={16} />
@@ -878,10 +915,11 @@ const CounselorChatView = () => {
                   <p className="text-xs text-ink-muted">No messages yet with this student.</p>
                 </div>
               ) : (
-                messages.map((msg) => (
+                messages.map((msg, i) => (
                   <MessageBubble
                     key={msg._id}
                     message={msg}
+                    {...bubbleLayout(messages, i, authUser._id)}
                     isOwn={msg.senderId === authUser._id}
                     ownPic={authUser.profilePic}
                     peerPic={selectedUser?.profilePic}

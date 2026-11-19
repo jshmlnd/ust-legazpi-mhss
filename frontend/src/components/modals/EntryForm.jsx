@@ -1,19 +1,19 @@
 import { useState } from 'react';
-import { Angry, Book, Frown, Heart, Meh, Smile } from 'lucide-react';
+import { Book, Frown, Heart, HeartCrack, Meh, Smile } from 'lucide-react';
 import Modal from '../../ui/Modal';
 
 export const MOODS = [
-  { key: 'great', icon: Heart, label: 'Great', color: 'text-brand-soft-ink bg-brand-soft' },
-  { key: 'good', icon: Smile, label: 'Good', color: 'text-info-ink bg-info-soft' },
-  { key: 'okay', icon: Meh, label: 'Okay', color: 'text-warning-ink bg-warning-soft' },
-  { key: 'low', icon: Frown, label: 'Low', color: 'text-orange-600 bg-orange-50' },
-  { key: 'bad', icon: Angry, label: 'Bad', color: 'text-danger-ink bg-danger-soft' },
+  { key: 'great', icon: Heart, label: 'Great', color: 'text-brand-soft-ink bg-brand-soft', bar: 'bg-brand-500' },
+  { key: 'good', icon: Smile, label: 'Good', color: 'text-info-ink bg-info-soft', bar: 'bg-info' },
+  { key: 'okay', icon: Meh, label: 'Okay', color: 'text-ink-soft bg-line', bar: 'bg-ink-muted' },
+  { key: 'low', icon: Frown, label: 'Low', color: 'text-orange-600 bg-orange-50', bar: 'bg-orange-500' },
+  { key: 'bad', icon: HeartCrack, label: 'Bad', color: 'text-danger-ink bg-danger-soft', bar: 'bg-danger' },
 ];
 
-const EntryForm = ({ onSave, onClose }) => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [mood, setMood] = useState('okay');
+const EntryForm = ({ onSave, onClose, initial = null }) => {
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [content, setContent] = useState(initial?.content ?? '');
+  const [mood, setMood] = useState(initial?.mood ?? 'okay');
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -30,7 +30,7 @@ const EntryForm = ({ onSave, onClose }) => {
     <Modal
       isOpen
       onClose={onClose}
-      title="New Journal Entry"
+      title={initial ? 'Edit Journal Entry' : 'New Journal Entry'}
       description="A private space to reflect on your day."
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -95,7 +95,7 @@ const EntryForm = ({ onSave, onClose }) => {
 
         <div className="flex items-center justify-end gap-2 border-t border-line pt-4">
           <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-xs font-semibold text-ink-muted transition-colors hover:bg-canvas hover:text-ink">Cancel</button>
-          <button type="submit" disabled={saving || !title.trim() || !content.trim()} className="rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-brand-fg shadow-e1 transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Saving...' : 'Save Entry'}</button>
+          <button type="submit" disabled={saving || !title.trim() || !content.trim()} className="rounded-lg bg-brand-600 px-5 py-2.5 text-xs font-semibold text-brand-fg shadow-e1 transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50">{saving ? 'Saving...' : initial ? 'Save Changes' : 'Save Entry'}</button>
         </div>
       </form>
     </Modal>

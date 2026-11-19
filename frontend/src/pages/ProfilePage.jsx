@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
@@ -698,6 +698,40 @@ const ProfilePage = () => {
     { key: 'preferences', label: 'Preferences' },
   ];
 
+  // Panels slide in from the side of the tab you moved toward; 0 = first load, no slide.
+  const [slideDir, setSlideDir] = useState(0);
+  const switchTab = (key) => {
+    const order = TABS.map((t) => t.key);
+    const from = order.indexOf(activeTab);
+    const to = order.indexOf(key);
+    if (from === to) return;
+    setSlideDir(to > from ? 1 : -1);
+    setActiveTab(key);
+  };
+
+  // One underline that glides between tabs, sized to the active label.
+  const tabRefs = useRef({});
+  const [indicator, setIndicator] = useState(null);
+  useEffect(() => {
+    const el = tabRefs.current[activeTab];
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => setIndicator({ left: el.offsetLeft, width: el.offsetWidth }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeTab]);
+
+  const onTabKeyDown = (e) => {
+    const order = TABS.map((t) => t.key);
+    const i = order.indexOf(activeTab);
+    const next = e.key === 'ArrowRight' ? order[(i + 1) % order.length]
+      : e.key === 'ArrowLeft' ? order[(i - 1 + order.length) % order.length]
+      : e.key === 'Home' ? order[0] : e.key === 'End' ? order[order.length - 1] : null;
+    if (!next) return;
+    e.preventDefault();
+    switchTab(next);
+    tabRefs.current[next]?.focus();
+  };
+
   if (!authUser) return null;
 
   const isStudent = authUser.userType?.toLowerCase() === 'student';
@@ -708,7 +742,7 @@ const ProfilePage = () => {
     ...(isStudent ? [{ icon: Hash, label: 'Student ID', value: authUser.studentId }] : []),
     ...(isCounselor ? [{ icon: Hash, label: 'Counselor ID', value: authUser.counselorId }] : []),
     { icon: Building2, label: 'Department', value: authUser.department },
-    { icon: BookOpen, label: 'Program', value: authUser.program },
+    ...(isStudent ? [{ icon: BookOpen, label: 'Program', value: authUser.program }] : []),
   ];
 
   const handleUpload = async (file) => {
@@ -755,34 +789,61 @@ const ProfilePage = () => {
   return (
     <PageShell title="My Account" description="Manage your profile and account settings">
       <div className="mb-6 border-b border-line">
-        <div className="flex gap-1">
+        <div className="relative flex gap-1" role="tablist" aria-label="Account sections" onKeyDown={onTabKeyDown}>
           {TABS.map((t) => (
             <button
               key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-2.5 text-xs font-semibold transition-colors border-b-2 -mb-px ${
-                activeTab === t.key
-                  ? 'border-brand-600 text-ink'
-                  : 'border-transparent text-ink-muted hover:text-ink-soft'
+              ref={(el) => { tabRefs.current[t.key] = el; }}
+              type="button"
+              role="tab"
+              id={`tab-${t.key}`}
+              aria-selected={activeTab === t.key}
+              aria-controls={`panel-${t.key}`}
+              tabIndex={activeTab === t.key ? 0 : -1}
+              onClick={() => switchTab(t.key)}
+              className={`tab-btn rounded-t-lg px-4 py-2.5 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 ${
+                activeTab === t.key ? 'text-ink' : 'text-ink-muted hover:text-ink-soft hover:bg-line/40'
               }`}
             >
               {t.label}
             </button>
           ))}
+          {indicator && (
+            <span
+              aria-hidden="true"
+              className="tab-indicator pointer-events-none absolute -bottom-px left-0 h-0.5 rounded-full bg-brand-600"
+              style={{ width: indicator.width, transform: `translateX(${indicator.left}px)` }}
+            />
+          )}
         </div>
       </div>
+
+      <div
+        key={activeTab}
+        role="tabpanel"
+        id={`panel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        className={slideDir > 0 ? 'tab-slide-next' : slideDir < 0 ? 'tab-slide-prev' : undefined}
+      >
 
       {activeTab === 'profile' && (
         <div className="max-w-2xl">
           <div className="bg-surface border border-line rounded-lg p-6">
             <div className="flex items-center gap-4 mb-5">
-              <AvatarUpload
-                profilePic={authUser.profilePic}
-                fullName={authUser.fullName}
-                onUpload={handleUpload}
-                onRemove={handleRemove}
-                size="lg"
-              />
+              {isStudent ? (
+                // Students stay anonymous, so there is no photo to upload.
+                <span className="size-24 shrink-0 rounded-full bg-brand-600 text-brand-fg flex items-center justify-center text-3xl font-semibold" aria-hidden="true">
+                  {authUser.fullName?.[0]?.toUpperCase() || 'S'}
+                </span>
+              ) : (
+                <AvatarUpload
+                  profilePic={authUser.profilePic}
+                  fullName={authUser.fullName}
+                  onUpload={handleUpload}
+                  onRemove={handleRemove}
+                  size="lg"
+                />
+              )}
               <div>
                 <h2 className="text-base font-medium text-ink">{authUser.fullName || 'User'}</h2>
                 <span className="text-xs text-ink-muted">
@@ -863,7 +924,7 @@ const ProfilePage = () => {
 
       {activeTab === 'security' && (
         <div className="space-y-6">
-          <SecurityCard onGoToPreferences={() => setActiveTab('preferences')} />
+          <SecurityCard onGoToPreferences={() => switchTab('preferences')} />
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="bg-surface border border-line rounded-lg p-4">
               <div className="size-8 rounded-lg bg-line flex items-center justify-center text-ink-muted mb-3">
@@ -897,6 +958,7 @@ const ProfilePage = () => {
       )}
 
       {activeTab === 'preferences' && <PreferencesCard />}
+      </div>
     </PageShell>
   );
 };

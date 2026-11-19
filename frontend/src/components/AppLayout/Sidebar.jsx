@@ -1,8 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { LogOut, PanelLeftClose, Menu } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { NAV_SECTIONS, ACCOUNT_ITEM } from '../../lib/routes';
+import Modal from '../../ui/Modal';
+import Button from '../../ui/Button';
 
 const Logo = () => (
   <img src="https://ik.imagekit.io/zjkm666/OGT-Logo.png" alt="OGT UST - Legazpi logo" className="size-10 shrink-0 rounded-xl bg-side-active p-1 shadow-e1" />
@@ -87,10 +90,18 @@ const SidebarContent = ({ collapsed, onNavigate, badges = {} }) => {
   const role = authUser?.userType?.toLowerCase();
   const homePath = ROLE_HOME[role] || '/';
 
+  const [confirmingLogout, setConfirmingLogout] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const handleLogout = async () => {
-    if (!window.confirm('Are you sure you want to log out?')) return;
-    await logout();
-    navigate('/login');
+    setLoggingOut(true);
+    try {
+      await logout();
+      navigate('/login');
+    } finally {
+      setLoggingOut(false);
+      setConfirmingLogout(false);
+    }
   };
 
   const sections = NAV_SECTIONS.map((s) => ({
@@ -155,7 +166,7 @@ const SidebarContent = ({ collapsed, onNavigate, badges = {} }) => {
           )}
         </Link>
         <button
-          onClick={handleLogout}
+          onClick={() => setConfirmingLogout(true)}
           className={`w-full flex items-center gap-3 rounded-lg p-2 min-h-[44px] text-sm font-medium text-side-ink-soft
             hover:bg-side-hover hover:text-side-ink transition-colors ${collapsed ? 'justify-center' : ''}`}
         >
@@ -163,6 +174,26 @@ const SidebarContent = ({ collapsed, onNavigate, badges = {} }) => {
           {!collapsed && 'Log out'}
         </button>
       </div>
+
+      {/* Portaled: the mobile drawer is transformed, which would trap a fixed dialog inside it. */}
+      {createPortal(
+        <Modal
+          isOpen={confirmingLogout}
+          onClose={() => { if (!loggingOut) setConfirmingLogout(false); }}
+          title="Log out of SafeSpace?"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setConfirmingLogout(false)} disabled={loggingOut}>Stay signed in</Button>
+              <Button icon={LogOut} onClick={handleLogout} loading={loggingOut}>Log out</Button>
+            </div>
+          }
+        >
+          <p className="text-sm leading-relaxed text-ink-soft">
+            You&apos;ll need to sign in again to get back to your messages and sessions.
+          </p>
+        </Modal>,
+        document.body,
+      )}
     </div>
   );
 };

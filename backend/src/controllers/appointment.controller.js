@@ -8,7 +8,7 @@ import AvailabilitySlot from "../models/availabilitySlot.model.js";
 import { getIO, getReceiverSocketIds } from "../socket/socket.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
 import { analyzeCrisisAI } from "../lib/groqCrisis.js";
-import { mapConcernRisk, overlapsAppointment } from "../lib/appointmentTriage.js";
+import { mapConcernRisk, overlapsAppointment, appointmentStart, ARCHIVABLE_STATUSES, counselorVisible } from "../lib/appointmentTriage.js";
 import { busyRiskAlertEmailTemplate, sendMail } from "../lib/mailer.js";
 import { generateSessionSummary, stripSummaryMarkdown } from "../lib/sessionSummary.js";
 
@@ -20,10 +20,16 @@ const SUMMARY_STATUSES = ['completed', 'ended'];
 const MAX_SUMMARY_LENGTH = 12000;
 
 // Pending requests, or an approved face-to-face session that hasn't started.
-// An accepted chat is already live, so it ends in the chat instead.
-export const isStudentCancellable = (appointment) =>
-  appointment.status === 'pending'
-  || (appointment.type === 'Face-To-Face' && ['confirmed', 'active'].includes(appointment.status));
+// An accepted chat is already live, so it ends in the chat instead; a
+// face-to-face session whose start time has passed can't be cancelled.
+export const isStudentCancellable = (appointment, now = new Date()) => {
+  if (appointment.type === 'Face-To-Face') {
+    const start = appointmentStart(appointment);
+    if (!start || start <= now) return false;
+    return ['pending', 'confirmed', 'active'].includes(appointment.status);
+  }
+  return appointment.status === 'pending';
+};
 const ANONYMOUS_STUDENT = 'Anonymous Student';
 
 const findOverlappingF2F = async (counselorId, date, time) => {
@@ -115,7 +121,7 @@ export const getAppointments = async (req, res) => {
     const isCounselor = req.user.constructor.modelName === "Counselor";
     let appointments;
     if (isCounselor) {
-      appointments = await Appointment.find({ counselorId: req.user._id, counselorArchived: { $ne: true } }).sort({ date: -1, time: -1 });
+      appointments = await Appointment.find({ counselorId: req.user._id, ...counselorVisible }).sort({ date: -1, time: -1 });
     } else {
       appointments = await Appointment.find({ studentId: req.user._id, studentArchived: { $ne: true } }).sort({ date: -1, time: -1 });
     }
@@ -159,6 +165,9 @@ export const createAppointment = async (req, res) => {
     const normalizedConcern = concern.trim();
     if (type === 'Face-To-Face' && !normalizedConcern) {
       return res.status(400).json({ error: "A concern is required for face-to-face sessions" });
+    }
+    if (type === 'Face-To-Face' && !((appointmentStart({ date, time }) ?? 0) > new Date())) {
+      return res.status(400).json({ error: "That time has already passed. Please pick an upcoming slot." });
     }
 
     if (type === 'Chat' && req.user.constructor.modelName === 'User') {
@@ -240,6 +249,65 @@ export const createAppointment = async (req, res) => {
   }
 };
 
+// Chat statuses where a counselor has taken the student on.
+const ACCEPTED_CHAT = ['confirmed', 'active', 'on-going', 'paused'];
+
+// ── Face-to-face session clock ──
+// Approved face-to-face sessions start on their own at the booked time and end
+// one hour later; counselors can still pause, resume or end early by hand.
+export const F2F_SESSION_MS = 60 * 60 * 1000;
+const F2F_APPROVED = ['confirmed', 'active'];
+const F2F_RUNNING = ['on-going', 'paused'];
+
+export const faceToFaceClockAction = (appointment, now = new Date()) => {
+  if (appointment.type !== 'Face-To-Face') return null;
+  const start = appointmentStart(appointment);
+  if (!start) return null;
+  if ([...F2F_APPROVED, ...F2F_RUNNING].includes(appointment.status) && now.getTime() >= start.getTime() + F2F_SESSION_MS) return 'end';
+  if (F2F_APPROVED.includes(appointment.status) && now >= start) return 'start';
+  return null;
+};
+
+const emitAppointmentUpdate = (appointment) => {
+  const io = getIO();
+  if (!io) return;
+  [appointment.studentId, appointment.counselorId].forEach((id) => {
+    getReceiverSocketIds(String(id)).forEach((socketId) => io.to(socketId).emit("appointment:updated", appointment));
+  });
+};
+
+export const runFaceToFaceClock = async (now = new Date()) => {
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const candidates = await Appointment.find({
+    type: 'Face-To-Face',
+    status: { $in: [...F2F_APPROVED, ...F2F_RUNNING] },
+    date: { $lte: today },
+  });
+  for (const appointment of candidates) {
+    const action = faceToFaceClockAction(appointment, now);
+    if (!action) continue;
+    const start = appointmentStart(appointment);
+    // Matching on the current status lets a counselor's change in the same minute win.
+    const set = action === 'start'
+      ? { status: 'on-going', startedAt: start }
+      : { status: 'ended', startedAt: appointment.startedAt || start, endedAt: new Date(start.getTime() + F2F_SESSION_MS) };
+    const updated = await Appointment.findOneAndUpdate(
+      { _id: appointment._id, status: appointment.status },
+      { $set: set },
+      { new: true },
+    );
+    if (!updated) continue;
+    if (action === 'end') {
+      try {
+        await createSessionSummary(updated);
+      } catch (summaryError) {
+        console.error("Error creating session summary:", summaryError.message);
+      }
+    }
+    emitAppointmentUpdate(updated);
+  }
+};
+
 export const updateAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findById(req.params.id);
@@ -262,6 +330,31 @@ export const updateAppointment = async (req, res) => {
     if (isCounselor && touchesOwnership) {
       if (String(appointment.counselorId) !== String(req.user._id)) {
         return res.status(403).json({ error: "Not your appointment" });
+      }
+    }
+
+    // Accepting a chat: duplicate requests can slip past the create-time check
+    // (two tabs, a double tap), so refuse if another counselor already has the
+    // student in an accepted chat.
+    const acceptingChat = isCounselor && appointment.type === 'Chat'
+      && ACCEPTED_CHAT.includes(req.body.status) && !ACCEPTED_CHAT.includes(appointment.status);
+    const beforeAccept = acceptingChat
+      ? { status: appointment.status, startedAt: appointment.startedAt, actionTaken: appointment.actionTaken }
+      : null;
+    if (acceptingChat) {
+      const other = await Appointment.findOne({
+        _id: { $ne: appointment._id },
+        studentId: appointment.studentId,
+        type: 'Chat',
+        status: { $in: ACCEPTED_CHAT },
+        counselorId: { $ne: appointment.counselorId },
+      }).select('counselorId').lean();
+      if (other) {
+        const otherCounselor = await Counselor.findById(other.counselorId).select('fullName').lean();
+        return res.status(409).json({
+          code: 'STUDENT_IN_OTHER_SESSION',
+          error: `This student is already in a session with ${otherCounselor?.fullName || 'another counselor'}.`,
+        });
       }
     }
 
@@ -290,6 +383,30 @@ export const updateAppointment = async (req, res) => {
     delete updates.referredById;
     Object.assign(appointment, updates);
     await appointment.save();
+
+    // Two counselors can pass the check above in the same instant. Re-read after
+    // saving: the earliest acceptance (then lowest id) keeps the student; any
+    // other accept rolls itself back to its previous state.
+    if (acceptingChat) {
+      const rivals = await Appointment.find({
+        studentId: appointment.studentId,
+        type: 'Chat',
+        status: { $in: ACCEPTED_CHAT },
+        counselorId: { $ne: appointment.counselorId },
+      }).select('counselorId startedAt updatedAt').lean();
+      const acceptedAt = (a) => new Date(a.startedAt || a.updatedAt || 0).getTime();
+      const winner = [appointment, ...rivals].sort((a, b) =>
+        acceptedAt(a) - acceptedAt(b) || String(a._id).localeCompare(String(b._id)))[0];
+      if (rivals.length && String(winner._id) !== String(appointment._id)) {
+        Object.assign(appointment, beforeAccept);
+        await appointment.save();
+        const winnerCounselor = await Counselor.findById(winner.counselorId).select('fullName').lean();
+        return res.status(409).json({
+          code: 'STUDENT_IN_OTHER_SESSION',
+          error: `This student is already in a session with ${winnerCounselor?.fullName || 'another counselor'}.`,
+        });
+      }
+    }
 
     if (reassigning) {
       // The F2F slot held by the referring counselor is released and the same
@@ -484,7 +601,7 @@ export const deleteAppointment = async (req, res) => {
 export const clearAllRequests = async (req, res) => {
   try {
     const result = await Appointment.updateMany(
-      { counselorId: req.user._id, counselorArchived: { $ne: true } },
+      { counselorId: req.user._id, counselorArchived: { $ne: true }, status: { $in: ARCHIVABLE_STATUSES } },
       { $set: { counselorArchived: true } }
     );
     const io = getIO();

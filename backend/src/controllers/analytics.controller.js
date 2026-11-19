@@ -6,7 +6,7 @@ import JournalEntry from "../models/journalEntry.model.js";
 import SelfCareModule from "../models/selfCareModule.model.js";
 import Resource from "../models/resource.model.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
-import { mapConcernRisk } from "../lib/appointmentTriage.js";
+import { mapConcernRisk, ARCHIVABLE_STATUSES, counselorVisible } from "../lib/appointmentTriage.js";
 
 const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
 
@@ -17,14 +17,12 @@ export const getDashboard = async (req, res) => {
     // Requests awaiting this counselor's decision; matches the Requests page and sidebar badge.
     const pendingSessions = await Appointment.countDocuments({ counselorId: req.user._id, status: "pending", counselorArchived: { $ne: true } });
 
-    // Active students — distinct students with at least one appointment with this counselor.
-    const activeStudentIds = await Appointment.distinct("studentId", { counselorId: req.user._id });
+    // Active students — distinct students with at least one appointment, across all counselors.
+    const activeStudentIds = await Appointment.distinct("studentId");
 
     // Avg. active students per month — distinct students seen each month
-    // over the last 6 months, averaged over months that had activity.
-    // aggregate() does not cast, but _id is already the stored counselorId type.
+    // over the last 6 months (all counselors), averaged over months that had activity.
     const monthly = await Appointment.aggregate([
-      { $match: { counselorId: req.user._id } },
       { $group: { _id: {
         y: { $year: "$createdAt" },
         m: { $month: "$createdAt" },
@@ -147,13 +145,17 @@ export const getSessionDistribution = async (req, res) => {
 
 export const getUpcomingSessions = async (req, res) => {
   try {
-    const sessions = await Appointment.find({
-      counselorId: req.user._id,
-      counselorArchived: { $ne: true },
-      status: { $in: ["pending", "active", "declined", "completed", "cancelled", "on-going", "paused", "ended"] },
-    })
+    // ?archived=1 lists what the counselor cleared or archived (read-only on the client).
+    const archived = req.query.archived === "1";
+    const sessions = await Appointment.find(archived
+      ? { counselorId: req.user._id, counselorArchived: true, status: { $in: ARCHIVABLE_STATUSES } }
+      : {
+        counselorId: req.user._id,
+        ...counselorVisible,
+        status: { $in: ["pending", "active", "declined", "completed", "cancelled", "on-going", "paused", "ended"] },
+      })
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(archived ? 200 : 20);
 
     const studentIds = [...new Set(sessions.map((s) => s.studentId))];
     const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName showNameToCounselor").lean();
@@ -295,7 +297,7 @@ export const getStudentInfo = async (req, res) => {
       _id: student._id,
       studentId: student.studentId,
       dynamicId: getDailyDynamicId(student.dynamicId),
-      fullName: student.fullName,
+      fullName: student.showNameToCounselor ? student.fullName : null,
       department: student.department,
       program: student.program,
       yearLevel: student.yearLevel || 1,

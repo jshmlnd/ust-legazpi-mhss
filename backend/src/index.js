@@ -25,6 +25,7 @@ import auditTrailRoutes from "./routes/auditTrail.route.js";
 import noticeRoutes from "./routes/notice.route.js";
 import pushRoutes from "./routes/push.route.js";
 import { startReminderScheduler } from "./lib/reminders.js";
+import { startSessionClock } from "./lib/sessionClock.js";
 
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -79,6 +80,7 @@ setupSocket(server);
 
 await connectDB();
 startReminderScheduler();
+startSessionClock();
 server.listen(PORT, () => {
     console.log(`Server is running on port: ${PORT}`);
 });

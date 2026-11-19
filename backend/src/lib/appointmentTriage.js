@@ -12,6 +12,21 @@ const timeToMinutes = (value) => {
   return hour * 60 + minute;
 };
 
+// Only finished requests may be archived; live ones must stay in the counselor's lists.
+export const ARCHIVABLE_STATUSES = ["completed", "ended", "cancelled", "declined"];
+
+// Counselor list filter: unarchived, plus anything still live even if an older
+// "Clear All" archived it.
+export const counselorVisible = { $or: [{ counselorArchived: { $ne: true } }, { status: { $nin: ARCHIVABLE_STATUSES } }] };
+
+// Local start time of an appointment ("YYYY-MM-DD" + "09:00 AM"), or null when unparsable.
+export const appointmentStart = (appointment) => {
+  const minutes = timeToMinutes(appointment?.time);
+  const [y, m, d] = String(appointment?.date || "").split("-").map(Number);
+  if (minutes === null || !y || !m || !d) return null;
+  return new Date(y, m - 1, d, Math.floor(minutes / 60), minutes % 60);
+};
+
 export const overlapsAppointment = (appointment, date, time) => {
   if (appointment.date !== date) return false;
   const start = timeToMinutes(appointment.time);

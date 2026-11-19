@@ -29,10 +29,11 @@ export const getSuggestions = async (req, res) => {
 
 export const createSuggestion = async (req, res) => {
   try {
-    const suggestion = new Suggestion({
-      studentId: req.user._id,
-      message: req.body.message,
-    });
+    const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
+    if (!message || message.length > 4000) {
+      return res.status(400).json({ error: "Please write a message (up to 4000 characters)." });
+    }
+    const suggestion = new Suggestion({ studentId: req.user._id, message });
     await suggestion.save();
     res.status(201).json(suggestion);
   } catch (error) {
@@ -43,14 +44,15 @@ export const createSuggestion = async (req, res) => {
 
 export const deleteSuggestion = async (req, res) => {
   try {
-    const suggestion = await Suggestion.findByIdAndUpdate(
-      req.params.id,
-      { isDeleted: true },
-      { new: true }
-    );
+    // Counselors resolve any report; students may only withdraw their own.
+    const filter = req.user.constructor.modelName === "Counselor"
+      ? { _id: req.params.id }
+      : { _id: req.params.id, studentId: req.user._id };
+    const suggestion = await Suggestion.findOneAndUpdate(filter, { isDeleted: true }, { new: true });
     if (!suggestion) return res.status(404).json({ error: "Suggestion not found" });
     res.json(suggestion);
   } catch (error) {
+    if (error.name === "CastError") return res.status(404).json({ error: "Suggestion not found" });
     console.error("Error in deleteSuggestion:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }

@@ -262,9 +262,12 @@ export const incrementViews = async (req, res) => {
   }
 };
 
+const REACTION_KEYS = ["like", "love", "laugh", "surprise", "sad"];
+
 export const toggleReaction = async (req, res) => {
   try {
     const { emoji } = req.body;
+    if (!REACTION_KEYS.includes(emoji)) return res.status(400).json({ error: "Unknown reaction" });
     const userId = req.user._id;
     const announcement = await Announcement.findById(req.params.id);
     if (!announcement) return res.status(404).json({ error: "Announcement not found" });

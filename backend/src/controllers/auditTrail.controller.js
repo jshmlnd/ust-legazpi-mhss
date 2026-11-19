@@ -1,6 +1,33 @@
 import mongoose from "mongoose";
 import AuditTrail from "../models/auditTrail.model.js";
 import Message from "../models/message.model.js";
+import User from "../models/user.model.js";
+import Appointment from "../models/appointment.model.js";
+import { getDailyDynamicId } from "../lib/generateId.js";
+
+const IDENTITY_FIELDS = "studentId fullName dynamicId department program yearLevel email phone mother father guardian emergencyContact";
+
+// Emergency identity reveal: counselor-only, limited to students the counselor
+// has a session with, and logged in the same request that returns the data.
+export const revealStudentIdentity = async (req, res) => {
+  try {
+    const studentId = Number(req.params.studentId);
+    if (!Number.isInteger(studentId)) return res.status(400).json({ error: "Invalid student" });
+    const counselorId = Number(req.user._id);
+
+    const linked = await Appointment.exists({ studentId, counselorId });
+    if (!linked) return res.status(403).json({ error: "You have no session with this student" });
+
+    const student = await User.findById(studentId).select(IDENTITY_FIELDS).lean();
+    if (!student) return res.status(404).json({ error: "Student not found" });
+
+    await AuditTrail.create({ studentId, counselorId, type: "identity_revealed", messageId: null });
+    res.json({ ...student, dynamicId: getDailyDynamicId(student.dynamicId) });
+  } catch (error) {
+    console.error("Error in revealStudentIdentity:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
 
 const SEVERITIES = ["critical", "high", "medium", "low", "none"];
 const isDuplicateKey = (error) => error?.code === 11000;

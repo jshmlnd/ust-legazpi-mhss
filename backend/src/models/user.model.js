@@ -35,9 +35,12 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: '',
         },
+        // Students don't use profile photos (anonymity); never load an old
+        // one into responses. Counselors keep theirs on the Counselor model.
         profilePic: {
             type: String,
             default: '',
+            select: false,
         },
         pin: {
             type: String,

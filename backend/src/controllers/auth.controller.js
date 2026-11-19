@@ -393,7 +393,10 @@ export const updateProfile = async (req, res) => {
         const { profilePic } = req.body || {};
         const profileFile = req.mediaFiles?.[0];
         const userId = req.user._id;
-        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
+        if (req.user.constructor.modelName !== "Counselor") {
+            return res.status(403).json({ message: "Profile photos are not available for student accounts" });
+        }
+        const Model = Counselor;
         if(profilePic === undefined && !profileFile) {
             return res.status(400).json({ message: "Profile picture is required" });
         }

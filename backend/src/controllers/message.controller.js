@@ -26,6 +26,22 @@ const scanForDLP = (text) => {
     return DLP_PATTERNS.some(pattern => pattern.test(text || ''));
 };
 
+// What students may see of a counselor: never PINs, 2FA secrets or email.
+const PUBLIC_COUNSELOR_FIELDS = "fullName profilePic department userType";
+
+// What a counselor sees of a student in day-to-day work: the daily code and
+// school details, plus the real name only when the student has allowed it.
+// Full identity is only available through the audited crisis reveal.
+export const counselorView = (u) => ({
+    _id: u._id,
+    dynamicId: getDailyDynamicId(u.dynamicId),
+    department: u.department,
+    program: u.program,
+    yearLevel: u.yearLevel,
+    showNameToCounselor: !!u.showNameToCounselor,
+    ...(u.showNameToCounselor ? { fullName: u.fullName } : {}),
+});
+
 export const getUsersForSidebar = async (req, res) => {
     try {
         const loggedInUserId = req.user._id;
@@ -45,7 +61,7 @@ export const getUsersForSidebar = async (req, res) => {
             const counselorIds = [...new Set(openChatAppointments.map((appointment) => appointment.counselorId))];
             filteredUsers = await Counselor.find(
                 chatOnly ? { _id: { $in: counselorIds } } : { _id: { $ne: loggedInUserId } },
-            ).select("-password");
+            ).select(PUBLIC_COUNSELOR_FIELDS);
             const now = new Date();
             const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -65,7 +81,7 @@ export const getUsersForSidebar = async (req, res) => {
                 status: { $in: ['active', 'confirmed', 'on-going'] },
             }).select("studentId");
             const studentIds = [...new Set(appointments.map((a) => a.studentId))];
-            filteredUsers = await User.find({ _id: { $in: studentIds } }).select("-password");
+            filteredUsers = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName department program yearLevel showNameToCounselor");
         }
 
         for (const u of filteredUsers) {
@@ -75,11 +91,9 @@ export const getUsersForSidebar = async (req, res) => {
             }
         }
 
-        res.status(200).json(filteredUsers.map((u) => ({
-            ...u.toObject(),
-            dynamicId: getDailyDynamicId(u.dynamicId),
-            ...(isStudent ? { status: busyCounselorIds.has(String(u._id)) ? 'Busy' : 'Available' } : {}),
-        })));
+        res.status(200).json(filteredUsers.map((u) => (isStudent
+            ? { ...u.toObject(), status: busyCounselorIds.has(String(u._id)) ? 'Busy' : 'Available' }
+            : counselorView(u))));
     } catch (error) {
         console.error("Error in getUsersForSidebar:", error);
         res.status(500).json({ error: "Internal server error" });

@@ -27,6 +27,32 @@ export const createEntry = async (req, res) => {
   }
 };
 
+// Only the owner may edit, and only title, content and mood.
+export const updateEntry = async (req, res) => {
+  try {
+    const { title, content, mood } = req.body;
+    if (typeof title !== "string" || typeof content !== "string" || !title.trim() || !content.trim()) {
+      return res.status(400).json({ error: "Title and content are required" });
+    }
+    const updates = { title: title.trim(), content: content.trim() };
+    if (mood !== undefined) {
+      if (!Object.hasOwn(MOOD_SCORE, mood)) return res.status(400).json({ error: "Invalid mood" });
+      updates.mood = mood;
+    }
+    const entry = await JournalEntry.findOneAndUpdate(
+      { _id: req.params.id, studentId: req.user._id },
+      { $set: updates },
+      { new: true, runValidators: true },
+    );
+    if (!entry) return res.status(404).json({ error: "Entry not found" });
+    res.json(entry);
+  } catch (error) {
+    if (error.name === "CastError") return res.status(404).json({ error: "Entry not found" });
+    console.error("Error in updateEntry:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const deleteEntry = async (req, res) => {
   try {
     const entry = await JournalEntry.findOneAndDelete({ _id: req.params.id, studentId: req.user._id });

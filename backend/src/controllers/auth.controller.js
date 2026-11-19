@@ -118,7 +118,10 @@ function noteLoginFailure(key) {
 }
 
 export const login = async (req , res) => {
-    const { studentId, counselorId, password } = req.body;
+    // Plain strings only: an object like {"$ne": null} would match any account.
+    const studentId = typeof req.body.studentId === "string" || typeof req.body.studentId === "number" ? String(req.body.studentId).trim() : "";
+    const counselorId = typeof req.body.counselorId === "string" || typeof req.body.counselorId === "number" ? String(req.body.counselorId).trim() : "";
+    const password = typeof req.body.password === "string" ? req.body.password : "";
 
     try {
         let account = null;
@@ -164,7 +167,7 @@ export const login = async (req , res) => {
         loginAttempts.delete(attemptKey);
 
         // Unverified accounts can't sign in until they click the emailed
-        // verification link. Pre-existing / admin-registered accounts have no
+        // verification link. Pre-existing / provisioned accounts have no
         // flag (undefined) and pass straight through.
         if (role === "student" && account.emailVerified === false) {
             return res.status(403).json({
@@ -318,7 +321,7 @@ export const registerCounselor = async (req, res) => {
         });
 
         if (newUser) {
-            // No session cookie: the administrator who created this account
+            // No session cookie: whoever provisioned this account
             // must stay signed in as themselves.
             await newUser.save();
 
@@ -694,7 +697,8 @@ export const totpDisable = async (req, res) => {
         account.totpEnabled = false;
         account.totpSecret = '';
         await account.save();
-        res.status(200).json({ totpEnabled: false, message: "Authenticator disabled." });
+
+        res.status(200).json({ totpEnabled: false, message: "Authenticator disabled." });
     } catch (error) {
         console.log("Error in totpDisable controller: ", error.message);
         return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });

@@ -4,11 +4,11 @@ import { logCrisisDetection, logIdentityReveal, getAuditTrails } from "../contro
 
 const router = express.Router();
 
-// Logging stays open to both roles (students reveal their own identity and
-// both sides can surface crisis events); listing is counselor-only — the
-// entries contain crisis message text and student full names.
+// Crisis logging is open to both chat participants (the controller checks
+// membership); identity reveals and listing are counselor-only — entries
+// contain student identities.
 router.post("/crisis", protectRoute, logCrisisDetection);
-router.post("/identity-reveal", protectRoute, logIdentityReveal);
+router.post("/identity-reveal", counselorOnly, logIdentityReveal);
 router.get("/", counselorOnly, getAuditTrails);
 
 export default router;

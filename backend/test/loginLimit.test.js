@@ -36,3 +36,12 @@ test("login locks an account after repeated wrong passwords, and a correct one c
   // Other accounts are unaffected.
   assert.equal(await attempt("9000002", "right"), 200);
 });
+
+test("login ignores query operators sent as the student ID", async (t) => {
+  const seen = [];
+  t.mock.method(User, "findOne", async (filter) => { seen.push(filter); return null; });
+  t.mock.method(User, "findById", async () => null);
+  assert.equal(await attempt({ $ne: null }, "x"), 404);
+  assert.equal(await attempt({ $regex: "^2021" }, "x"), 404);
+  for (const f of seen) assert.equal(typeof f.studentId, "string");
+});

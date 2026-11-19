@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, Loader } from 'lucide-react';
+import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, Loader, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import PageShell from '../ui/PageShell';
@@ -119,7 +119,10 @@ const getSessionOutcome = (session) => {
   return null;
 };
 
-const SessionCard = ({ session, type }) => {
+// Mirrors isStudentCancellable in appointment.controller.js.
+const canCancel = (s) => s.status === 'pending' || (s.type === 'Face-To-Face' && ['confirmed', 'active'].includes(s.status));
+
+const SessionCard = ({ session, type, onCancel, cancelling }) => {
   const isUpcoming = type === 'upcoming';
   const counselorLabel = session.counselorName || session.counselor?.fullName || `Counselor #${session.counselorId}`;
   const outcome = getSessionOutcome(session);
@@ -153,6 +156,17 @@ const SessionCard = ({ session, type }) => {
             </div>
             {!isUpcoming && session.notes && (
               <p className="text-xs text-ink-muted mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
+            )}
+            {isUpcoming && onCancel && canCancel(session) && (
+              <button
+                type="button"
+                onClick={() => onCancel(session)}
+                disabled={cancelling}
+                className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-danger/40 px-3 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger-soft disabled:opacity-50"
+              >
+                {cancelling ? <Loader size={12} className="animate-spin" aria-hidden="true" /> : <X size={12} aria-hidden="true" />}
+                {session.status === 'pending' ? 'Cancel request' : 'Cancel session'}
+              </button>
             )}
           </div>
         </div>
@@ -308,7 +322,7 @@ const SessionsPage = () => {
     setChatLoadingCounselors(true);
     try {
       const res = await axiosInstance.get('/message/users');
-      setChatCounselors(res.data.filter((u) => u.userType?.toLowerCase() !== 'administrator'));
+      setChatCounselors(res.data);
     } catch {
       toast.error('Failed to load counselors.');
     } finally {
@@ -386,6 +400,22 @@ const SessionsPage = () => {
     setChatCounselorId('');
     setBusyChatRequest(null);
     setChatRequestOpen(true);
+  };
+
+  const [cancellingId, setCancellingId] = useState(null);
+  const handleCancelSession = async (session) => {
+    const when = `${session.date} at ${session.time}`;
+    if (!window.confirm(`Cancel your ${session.type === 'Chat' ? 'chat' : 'face-to-face'} session on ${when}?`)) return;
+    setCancellingId(session._id);
+    try {
+      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'cancelled' });
+      toast.success('Session cancelled.');
+      await Promise.all([refreshAppointments(), refreshSlots()]);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to cancel.');
+    } finally {
+      setCancellingId(null);
+    }
   };
 
   const handleCancelChatRequest = async () => {
@@ -558,7 +588,9 @@ const SessionsPage = () => {
               <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
             ) : (
               <div className="space-y-2">
-                {upcoming.map((s) => <SessionCard key={s._id} session={s} type="upcoming" />)}
+                {upcoming.map((s) => (
+                  <SessionCard key={s._id} session={s} type="upcoming" onCancel={handleCancelSession} cancelling={cancellingId === s._id} />
+                ))}
               </div>
             )}
           </div>

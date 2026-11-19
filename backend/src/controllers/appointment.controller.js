@@ -18,6 +18,12 @@ const OPEN_CHAT_STATUSES = ['pending', 'confirmed', 'active', 'on-going', 'pause
 const GUIDANCE_EMAIL = 'joshuaklein.malonda@gmail.com';
 const SUMMARY_STATUSES = ['completed', 'ended'];
 const MAX_SUMMARY_LENGTH = 12000;
+
+// Pending requests, or an approved face-to-face session that hasn't started.
+// An accepted chat is already live, so it ends in the chat instead.
+export const isStudentCancellable = (appointment) =>
+  appointment.status === 'pending'
+  || (appointment.type === 'Face-To-Face' && ['confirmed', 'active'].includes(appointment.status));
 const ANONYMOUS_STUDENT = 'Anonymous Student';
 
 const findOverlappingF2F = async (counselorId, date, time) => {
@@ -240,18 +246,23 @@ export const updateAppointment = async (req, res) => {
     if (!appointment) return res.status(404).json({ error: "Appointment not found" });
 
     const isCounselor = req.user.constructor.modelName === "Counselor";
-    if (!isCounselor && SUMMARY_STATUSES.includes(req.body.status)) {
-      return res.status(403).json({ error: "Only the assigned counselor can end a session" });
+    // Students may only cancel their own session, and only before it starts.
+    if (!isCounselor) {
+      if (String(appointment.studentId) !== String(req.user._id)) {
+        return res.status(403).json({ error: "Not your appointment" });
+      }
+      if (req.body.status !== 'cancelled' || Object.keys(req.body).some((k) => k !== 'status')) {
+        return res.status(403).json({ error: "Students can only cancel a session" });
+      }
+      if (!isStudentCancellable(appointment)) {
+        return res.status(409).json({ error: "This session can no longer be cancelled" });
+      }
     }
     const touchesOwnership = Boolean(req.body.status || req.body.actionTaken || req.body.counselorId);
     if (isCounselor && touchesOwnership) {
       if (String(appointment.counselorId) !== String(req.user._id)) {
         return res.status(403).json({ error: "Not your appointment" });
       }
-    }
-    // Action taken / referrals are counselor decisions; students cannot set them.
-    if (!isCounselor && (req.body.actionTaken || req.body.counselorId)) {
-      return res.status(403).json({ error: "Only counselors can set the action taken" });
     }
 
     const previousCounselorId = appointment.counselorId;

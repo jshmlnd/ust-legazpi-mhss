@@ -340,7 +340,7 @@ const LoginPage = () => {
         <div className="login-rise relative flex items-center gap-3">
           <LogoTile />
           <div>
-            <p className="text-md font-semibold text-side-ink">UST-Legazpi</p>
+            <p className="text-md font-semibold text-side-ink">University of Santo Tomas - Legazpi</p>
             <p className="text-sm text-side-ink-muted">Office of Guidance & Testing</p>
           </div>
         </div>

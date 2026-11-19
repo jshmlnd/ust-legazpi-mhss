@@ -5,10 +5,10 @@ import Modal from '../../ui/Modal';
 import { axiosInstance } from '../../lib/axios';
 import { PATHS } from '../../lib/routes';
 
-// shortcut: hardcoded national numbers, re-check against ncmh.gov.ph / hopeline.ph when they change.
+// shortcut: hardcoded national numbers. 1553 and Hopeline still need a manual call check before release;
+// NCMH mobile 0917-899-8727 was removed on 2026-11-19 after a test call could not reach it.
 const NATIONAL_LINES = [
   { name: 'Hopeline PH', display: '0917-558-4673', tel: '+639175584673' },
-  { name: 'NCMH Crisis Hotline (mobile)', display: '0917-899-8727', tel: '+639178998727' },
   { name: 'Emergency (police / ambulance)', display: '911', tel: '911' },
 ];
 

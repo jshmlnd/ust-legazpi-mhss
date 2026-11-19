@@ -1,15 +1,14 @@
-const generateNumericId = () => Math.floor(10000 + Math.random() * 90000);
+export const generateNumericId = () => Math.floor(10000 + Math.random() * 90000);
 
 const DYNAMIC_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-const generateDynamicCode = () => {
+export const generateDynamicCode = () => {
   let code = "";
   for (let i = 0; i < 8; i++) {
     code += DYNAMIC_ID_ALPHABET[Math.floor(Math.random() * DYNAMIC_ID_ALPHABET.length)];
   }
   return code;
 };
-
 export const generateUniqueId = async (Model) => {
   let id;
   let exists = true;
@@ -30,8 +29,6 @@ export const generateUniqueDynamicId = async (Model) => {
   return id;
 };
 
-const DYNAMIC_ID_HASH_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
 const getPHTDateString = () =>
   new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Manila",
@@ -51,14 +48,23 @@ export const getDailyDynamicId = (seed) => {
   let code = "";
   let h = hash;
   for (let i = 0; i < 8; i++) {
-    code += DYNAMIC_ID_HASH_ALPHABET[h % DYNAMIC_ID_HASH_ALPHABET.length];
+    code += DYNAMIC_ID_ALPHABET[h % DYNAMIC_ID_ALPHABET.length];
     h = (Math.imul(h, 31) + i + 7) >>> 0;
   }
-  return code;
+  return mixLettersAndDigits(code, h);
 };
 
-export const toPublicUser = (user) => {
-  const obj = user && typeof user.toObject === "function" ? user.toObject() : { ...(user || {}) };
-  if (obj.dynamicId) obj.dynamicId = getDailyDynamicId(obj.dynamicId);
-  return obj;
+const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const DIGITS = "23456789";
+
+// About 1 in 10 random codes is all letters; force at least one letter and one
+// digit, using the hash so the same student keeps the same code all day.
+const mixLettersAndDigits = (code, h) => {
+  const chars = code.split("");
+  const digitAt = h % chars.length;
+  const letterAt = (digitAt + 1 + ((h >>> 8) % (chars.length - 1))) % chars.length;
+  if (!/[0-9]/.test(code)) chars[digitAt] = DIGITS[(h >>> 4) % DIGITS.length];
+  if (!/[A-Z]/.test(chars.join(""))) chars[letterAt] = LETTERS[(h >>> 12) % LETTERS.length];
+  return chars.join("");
 };
+

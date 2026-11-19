@@ -1,13 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Megaphone, Send, Clock, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import { Megaphone, Send, Clock, ArrowRight } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
 import { useAuthStore } from '../store/useAuthStore';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
 import RoleGate from '../components/RoleGate';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../ui/EmptyState';
 import TextWithLinks from '../components/TextWithLinks';
+import ImageLightbox from '../components/modals/ImageLightbox';
 import { toast } from 'react-toastify';
 
 const REACTIONS = [
@@ -18,80 +20,24 @@ const REACTIONS = [
   { emoji: '😢', key: 'sad', label: 'Sad' },
 ];
 
-const ImageLightbox = ({ images, index, onClose }) => {
-  const [current, setCurrent] = useState(index);
-
-  const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
-  const next = useCallback(() => setCurrent((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft') prev();
-      if (e.key === 'ArrowRight') next();
-    };
-    document.addEventListener('keydown', handleKey);
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.removeEventListener('keydown', handleKey);
-      document.body.style.overflow = '';
-    };
-  }, [onClose, prev, next]);
-
-  const media = images[current];
-  const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(media);
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80" onClick={onClose}>
-      <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-10">
-        <X size={24} />
-      </button>
-
-      {images.length > 1 && (
-        <>
-          <button onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-4 text-white/70 hover:text-white transition-colors z-10">
-            <ChevronLeft size={32} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-4 text-white/70 hover:text-white transition-colors z-10">
-            <ChevronRight size={32} />
-          </button>
-        </>
-      )}
-
-      <div className="max-w-[90vw] max-h-[85vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-        {isVideo ? (
-          <video src={media} controls autoPlay className="max-w-full max-h-[85vh] rounded-sm" />
-        ) : (
-          <img src={media} alt="" className="max-w-full max-h-[85vh] object-contain rounded-sm" />
-        )}
-      </div>
-
-      {images.length > 1 && (
-        <div className="absolute bottom-4 text-white/60 text-xs font-medium">
-          {current + 1} / {images.length}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const UpdateCard = ({ update, currentUserId, onReact }) => {
+  const [popped, setPopped] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const date = update.createdAt ? new Date(update.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : update.date;
   const time = update.createdAt ? new Date(update.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-6">
+    <div className="bg-surface border border-line rounded-lg p-6">
       <div className="flex items-start gap-4">
         <div className="hidden sm:flex flex-col items-center gap-1.5 pt-0.5">
-          <div className="size-9 rounded-sm bg-neutral-100 flex items-center justify-center text-neutral-500">
+          <div className="size-9 rounded-lg bg-line flex items-center justify-center text-ink-muted">
             <Megaphone size={16} />
           </div>
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 mb-1">
-            <h3 className="text-sm font-medium text-neutral-900">{update.title}</h3>
-            <span className="text-[10px] font-medium text-neutral-400 shrink-0">{date}</span>
+            <h3 className="text-lg font-bold text-ink">{update.title}</h3>
+            <span className="text-xs font-medium text-ink-muted shrink-0">{date}</span>
           </div>
           <TextWithLinks text={update.body} className="mb-3" />
           {update.images && update.images.length > 0 && (
@@ -117,7 +63,7 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
                     key={i}
                     type="button"
                     onClick={() => setLightboxIndex(i)}
-                    className={`block rounded-sm border border-neutral-200 overflow-hidden hover:border-neutral-400 transition-colors cursor-pointer bg-neutral-50 ${
+                    className={`block rounded-lg border border-line overflow-hidden hover:border-line-strong transition-colors cursor-pointer bg-canvas ${
                       isThree ? 'row-span-2' : ''
                     } ${isSingle ? 'max-h-[300px]' : ''}`}
                   >
@@ -137,13 +83,13 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
               onClose={() => setLightboxIndex(null)}
             />
           )}
-          <div className="flex items-center gap-4 text-[10px] text-neutral-400">
+          <div className="flex items-center gap-4 text-xs text-ink-muted">
             <span className="font-medium">{update.author}</span>
             {time && <span className="flex items-center gap-1"><Clock size={10} /> {time}</span>}
             {update.views !== undefined && <span className="flex items-center gap-1">{update.views} views</span>}
           </div>
 
-          <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-neutral-100">
+          <div className="flex items-center gap-1.5 mt-4 pt-4 border-t border-line">
             {REACTIONS.map((r) => {
               const users = (update.reactions && update.reactions[r.key]) || [];
               const count = users.length;
@@ -151,16 +97,24 @@ const UpdateCard = ({ update, currentUserId, onReact }) => {
               return (
                 <button
                   key={r.key}
-                  onClick={() => onReact(update._id, r.key)}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-sm border transition-colors ${
-                    isActive
-                      ? 'bg-neutral-100 border-neutral-300 text-neutral-900'
-                      : 'border-neutral-200 text-neutral-500 hover:border-neutral-300 hover:text-neutral-700'
-                  }`}
+                  type="button"
+                  onClick={() => { setPopped({ key: r.key, adding: !isActive }); onReact(update._id, r.key); }}
+                  aria-pressed={isActive}
+                  aria-label={`${r.label}, ${count} reaction${count === 1 ? '' : 's'}${isActive ? ', you reacted' : ''}`}
                   title={r.label}
+                  className={`react-btn group/react inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg border outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-1 focus-visible:ring-offset-surface ${
+                    isActive
+                      ? 'bg-brand-soft border-brand-300 text-brand-soft-ink'
+                      : 'border-line text-ink-muted hover:border-line-strong hover:text-ink-soft'
+                  } ${popped?.key === r.key ? (popped.adding ? 'react-added' : 'react-removed') : ''}`}
+                  onAnimationEnd={(e) => {
+                    // Added: wait for the ring on the button; removed: the emoji's settle is the only animation.
+                    const done = popped?.adding ? e.target === e.currentTarget : e.target.classList?.contains('react-emoji');
+                    if (done) setPopped(null);
+                  }}
                 >
-                  <span className="text-sm leading-none">{r.emoji}</span>
-                  {count > 0 && <span className="font-medium text-[11px]">{count}</span>}
+                  <span className="react-emoji text-sm leading-none" aria-hidden="true">{r.emoji}</span>
+                  {count > 0 && <span key={count} className="react-count font-medium text-[11px] tabular-nums" aria-hidden="true">{count}</span>}
                 </button>
               );
             })}
@@ -188,25 +142,25 @@ const AnnouncementComposer = ({ onPost }) => {
 
   return (
     <RoleGate roles={['counselor']}>
-      <div className="bg-white border border-neutral-200 rounded-sm p-6 mb-6">
-        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-4 block">Compose Announcement</span>
+      <div className="bg-surface border border-line rounded-lg p-6 mb-6">
+        <span className="text-xs font-semibold text-ink-muted mb-4 block">Compose Announcement</span>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Announcement title..."
-            className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+            className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Write your announcement..."
             rows={3}
-            className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
+            className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors resize-none"
           />
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-neutral-400">Posted instantly to all students</span>
-            <button type="submit" className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
+            <span className="text-xs text-ink-muted">Posted instantly to all students</span>
+            <button type="submit" className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg">
               <Send size={12} /> Broadcast
             </button>
           </div>
@@ -216,7 +170,7 @@ const AnnouncementComposer = ({ onPost }) => {
   );
 };
 
-const UniversityUpdates = () => {
+const UniversityUpdates = ({ embedded = false, limit = 3, notice = null }) => {
   const { authUser } = useAuthStore();
   const currentUserId = authUser?._id;
   const role = authUser?.userType?.toLowerCase() ?? null;
@@ -259,31 +213,91 @@ const UniversityUpdates = () => {
     }
   };
 
+  // Toggle at once so the click feels instant; the server reply then wins,
+  // and a failure puts the previous reactions back.
+  const toggleLocal = (u, emoji) => {
+    const users = u.reactions?.[emoji] || [];
+    const next = users.includes(currentUserId) ? users.filter((x) => x !== currentUserId) : [...users, currentUserId];
+    return { ...u, reactions: { ...u.reactions, [emoji]: next } };
+  };
   const handleReact = async (id, emoji) => {
+    const before = updates.find((u) => u._id === id);
+    setUpdates((prev) => prev.map((u) => (u._id === id ? toggleLocal(u, emoji) : u)));
     try {
       const res = await axiosInstance.post(`/announcements/${id}/react`, { emoji });
       setUpdates((prev) => prev.map((u) => (u._id === id ? res.data : u)));
     } catch (err) {
-      const msg = err.response?.data?.error || 'Failed to update reaction';
-      toast.error(msg);
+      if (before) setUpdates((prev) => prev.map((u) => (u._id === id ? before : u)));
+      toast.error(err.response?.data?.error || 'Failed to update reaction');
     }
   };
 
-  if (loading) return <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings"><PageShellSkeleton count={4} /></PageShell>;
+  if (loading) {
+    if (embedded) {
+      return (
+        <section aria-label="Loading OGT updates" className="space-y-3">
+          {Array.from({ length: limit }).map((_, i) => <div key={i} className="skeleton h-36 rounded-xl" />)}
+        </section>
+      );
+    }
+    return <PageShell title="Office of Guidance & Testing Updates" description="Campus announcements, wellness alerts & seminar listings"><PageShellSkeleton count={4} /></PageShell>;
+  }
+
+  if (embedded) {
+    const visibleUpdates = updates.slice(0, limit);
+    return (
+      <section aria-labelledby="ogt-updates-heading" className="mt-10 sm:mt-12">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <span className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">Stay informed</span>
+            <h2 id="ogt-updates-heading" className="mt-2 text-2xl font-semibold tracking-tight text-ink">OGT Updates</h2>
+            <p className="mt-1 text-sm text-ink-muted">Announcements and wellness updates from the Office of Guidance & Testing.</p>
+            {notice && (
+              <div className="mt-4 flex max-w-3xl items-start gap-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3">
+                <span className="mt-0.5 shrink-0 rounded-md bg-warning px-2 py-0.5 text-[9px] font-bold tracking-wider text-white">{notice.tag}</span>
+                <p className="text-xs leading-5 text-warning-ink">{notice.text}</p>
+              </div>
+            )}
+          </div>
+          {updates.length > limit && (
+            <Link to="/university-updates" className="hidden sm:inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline">
+              View all <ArrowRight size={14} />
+            </Link>
+          )}
+        </div>
+
+        {visibleUpdates.length === 0 ? (
+          <EmptyState icon={Megaphone} title="No announcements yet" description="Check back for new updates." />
+        ) : (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {visibleUpdates.map((update) => (
+              <UpdateCard key={update._id} update={update} currentUserId={currentUserId} onReact={handleReact} />
+            ))}
+          </div>
+        )}
+
+        {updates.length > limit && (
+          <Link to="/university-updates" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline sm:hidden">
+            View all updates <ArrowRight size={14} />
+          </Link>
+        )}
+      </section>
+    );
+  }
 
   return (
-    <PageShell title="University Updates" subtitle="Campus announcements, wellness alerts & seminar listings">
+    <PageShell title="Office of Guidance & Testing Updates" description="Campus announcements, wellness alerts & seminar listings">
       <AnnouncementComposer onPost={handlePost} />
 
       {updates.length === 0 ? (
         <EmptyState icon={Megaphone} title="No announcements yet" description={role === 'counselor' ? 'Post your first campus announcement using the composer above.' : 'Check back for new updates.'} />
       ) : (
         <div className="relative">
-          <div className="absolute left-[22px] sm:left-[23px] top-0 bottom-0 w-px bg-neutral-200 hidden sm:block" />
+          <div className="absolute left-[22px] sm:left-[23px] top-0 bottom-0 w-px bg-line hidden sm:block" />
           <div className="space-y-4">
             {updates.map((u, i) => (
               <div key={u._id} className="relative">
-                {i > 0 && <div className="hidden sm:block absolute -left-[25px] top-6 size-[10px] rounded-full bg-white border-2 border-neutral-300" />}
+                {i > 0 && <div className="hidden sm:block absolute -left-[25px] top-6 size-[10px] rounded-full bg-surface border-2 border-line-strong" />}
                 <UpdateCard update={u} currentUserId={currentUserId} onReact={handleReact} />
               </div>
             ))}

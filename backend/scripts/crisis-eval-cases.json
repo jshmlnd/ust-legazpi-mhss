@@ -1,0 +1,60 @@
+{
+  "_readme": "Labeled crisis classification eval set. 'expected' is the ground-truth severity: none | low | medium | high | critical. isCrisis is derived (anything except 'none' must be flagged). These labels are the thesis authors' call — edit freely, then run: npm run eval:crisis",
+  "cases": [
+    { "text": "I have the pills in my hand and I'm going to take them all tonight. I already wrote goodbye letters.", "expected": "critical" },
+    { "text": "Nasa bubong na ako ng building namin. Ayoko na, magpapaalam na ako.", "expected": "critical", "note": "On the roof, saying goodbye — imminent" },
+    { "text": "Tonight is the night. Everything is ready.", "expected": "critical", "note": "Explicit time + readiness, no explicit method stated" },
+
+    { "text": "I bought a rope yesterday. I keep thinking about using it.", "expected": "high", "note": "Means acquired + ideation" },
+    { "text": "I've been cutting again and the cuts are getting deeper.", "expected": "high", "note": "Recent self-harm = high per rubric" },
+    { "text": "I keep thinking about jumping. I already know which bridge.", "expected": "high", "note": "Plan location + ideation" },
+    { "text": "Hindi ko na kaya. Gusto ko nang mamatay at alam ko na kung paano.", "expected": "high", "note": "Filipino: I want to die and I know how" },
+    { "text": "I wrote a note to my mom last night. I think I'm really going to do it this time.", "expected": "high", "note": "Note + strong intent, no time given" },
+
+    { "text": "I think about dying every day but I don't have a plan.", "expected": "medium" },
+    { "text": "Gusto ko nang mamatay, pagod na ako sa lahat.", "expected": "medium", "note": "Filipino: I want to die, tired of everything" },
+    { "text": "I hurt myself when I get overwhelmed. I don't want to die but the pain helps.", "expected": "medium", "note": "Self-harm without suicidal intent" },
+    { "text": "Nagpapaslas ako para mawala ang sakit sa dibdib ko.", "expected": "medium", "note": "Filipino: I cut myself to make the chest pain go away" },
+    { "text": "I keep imagining what it would be like to not exist anymore.", "expected": "low", "note": "Passive ideation — boundary case, align with thesis rubric" },
+
+    { "text": "I feel like everyone would be better off without me.", "expected": "low", "note": "Burden ideation" },
+    { "text": "I'm so tired of pretending I'm okay.", "expected": "low" },
+    { "text": "Nobody would notice if I disappeared.", "expected": "low" },
+    { "text": "Ang hirap mabuhay. Parang wala akong saysay.", "expected": "low", "note": "Filipino: life is hard, I feel worthless" },
+    { "text": "I don't see the point of anything anymore.", "expected": "low" },
+    { "text": "Sometimes I wish I just wouldn't wake up.", "expected": "low", "note": "Passive ideation — boundary case, consider medium" },
+
+    { "text": "I'm really stressed about finals. Can we move my session to Friday?", "expected": "none" },
+    { "text": "I feel a bit sad today but I'll be okay.", "expected": "none" },
+    { "text": "This exam is killing me lol", "expected": "none", "note": "Casual hyperbole" },
+    { "text": "I'm dying of laughter at what my classmate said", "expected": "none", "note": "Casual hyperbole" },
+    { "text": "I'd rather die than take another math test", "expected": "none", "note": "Casual hyperbole" },
+    { "text": "Gusto ko nang mamatay sa sobrang kilig", "expected": "none", "note": "Filipino hyperbole: dying of kilig" },
+    { "text": "Thank you for last session. I felt really heard.", "expected": "none" },
+    { "text": "I've been sleeping well and going to the gym. Feeling good lately.", "expected": "none" },
+    { "text": "What time is my appointment tomorrow?", "expected": "none" },
+    { "text": "I'm so overwhelmed with requirements I barely sleep.", "expected": "none" },
+
+    { "text": "I will not kill myself. I was just reading about the topic for my paper.", "expected": "none", "note": "Negation" },
+    { "text": "Hindi ako magpapakamatay, wag kang mag-alala.", "expected": "none", "note": "Filipino negation: I won't kill myself, don't worry" },
+    { "text": "I'm not suicidal. I just wanted to understand what my friend is going through.", "expected": "none", "note": "Negation" },
+    { "text": "Ayaw kong mamatay. Gusto ko lang ng kausap.", "expected": "none", "note": "Filipino negation: I don't want to die, I just need someone to talk to" },
+
+    { "text": "We talked about suicide warning signs in our psych class today.", "expected": "none", "note": "Educational" },
+    { "text": "My professor asked us what to do if a friend threatens to kill themselves.", "expected": "none", "note": "Hypothetical" },
+    { "text": "The song goes 'I wanna die' but I just like the melody. I'm okay.", "expected": "none", "note": "Quoting" },
+    { "text": "In the movie, the character says she wants to end her life. It was really sad.", "expected": "none", "note": "Quoting" },
+
+    { "text": "My classmate told me she wants to die and showed me her cuts.", "expected": "none", "note": "Policy: only the sender's own crisis counts — third-party risk is not flagged on the sender's record" },
+    { "text": "My friend texted me 'goodbye, thank you for everything' and now she's not answering. I'm scared.", "expected": "none", "note": "Policy: only the sender's own crisis counts" },
+    { "text": "Someone in my org posted 'I can't do this anymore' then went offline. I'm worried about them.", "expected": "none", "note": "Policy: only the sender's own crisis counts" },
+
+    { "text": "Thank you for everything. This is goodbye.", "expected": "medium", "note": "Implicit goodbye, no explicit ideation" },
+    { "text": "Paalam na. Salamat sa lahat.", "expected": "medium", "note": "Filipino goodbye" },
+
+    { "text": "I punched the wall until my knuckles bled when my parents fought.", "expected": "medium", "note": "Self-harm, not suicidal" },
+    { "text": "I scratch my arms when I get anxious. It leaves marks.", "expected": "medium", "note": "Self-harm, ongoing" },
+    { "text": "I looked up how many sleeping pills it takes. Just curious though.", "expected": "high", "note": "Means research; the 'curious' claim should not lower risk" },
+    { "text": "May blade ako sa wallet ko lagi, para sigurado.", "expected": "high", "note": "Filipino: I always have a blade in my wallet, just to be sure" }
+  ]
+}

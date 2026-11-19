@@ -1,5 +1,5 @@
 import express from "express";
-import { protectRoute } from "../middleware/auth.middleware.js";
+import { protectRoute, counselorOnly } from "../middleware/auth.middleware.js";
 import {
   getModules, createModule,
   updateModule, deleteModule, reorderModules,
@@ -8,9 +8,9 @@ import {
 const router = express.Router();
 
 router.get("/", protectRoute, getModules);
-router.post("/", protectRoute, createModule);
-router.patch("/reorder", protectRoute, reorderModules);
-router.patch("/:id", protectRoute, updateModule);
-router.delete("/:id", protectRoute, deleteModule);
+router.post("/", counselorOnly, createModule);
+router.patch("/reorder", counselorOnly, reorderModules);
+router.patch("/:id", counselorOnly, updateModule);
+router.delete("/:id", counselorOnly, deleteModule);
 
 export default router;

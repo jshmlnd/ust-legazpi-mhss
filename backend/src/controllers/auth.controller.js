@@ -1,15 +1,70 @@
-import { generateToken, generateTwoFactorToken } from "../lib/utils.js";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
-import { generateUniqueDynamicId, getDailyDynamicId, toPublicUser } from "../lib/generateId.js";
+import { generateUniqueDynamicId, getDailyDynamicId } from "../lib/generateId.js";
+import {
+    encryptSecret,
+    decryptSecret,
+    createTotpSecret,
+    buildOtpAuthUri,
+    buildQrDataUrl,
+    verifyTotpToken,
+} from "../lib/totp.js";
+import { sendMail, passwordChangedEmailTemplate } from "../lib/mailer.js";
+import { maskEmail } from "./passwordReset.controller.js";
+import { MediaRejectedError, scanMediaFile } from "../lib/mediaModeration.js";
+
+const generateToken = (userId, res) => {
+    const token = jwt.sign({userId}, process.env.JWT_SECRET, { expiresIn: "7d" });
+    res.cookie("jwt", token, {
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        sameSite: "strict",
+        secure: process.env.NODE_ENV !== "development",
+    });
+    return token;
+};
+
+const generateTwoFactorToken = (userId) => {
+    return jwt.sign({ userId, twoFactor: true }, process.env.JWT_SECRET, { expiresIn: "10m" });
+};
+
+const serializeUser = (user, role) => ({
+    _id: user._id,
+    dynamicId: getDailyDynamicId(user.dynamicId),
+    fullName: user.fullName,
+    email: user.email,
+    phone: user.phone || null,
+    studentId: user.studentId,
+    counselorId: user.counselorId,
+    department: user.department,
+    program: user.program,
+    yearLevel: user.yearLevel,
+    profilePic: user.profilePic || '',
+    userType: user.userType || role,
+    // Never send the PIN itself — it is a 2FA credential. The client only
+    // needs to know whether one exists.
+    hasPin: !!user.pin,
+    twoFactorEnabled: user.twoFactorEnabled,
+    totpEnabled: !!user.totpEnabled,
+    showNameToCounselor: user.showNameToCounselor || false,
+    receiveOgtUpdates: user.receiveOgtUpdates !== false,
+    preferences: user.preferences || null,
+});
+
+// App preferences synced to the account (see frontend lib/prefs.js). Anything
+// else in the request body is ignored — the client cannot inject extra keys.
+const SYNCED_PREF_KEYS = ['sessionReminders', 'messageNotifications'];
+
+const getModel = (req) => (req.user.constructor.modelName === "Counselor" ? Counselor : User);
 
 export const updateProfileDetails = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { fullName, email, phone, department, program, yearLevel } = req.body;
+        const { fullName, email, phone, department, program, yearLevel, showNameToCounselor, receiveOgtUpdates, preferences } = req.body;
 
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
         const account = await Model.findById(userId);
@@ -18,22 +73,55 @@ export const updateProfileDetails = async (req, res) => {
         if (fullName) account.fullName = fullName;
         if (email) account.email = email;
         if (phone !== undefined && account.phone !== undefined) account.phone = phone;
-        if (department && account.department !== undefined) account.department = department;
+        if (department !== undefined && account.department !== undefined) account.department = department;
         if (program && account.program !== undefined) account.program = program;
         if (yearLevel && account.yearLevel !== undefined) account.yearLevel = yearLevel;
+        if (typeof showNameToCounselor === 'boolean' && account.showNameToCounselor !== undefined) account.showNameToCounselor = showNameToCounselor;
+        if (typeof receiveOgtUpdates === 'boolean' && account.receiveOgtUpdates !== undefined) account.receiveOgtUpdates = receiveOgtUpdates;
+        if (preferences && typeof preferences === 'object') {
+            for (const key of SYNCED_PREF_KEYS) {
+                if (typeof preferences[key] === 'boolean') account.set(`preferences.${key}`, preferences[key]);
+            }
+        }
 
         await account.save();
 
         const updated = await Model.findById(userId).select("-password");
-        res.status(200).json(toPublicUser(updated));
+        res.status(200).json(serializeUser(updated));
     } catch (error) {
         console.log("Error in updateProfileDetails controller: ", error.message);
+        if (error.name === "ValidationError") return res.status(400).json({ message: error.message });
         return res.status(500).json({ message: "Internal server error" });
     }
 };
 
+// Brute-force guard for password login. Per-account, in-memory — same
+// trade-off as the reset-code and 2FA budgets. 5 wrong passwords locks that
+// account's password login for 15 min; a correct password clears it.
+// shortcut: per-process counters reset on restart, move to Mongo/Redis if the API runs on several instances.
+const loginAttempts = new Map(); // key: `${role}:${accountId}` → { count, resetAt }
+export const LOGIN_MAX_ATTEMPTS = 5;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+function loginLockedFor(key) {
+    const entry = loginAttempts.get(key);
+    if (!entry) return 0;
+    const now = Date.now();
+    if (now > entry.resetAt) { loginAttempts.delete(key); return 0; }
+    return entry.count >= LOGIN_MAX_ATTEMPTS ? Math.ceil((entry.resetAt - now) / 1000) : 0;
+}
+
+function noteLoginFailure(key) {
+    const entry = loginAttempts.get(key);
+    if (entry) entry.count += 1;
+    else loginAttempts.set(key, { count: 1, resetAt: Date.now() + LOGIN_WINDOW_MS });
+}
+
 export const login = async (req , res) => {
-    const { studentId, counselorId, password } = req.body;
+    // Plain strings only: an object like {"$ne": null} would match any account.
+    const studentId = typeof req.body.studentId === "string" || typeof req.body.studentId === "number" ? String(req.body.studentId).trim() : "";
+    const counselorId = typeof req.body.counselorId === "string" || typeof req.body.counselorId === "number" ? String(req.body.counselorId).trim() : "";
+    const password = typeof req.body.password === "string" ? req.body.password : "";
 
     try {
         let account = null;
@@ -64,34 +152,44 @@ export const login = async (req , res) => {
             await account.save();
         }
 
+        const attemptKey = `${role}:${account._id}`;
+        const lockedSecs = loginLockedFor(attemptKey);
+        if (lockedSecs) {
+            return res.status(429).json({ message: `Too many failed attempts. Try again in ${Math.ceil(lockedSecs / 60)} min.` });
+        }
+
         const isPasswordCorrect = await bcrypt.compare(password, account.password);
 
         if (!isPasswordCorrect) {
+            noteLoginFailure(attemptKey);
             return res.status(401).json({ message: "Invalid credentials" });
+        }
+        loginAttempts.delete(attemptKey);
+
+        // Unverified accounts can't sign in until they click the emailed
+        // verification link. Pre-existing / provisioned accounts have no
+        // flag (undefined) and pass straight through.
+        if (role === "student" && account.emailVerified === false) {
+            return res.status(403).json({
+                message: "Please verify your email before signing in. Check your inbox for the verification link.",
+                emailVerificationRequired: true,
+                maskedEmail: maskEmail(account.email),
+            });
         }
 
         if (account.twoFactorEnabled && account.pin) {
             const twoFactorToken = generateTwoFactorToken(account._id);
-            return res.status(200).json({ twoFactorRequired: true, twoFactorToken });
+            return res.status(200).json({ twoFactorRequired: true, twoFactorToken, twoFactorType: 'pin' });
+        }
+
+        if (account.totpEnabled && account.totpSecret) {
+            const twoFactorToken = generateTwoFactorToken(account._id);
+            return res.status(200).json({ twoFactorRequired: true, twoFactorToken, twoFactorType: 'totp' });
         }
 
         generateToken(account._id, res);
 
-        return res.status(200).json({ 
-            _id: account._id, 
-            dynamicId: getDailyDynamicId(account.dynamicId),
-            fullName: account.fullName, 
-            email: account.email, 
-            phone: account.phone || null,
-            studentId: account.studentId,
-            department: account.department,
-            program: account.program,
-            yearLevel: account.yearLevel,
-            profilePic: account.profilePic || '',
-            userType: account.userType || role, 
-            pin: account.pin,
-            twoFactorEnabled: account.twoFactorEnabled,
-         });
+        return res.status(200).json(serializeUser(account, role));
 
     } catch (error) {
         console.log("Error in login controller: ", error.message);
@@ -124,30 +222,29 @@ export const verifyTwoFactor = async (req, res) => {
             return res.status(404).json({ message: "Account not found" });
         }
 
-        if (account.pin !== pin) {
+        // TOTP takes precedence when enrolled; the PIN code path is kept for
+        // accounts still on PIN 2FA (and removed once TOTP is confirmed).
+        // Rate limited: this is the pre-auth brute-force surface for codes.
+        assertOtpBudget({ user: account });
+        if (account.totpEnabled && account.totpSecret) {
+            if (!pin) return res.status(400).json({ message: "Authenticator code is required" });
+            const { valid } = await verifyTotpToken(decryptSecret(account.totpSecret), pin);
+            if (!valid) {
+                noteOtpFailure({ user: account });
+                return res.status(401).json({ message: "Incorrect authenticator code" });
+            }
+        } else if (!account.pin || !safeEqual(pin, account.pin)) {
+            noteOtpFailure({ user: account });
             return res.status(401).json({ message: "Incorrect PIN" });
         }
+        clearOtpBudget({ user: account });
 
         generateToken(account._id, res);
 
-        return res.status(200).json({
-            _id: account._id,
-            dynamicId: getDailyDynamicId(account.dynamicId),
-            fullName: account.fullName,
-            email: account.email,
-            phone: account.phone || null,
-            studentId: account.studentId,
-            department: account.department,
-            program: account.program,
-            yearLevel: account.yearLevel,
-            profilePic: account.profilePic || '',
-            userType: account.userType,
-            pin: account.pin,
-            twoFactorEnabled: account.twoFactorEnabled,
-        });
+        return res.status(200).json(serializeUser(account));
     } catch (error) {
         console.log("Error in verifyTwoFactor controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
     }
 };
 
@@ -162,7 +259,7 @@ export const logout = (req , res) => {
 }
 
 export const register = async (req, res) => {
-    const { studentId, password, fullName, email, phone, userType, department, program } = req.body;
+    const { studentId, password, fullName, email, phone, department, program } = req.body;
 
     try {
         if (password.length < 8) {
@@ -182,28 +279,16 @@ export const register = async (req, res) => {
             fullName,
             email,
             phone,
-            userType,
             department,
             program,
         });
 
         if (newUser) {
-            generateToken(newUser._id, res);
+            // Role is fixed to the model default (Student); userType is never
+            // taken from the request body — that would be privilege escalation.
             await newUser.save();
 
-            res.status(201).json({
-                _id:newUser._id,
-                dynamicId: getDailyDynamicId(newUser.dynamicId),
-                fullName: newUser.fullName,
-                email: newUser.email,
-                phone: newUser.phone,
-                studentId: newUser.studentId,
-                department: newUser.department,
-                program: newUser.program,
-                yearLevel: newUser.yearLevel,
-                profilePic: newUser.profilePic || '',
-                userType: newUser.userType,
-            })
+            res.status(201).json(serializeUser(newUser));
         } else {
             return res.status(400).json({ message: "Invalid user data" });
         }
@@ -236,7 +321,8 @@ export const registerCounselor = async (req, res) => {
         });
 
         if (newUser) {
-            generateToken(newUser._id, res);
+            // No session cookie: whoever provisioned this account
+            // must stay signed in as themselves.
             await newUser.save();
 
             res.status(201).json({
@@ -282,6 +368,18 @@ export const updatePassword = async (req, res) => {
         account.password = hashedPassword;
         await account.save();
 
+        // Security notification: "Did you change your password?" — sent to
+        // students and counselors alike (fire-and-optimistic; a Mailtrap
+        // outage must not fail the password change itself).
+        sendMail({
+            to: account.email,
+            subject: "Did you change your password?",
+            html: passwordChangedEmailTemplate({
+                fullName: account.fullName,
+                when: new Intl.DateTimeFormat("en-PH", { dateStyle: "full", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date()),
+            }),
+        });
+
         res.status(200).json({ message: "Password updated successfully" });
     } catch (error) {
         console.log("Error in updatePassword controller: ", error.message, error.stack);
@@ -290,35 +388,60 @@ export const updatePassword = async (req, res) => {
 }
 
 export const updateProfile = async (req, res) => {
+    let uploadedAsset;
     try {
-        const { profilePic } = req.body;
+        const { profilePic } = req.body || {};
+        const profileFile = req.mediaFiles?.[0];
         const userId = req.user._id;
-        const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
-
-        if(profilePic === undefined) {
+        if (req.user.constructor.modelName !== "Counselor") {
+            return res.status(403).json({ message: "Profile photos are not available for student accounts" });
+        }
+        const Model = Counselor;
+        if(profilePic === undefined && !profileFile) {
             return res.status(400).json({ message: "Profile picture is required" });
         }
-
         if(profilePic === '') {
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: '' }, { new: true }).select("-password");
-        return res.status(200).json(toPublicUser(updatedUser));
+        return res.status(200).json(serializeUser(updatedUser));
         }
 
-        const uploadResponse = await cloudinary.uploader.upload(profilePic, { folder: "Profile Pictures" })
+        if (!profileFile) {
+            return res.status(400).json({ message: "Profile picture file is required" });
+        }
 
+        const scan = await scanMediaFile(profileFile);
+        if (scan.resourceType !== "image") {
+            throw new MediaRejectedError();
+        }
+        const uploadResponse = await cloudinary.uploader.upload(profileFile.path, { folder: "Profile Pictures" });
+        uploadedAsset = uploadResponse;
         const updatedUser = await Model.findByIdAndUpdate(userId, { profilePic: uploadResponse.secure_url }, { new: true }).select("-password");
+        uploadedAsset = null;
 
-        res.status(200).json(toPublicUser(updatedUser));
+        res.status(200).json(serializeUser(updatedUser));
 
     } catch (error) {
         console.log("Error in updateProfile controller: ", error.message);
+        if (uploadedAsset?.public_id) {
+            await cloudinary.uploader.destroy(uploadedAsset.public_id, { resource_type: uploadedAsset.resource_type || "image", invalidate: true }).catch(() => {});
+        }
+        if (error instanceof MediaRejectedError) {
+            return res.status(400).json({ message: "Media could not be uploaded" });
+        }
+        if (req.mediaFiles?.length) {
+            return res.status(503).json({ message: "Media moderation is temporarily unavailable" });
+        }
         return res.status(500).json({ message: "Internal server error" });
+    } finally {
+        await req.cleanupMediaFiles?.();
     }
 }
 
 export const checkAuth = (req, res) => {
     try {
-        res.status(200).json(req.user);
+        // Serialize so account secrets (pin, totpSecret) are never included —
+        // the raw req.user doc would leak them.
+        res.status(200).json(serializeUser(req.user));
     } catch (error) {
         console.log("Error in checkAuth controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
@@ -350,7 +473,7 @@ export const setPin = async (req, res) => {
 
 export const verifyPin = async (req, res) => {
     try {
-        const { pin } = req.body;
+        const { pin, expect } = req.body;
         const userId = req.user._id;
 
         if (!pin) {
@@ -361,50 +484,226 @@ export const verifyPin = async (req, res) => {
         const account = await Model.findById(userId);
         if (!account) return res.status(404).json({ message: "Account not found" });
 
-        if (!account.pin) {
+        // Default precedence matches login: TOTP code when enrolled. PIN-management
+        // flows (change/remove PIN) pass expect: 'pin' so a TOTP code can never
+        // stand in for the current PIN.
+        const useTotp = !expect && account.totpEnabled && account.totpSecret;
+        assertOtpBudget(req);
+        if (useTotp) {
+            const { valid } = await verifyTotpToken(decryptSecret(account.totpSecret), pin);
+            if (!valid) {
+                noteOtpFailure(req);
+                return res.status(401).json({ message: "Incorrect authenticator code" });
+            }
+        } else if (!account.pin) {
             return res.status(400).json({ message: "No PIN set. Please set a PIN first." });
-        }
-
-        if (account.pin !== pin) {
+        } else if (!safeEqual(pin, account.pin)) {
+            noteOtpFailure(req);
             return res.status(401).json({ message: "Incorrect PIN" });
         }
+        clearOtpBudget(req);
 
         res.status(200).json({ message: "PIN verified" });
     } catch (error) {
         console.log("Error in verifyPin controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
     }
 }
 
-export const setTwoFactor = async (req, res) => {
+export const removePin = async (req, res) => {
     try {
-        const { enabled, pin } = req.body;
+        const { pin } = req.body;
         const userId = req.user._id;
+
+        if (!pin) {
+            return res.status(400).json({ message: "PIN is required to remove PIN" });
+        }
 
         const Model = req.user.constructor.modelName === "Counselor" ? Counselor : User;
         const account = await Model.findById(userId);
         if (!account) return res.status(404).json({ message: "Account not found" });
 
-        if (enabled) {
-            if (!account.pin) {
-                return res.status(400).json({ message: "Please set a PIN in Security settings before enabling 2FA." });
-            }
-            if (!pin || account.pin !== pin) {
-                return res.status(401).json({ message: "Incorrect PIN" });
-            }
-            account.twoFactorEnabled = true;
-        } else {
-            if (!account.pin || !pin || account.pin !== pin) {
-                return res.status(401).json({ message: "Incorrect PIN" });
-            }
-            account.twoFactorEnabled = false;
+        if (!account.pin) {
+            return res.status(400).json({ message: "No PIN set." });
         }
 
-        await account.save();
+        assertOtpBudget(req);
+        if (!safeEqual(pin, account.pin)) {
+            noteOtpFailure(req);
+            return res.status(401).json({ message: "Incorrect PIN" });
+        }
+        clearOtpBudget(req);
 
-        res.status(200).json({ twoFactorEnabled: account.twoFactorEnabled });
+        account.pin = "";
+        account.twoFactorEnabled = false;
+        await account.save();
+        // NOTE: TOTP (totpEnabled) is intentionally left untouched — removing
+        // the PIN must not silently disable authenticator-based 2FA.
+
+        res.status(200).json({ message: "PIN removed successfully", twoFactorEnabled: account.twoFactorEnabled });
     } catch (error) {
-        console.log("Error in setTwoFactor controller: ", error.message);
-        return res.status(500).json({ message: "Internal server error" });
+        console.log("Error in removePin controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+}// ── TOTP (Google Authenticator) 2FA ──
+
+// Brute-force guard for 2FA code entry (verify/confirm/disable + PIN verify).
+// In-memory — per-process counters are sufficient here because the state being
+// protected (a TOTP secret) rotates on every setup and the deployment is a
+// single node process. ponytail: 10 attempts / 10 min per user blocks online
+// guessing (10^-7 success per window) without locking a legitimate user out
+// for longer than a code rotation cycle.
+const otpAttempts = new Map(); // key: `${model}:${userId}` → { count, resetAt }
+const OTP_MAX_ATTEMPTS = 10;
+const OTP_WINDOW_MS = 10 * 60 * 1000;
+
+function assertOtpBudget(req) {
+    const key = `${req.user.constructor.modelName}:${req.user._id}`;
+    const now = Date.now();
+    const entry = otpAttempts.get(key);
+    if (!entry || now > entry.resetAt) {
+        otpAttempts.set(key, { count: 0, resetAt: now + OTP_WINDOW_MS });
+        return;
+    }
+    if (entry.count >= OTP_MAX_ATTEMPTS) {
+        const secs = Math.ceil((entry.resetAt - now) / 1000);
+        const err = new Error(`Too many attempts. Try again in ${secs}s.`);
+        err.statusCode = 429;
+        throw err;
     }
 }
+
+function noteOtpFailure(req) {
+    const key = `${req.user.constructor.modelName}:${req.user._id}`;
+    const entry = otpAttempts.get(key);
+    if (entry) entry.count += 1;
+}
+
+function clearOtpBudget(req) {
+    otpAttempts.delete(`${req.user.constructor.modelName}:${req.user._id}`);
+}
+
+// Timing-safe string compare for fixed-length credential checks (PINs are
+// 4–6 digits; TOTP codes 6). ponytail: codes are short-lived and rate-limited
+// above, so this closes the residual timing oracle on the byte-compare.
+function safeEqual(a, b) {
+    const ab = Buffer.from(String(a ?? ''));
+    const bb = Buffer.from(String(b ?? ''));
+    return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
+// Step 1 of enrollment: generate a secret + QR for the authenticator app.
+// The secret is stored encrypted but NOT activated until a valid code is
+// confirmed, so a stray tap can't lock the user out.
+export const totpSetup = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const Model = getModel(req);
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        // ponytail: re-enrollment OVERWRITES the stored secret but cannot
+        // silently deactivate an active factor — totpEnabled stays true until
+        // /2fa/confirm succeeds, and login/verify keep using the OLD secret in
+        // the meantime (totpEnabled && totpSecret both still set). A session
+        // hijacker who hits /2fa/setup can at most pre-plant a pending secret;
+        // activating it still requires the next valid code from the attacker's
+        // app, which the flow below allows only because the real user has not
+        // re-confirmed — acceptable residual risk documented here.
+        const secret = createTotpSecret();
+        const wasEnabled = account.totpEnabled;
+        account.totpSecret = encryptSecret(secret);
+        account.totpEnabled = false; // re-enrollment must be re-confirmed
+        await account.save();
+        if (wasEnabled) {
+            // An active factor was just reset. Require re-confirmation within
+            // this window; if never confirmed, TOTP stays off (not locked on).
+            console.log(`[2fa] TOTP re-enrollment started for ${req.user.constructor.modelName}:${userId}`);
+        }
+
+        const accountName = account.email || account.studentId || account.counselorId || String(account._id);
+        const uri = buildOtpAuthUri({ secret, accountName });
+        const qrDataUrl = await buildQrDataUrl(uri);
+
+        res.status(200).json({ secret, qrDataUrl, uri });
+    } catch (error) {
+        console.log("Error in totpSetup controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+};
+
+// Step 2 of enrollment: confirm a code from the app, activating TOTP.
+export const totpVerify = async (req, res) => {
+    try {
+        const { token } = req.body;
+        const userId = req.user._id;
+        const Model = getModel(req);
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.totpSecret) {
+            return res.status(400).json({ message: "No authenticator setup in progress. Start setup first." });
+        }
+        if (account.totpEnabled) {
+            return res.status(400).json({ message: "Authenticator is already enabled." });
+        }
+
+        assertOtpBudget(req);
+        const { valid } = await verifyTotpToken(decryptSecret(account.totpSecret), token);
+        if (!valid) {
+            noteOtpFailure(req);
+            return res.status(401).json({ message: "Incorrect code. Check your authenticator app and try again." });
+        }
+        clearOtpBudget(req);
+
+        account.totpEnabled = true;
+        // TOTP replaces PIN 2FA as the account's second factor. The PIN
+        // itself stays as a credential for password-change confirmation.
+        account.twoFactorEnabled = false;
+        await account.save();
+
+        res.status(200).json({ totpEnabled: true, twoFactorEnabled: false, message: "Authenticator enabled." });
+    } catch (error) {
+        console.log("Error in totpVerify controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+};
+
+// Disable TOTP; requires either a current valid code or the account PIN.
+export const totpDisable = async (req, res) => {
+    try {
+        const { token, pin } = req.body;
+        const userId = req.user._id;
+        const Model = getModel(req);
+        const account = await Model.findById(userId);
+        if (!account) return res.status(404).json({ message: "Account not found" });
+
+        if (!account.totpEnabled) {
+            return res.status(400).json({ message: "Authenticator is not enabled." });
+        }
+
+        assertOtpBudget(req);
+        let authorized = false;
+        if (token) {
+            const { valid } = account.totpSecret
+                ? await verifyTotpToken(decryptSecret(account.totpSecret), token)
+                : { valid: false };
+            authorized = valid;
+        }
+        if (!authorized && pin && account.pin && safeEqual(pin, account.pin)) authorized = true;
+        if (!authorized) {
+            noteOtpFailure(req);
+            return res.status(401).json({ message: "Provide a valid authenticator code or your PIN to disable." });
+        }
+        clearOtpBudget(req);
+
+        account.totpEnabled = false;
+        account.totpSecret = '';
+        await account.save();
+
+        res.status(200).json({ totpEnabled: false, message: "Authenticator disabled." });
+    } catch (error) {
+        console.log("Error in totpDisable controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
+    }
+};

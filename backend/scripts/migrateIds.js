@@ -1,14 +1,13 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { generateNumericId } from "../src/lib/generateId.js";
 
 dotenv.config();
-
-const generateId = () => Math.floor(10000 + Math.random() * 90000);
 
 const getUniqueId = async (usedIds) => {
   let id;
   do {
-    id = generateId();
+    id = generateNumericId();
   } while (usedIds.has(id));
   usedIds.add(id);
   return id;
@@ -59,10 +58,10 @@ const run = async () => {
   for (const msg of messages) {
     const update = {};
     if (msg.senderId && typeof msg.senderId !== "number") {
-      update.senderId = parseInt(String(msg.senderId).slice(-5), 10) || generateId();
+       update.senderId = parseInt(String(msg.senderId).slice(-5), 10) || generateNumericId();
     }
     if (msg.receiverId && typeof msg.receiverId !== "number") {
-      update.receiverId = parseInt(String(msg.receiverId).slice(-5), 10) || generateId();
+       update.receiverId = parseInt(String(msg.receiverId).slice(-5), 10) || generateNumericId();
     }
     if (Object.keys(update).length > 0) {
       await Message.updateOne({ _id: msg._id }, { $set: update });

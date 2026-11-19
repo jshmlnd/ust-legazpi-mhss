@@ -9,7 +9,7 @@ const SIZES = {
 const SkeletonAvatar = ({ size = 'md', shape = 'circle', className = '' }) => (
   <div
     className={`skeleton shrink-0 ${SIZES[size] || SIZES.md} ${
-      shape === 'circle' ? 'rounded-full' : 'rounded-sm'
+      shape === 'circle' ? 'rounded-full' : 'rounded-lg'
     } ${className}`}
     aria-hidden="true"
   />

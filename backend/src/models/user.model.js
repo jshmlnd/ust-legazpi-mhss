@@ -33,11 +33,14 @@ const userSchema = new mongoose.Schema(
         },
         phone: {
             type: String,
-            required: true,
+            default: '',
         },
+        // Students don't use profile photos (anonymity); never load an old
+        // one into responses. Counselors keep theirs on the Counselor model.
         profilePic: {
             type: String,
             default: '',
+            select: false,
         },
         pin: {
             type: String,
@@ -47,14 +50,52 @@ const userSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        // Encrypted TOTP secret (AES-256-GCM, see lib/totp.js) for Google
+        // Authenticator; empty when the user has never enrolled TOTP.
+        totpSecret: {
+            type: String,
+            default: '',
+        },
+        // Set once the TOTP secret is confirmed with a valid code; TOTP then
+        // takes over as the account's second factor (replacing PIN 2FA).
+        totpEnabled: {
+            type: Boolean,
+            default: false,
+        },
+        showNameToCounselor: {
+            type: Boolean,
+            default: false,
+        },
+        // Account-level app preferences, synced from the Profile page so they
+        // follow the user across devices. Keys must match lib/prefs.js on the
+         // frontend (SYNCED_PREFS): sessionReminders and messageNotifications.
+         // calmMode/sidebarCollapsed stay device-local.
+        preferences: {
+            sessionReminders: { type: Boolean, default: true },
+            messageNotifications: { type: Boolean, default: true },
+        },
+        // OGT Updates newsletter opt-in. Default ON: students receive
+        // announcement emails unless they opt out in Preferences. Provisioned
+        // accounts get this automatically.
+        receiveOgtUpdates: {
+            type: Boolean,
+            default: true,
+        },
         userType: {
             type: String,
             default: 'Student',
         },
+        // Email-unverified accounts stay UNVERIFIED until they click the emailed
+        // link (login rejects them until then). Default true so existing and
+        // provisioned accounts keep working untouched.
+        emailVerified: {
+            type: Boolean,
+            default: true,
+        },
         department: {
             type: String,
             required: [true, 'Department is required'],
-            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA', 'LAW'], message: `{VALUE} is not a valid department` },
+            enum: { values: ['CEAFA', 'CHS', 'CASE', 'CBMA'], message: `{VALUE} is not a valid department` },
         },
         program: {
             type: String,

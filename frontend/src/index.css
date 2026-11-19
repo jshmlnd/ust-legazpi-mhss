@@ -2,11 +2,124 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: translateY(0); }
+/* ═══════════════════════════════════════════════════════════════
+   EVERGREEN DESIGN TOKENS
+   All colors are defined once here as RGB triplets and consumed by
+   Tailwind semantic utilities (canvas, surface, ink, line, brand…).
+   The app uses one calm light palette with no per-theme overrides.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* surfaces */
+  --c-canvas: 246 249 243;        /* soft green page background */
+  --c-surface: 255 254 248;       /* warm white cards, inputs */
+  --c-raised: 255 255 251;        /* warm white popovers, modals */
+
+  /* text */
+  --c-ink: 22 29 26;              /* headings */
+  --c-ink-soft: 74 85 81;         /* body */
+  --c-ink-muted: 119 130 125;     /* meta, captions */
+
+  /* borders */
+  --c-line: 215 229 217;
+  --c-line-strong: 176 202 181;
+
+  /* brand — Evergreen (emerald ramp) */
+  --c-brand-50: 239 248 240;
+  --c-brand-100: 222 239 225;
+  --c-brand-200: 188 222 198;
+  --c-brand-300: 133 201 155;
+  --c-brand-400: 91 170 120;
+  --c-brand-500: 54 139 94;
+  --c-brand-600: 42 119 78;
+  --c-brand-700: 33 96 63;
+  --c-brand-800: 25 76 49;
+  --c-brand-900: 19 59 38;
+  --c-brand-fg: 255 254 248;      /* text on brand buttons */
+  --c-brand-soft: 231 245 233;    /* tinted backgrounds (badges, active nav) */
+  --c-brand-soft-ink: 33 96 63;   /* text on tinted backgrounds */
+
+  /* semantic */
+  --c-success: 42 119 78;
+  --c-success-soft: 222 239 225;
+  --c-success-ink: 25 76 49;
+  --c-warning: 180 83 9;
+  --c-warning-soft: 254 243 199;
+  --c-warning-ink: 120 53 15;
+  --c-danger: 220 38 38;
+  --c-danger-soft: 254 226 226;
+  --c-danger-ink: 153 27 27;
+  --c-info: 2 132 199;
+  --c-info-soft: 224 242 254;
+  --c-info-ink: 7 89 133;
+
+  /* soft green panel — hover/active/line are static in tailwind.config */
+  --c-side: 207 233 214;
+  --c-side-ink: 24 58 39;
+  --c-side-ink-soft: 48 91 62;
+  --c-side-ink-muted: 75 115 86;
+  --c-side-hover: 236 247 237;
+  --c-side-active: 255 254 248;
+  --c-side-line: 184 214 191;
 }
 
+@font-face {
+  font-family: 'KG Second Chances';
+  src: url('/fonts/KGSecondChancesSketch.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ───────────── BASE ───────────── */
+
+html {
+  color-scheme: light;
+}
+body {
+  min-height: 100vh;
+  background-color: rgb(var(--c-canvas));
+  color: rgb(var(--c-ink-soft));
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Shared atmospheric backdrop: depth without adding decorative markup to every page. */
+.app-backdrop {
+  background:
+    radial-gradient(circle at 8% 2%, rgb(var(--c-brand-200) / 0.34), transparent 30rem),
+    radial-gradient(circle at 96% 18%, rgb(var(--c-brand-100) / 0.42), transparent 26rem),
+    rgb(var(--c-canvas));
+}
+
+/* Shared field-sheet treatment for page-owned panels. */
+.bg-surface.border-line {
+  border-radius: 1rem;
+}
+.bg-surface.border-line:not(input):not(select):not(textarea) {
+  box-shadow: 0 2px 6px rgb(25 76 49 / 0.06);
+}
+.bg-raised.border-line {
+  border-radius: 1rem;
+}
+
+/* Brand selection + scrollbars */
+::selection { background: rgb(var(--c-brand-500) / 0.3); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgb(var(--c-line-strong)); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--c-ink-muted)); }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* Visible keyboard focus — global a11y baseline */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-brand-600));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* calm mode: kill animation/motion for users who prefer stillness */
 .calm-mode *,
 .calm-mode *::before,
 .calm-mode *::after {
@@ -15,117 +128,232 @@
   transition-duration: 0.01ms !important;
 }
 
-html.dark {
-  color-scheme: dark;
-  background-color: #0a0a0a;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-/* ───────────── DARK MODE OVERRIDES ─────────────
-   The app uses raw Tailwind neutral/white/black utilities (not daisyUI semantic
-   colors), so we remap them under .dark for every property + interactive state.
-   A dark elevation hierarchy is used (page < surface < raised < hover) so cards and
-   modals stay distinct instead of blending into the background.
-   Brand/status accents (emerald/red/amber/sky/blue/etc.) are intentionally kept. */
+/* ───────────── SKELETON ───────────── */
 
-/* surfaces (bg) — page is #0a0a0a, surfaces sit above it */
-.dark .bg-white { background-color: #171717 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
-.dark .bg-white\/70 { background-color: rgba(33, 33, 33, 0.7) !important; }
-.dark .bg-white\/20 { background-color: rgba(255, 255, 255, 0.05) !important; }
-.dark .bg-white\/10 { background-color: rgba(255, 255, 255, 0.03) !important; }
-.dark .bg-neutral-50 { background-color: #171717 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
-.dark .bg-neutral-50\/50 { background-color: rgba(33, 33, 33, 0.5) !important; }
-.dark .bg-neutral-50\/60 { background-color: rgba(33, 33, 33, 0.6) !important; }
-.dark .bg-neutral-100 { background-color: #212121 !important; }
-.dark .bg-neutral-100\/50 { background-color: rgba(33, 33, 33, 0.5) !important; }
-.dark .bg-neutral-200 { background-color: #2a2a2a !important; }
-.dark .bg-neutral-300 { background-color: #363636 !important; }
-.dark .bg-neutral-500 { background-color: #525252 !important; }
-.dark .bg-neutral-900\/40 { background-color: rgba(33, 33, 33, 0.5) !important; }
+.skeleton {
+  border-radius: 0.375rem;
+  background-color: rgb(var(--c-line));
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
 
-/* text */
-.dark .text-neutral-900 { color: #ededed !important; }
-.dark .text-neutral-800 { color: #e5e5e5 !important; }
-.dark .text-neutral-700 { color: #d4d4d4 !important; }
-.dark .text-neutral-600 { color: #a3a3a3 !important; }
-.dark .text-neutral-500 { color: #8a8a8a !important; }
-.dark .text-neutral-400 { color: #a3a3a3 !important; }
-.dark .text-neutral-300 { color: #d4d4d4 !important; }
-.dark .text-neutral-200 { color: #e5e5e5 !important; }
-.dark .text-gray-900 { color: #ededed !important; }
-.dark .text-gray-500 { color: #8a8a8a !important; }
-.dark .text-gray-400 { color: #a3a3a3 !important; }
+/* ───────────── HERO IMAGES (Home / Login) ───────────── */
 
-/* borders */
-.dark .border-neutral-100 { border-color: #212121 !important; }
-.dark .border-neutral-200 { border-color: #2e2e2e !important; }
-.dark .border-neutral-300 { border-color: #3a3a3a !important; }
-.dark .border-neutral-400 { border-color: #525252 !important; }
-.dark .border-neutral-900 { border-color: #6b6b6b !important; }
-.dark .border-neutral-900\/30 { border-color: rgba(120, 120, 120, 0.3) !important; }
-.dark .border-gray-200 { border-color: #2e2e2e !important; }
-.dark .border-gray-900 { border-color: #6b6b6b !important; }
+.home-bg-image,
+.login-bg-image {
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+.home-bg-overlay {
+  background-color: rgb(var(--c-canvas) / 0.78);
+}
+.login-bg-overlay {
+  background-color: rgb(var(--c-canvas) / 0.7);
+}
 
-/* rings */
-.dark .ring-neutral-900 { --tw-ring-color: #6b6b6b !important; }
-.dark .ring-neutral-900\/10 { --tw-ring-color: rgba(120, 120, 120, 0.18) !important; }
-.dark .ring-gray-900\/10 { --tw-ring-color: rgba(237, 237, 237, 0.12) !important; }
+/* ───────────── THIRD-PARTY SURFACES ───────────── */
 
-/* dividers */
-.dark .divide-neutral-100 > :not([hidden]) ~ :not([hidden]) { border-color: #212121 !important; }
+/* Native <select> dropdown popups: keep the option list aligned with the
+   Evergreen light palette instead of the browser's default colors. */
+select {
+  background-color: rgb(var(--c-surface));
+  color: rgb(var(--c-ink));
+  color-scheme: light;
+}
+select option,
+select optgroup {
+  background-color: rgb(var(--c-surface));
+  color: rgb(var(--c-ink));
+  color-scheme: light;
+}
 
-/* placeholders */
-.dark .placeholder\:neutral-300::placeholder,
-.dark .placeholder\:text-neutral-300::placeholder { color: #a3a3a3 !important; }
-.dark .placeholder\:neutral-400::placeholder,
-.dark .placeholder\:text-neutral-400::placeholder { color: #8a8a8a !important; }
-.dark .placeholder\:text-gray-300::placeholder { color: #a3a3a3 !important; }
+/* Recharts: tooltip cursor tracks the surface system */
+.recharts-tooltip-cursor { fill: rgb(var(--c-line)); stroke: rgb(var(--c-line-strong)); }
 
-/* hover: backgrounds — raised above the surrounding surface */
-.dark .hover\:bg-white:hover { background-color: #2a2a2a !important; }
-.dark .hover\:bg-neutral-50:hover { background-color: #1f1f1f !important; }
-.dark .hover\:bg-neutral-100:hover { background-color: #2a2a2a !important; }
-.dark .hover\:bg-neutral-200:hover { background-color: #363636 !important; }
-.dark .hover\:bg-neutral-600:hover { background-color: #3a3a3a !important; }
-.dark .hover\:bg-neutral-800:hover { background-color: #171717 !important; }
-.dark .hover\:bg-neutral-900:hover { background-color: #000000 !important; }
+/* Leaflet map chrome */
+.leaflet-container { background-color: rgb(var(--c-canvas)); }
+.leaflet-popup-content-wrapper {
+  background-color: rgb(var(--c-surface));
+  color: rgb(var(--c-ink-soft));
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px -2px rgb(10 18 15 / 0.2);
+}
+.leaflet-popup-tip { background-color: rgb(var(--c-surface)); }
+.leaflet-popup-close-button { color: rgb(var(--c-ink-muted)) !important; }
+.leaflet-bar a {
+  background-color: rgb(var(--c-surface));
+  color: rgb(var(--c-ink-soft));
+  border-color: rgb(var(--c-line));
+}
+.leaflet-control-attribution { background: rgb(var(--c-canvas) / 0.7); color: rgb(var(--c-ink-muted)); }
+.leaflet-control-attribution a { color: rgb(var(--c-ink-muted)); }
 
-/* hover: text */
-.dark .hover\:text-neutral-600:hover { color: #a3a3a3 !important; }
-.dark .hover\:text-neutral-700:hover { color: #d4d4d4 !important; }
-.dark .hover\:text-neutral-900:hover { color: #ededed !important; }
-.dark .hover\:text-black:hover { color: #ededed !important; }
+/* react-toastify: align chrome with tokens */
+.Toastify__toast {
+  border-radius: 0.5rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.8125rem;
+}
 
-/* hover: borders / rings */
-.dark .hover\:border-neutral-300:hover { border-color: #3a3a3a !important; }
-.dark .hover\:border-neutral-400:hover { border-color: #525252 !important; }
-.dark .hover\:border-neutral-500:hover { border-color: #6b6b6b !important; }
-.dark .hover\:border-neutral-900:hover { border-color: #6b6b6b !important; }
-.dark .hover\:ring-neutral-300:hover { --tw-ring-color: #525252 !important; }
+/* ───────────── MOBILE RESPONSIVE BASE (320px–767px) ───────────── */
 
-/* focus */
-.dark .focus\:border-neutral-900:focus { border-color: #6b6b6b !important; }
-.dark .focus\:border-gray-900:focus { border-color: #6b6b6b !important; }
-.dark .focus\:ring-gray-900\/10:focus { --tw-ring-color: rgba(237, 237, 237, 0.12) !important; }
+svg { max-width: 100%; height: auto; }
 
-/* disabled */
-.dark .disabled\:bg-neutral-200:disabled { background-color: #2a2a2a !important; }
-.dark .disabled\:bg-neutral-300:disabled { background-color: #363636 !important; }
-.dark .disabled\:text-neutral-400:disabled { color: #a3a3a3 !important; }
+/* md breakpoint (768px) and below:
+   1. iOS Safari auto-zooms any focused control with font-size < 16px.
+   2. 48px minimum touch height for text-entry controls. */
+@media (max-width: 767px) {
+  input, select, textarea { font-size: 16px !important; }
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+  select { min-height: 48px; }
+}
 
-/* group-hover */
-.dark .group:hover .group-hover\:bg-neutral-500 { background-color: #525252 !important; }
-.dark .group:hover .group-hover\:text-neutral-900 { color: #ededed !important; }
+/* Dense icon buttons (size-4…size-8) get an enlarged invisible hit area
+   (~44–48px) on touch devices. */
+@media (pointer: coarse) {
+  button.size-4, button.size-5, button.size-6, button.size-7, button.size-8 { position: relative; }
+  button.size-4::after, button.size-5::after, button.size-6::after,
+  button.size-7::after, button.size-8::after {
+    content: ''; position: absolute; inset: -10px;
+  }
+}
 
-/* polish */
-.dark ::selection { background: rgba(16, 185, 129, 0.3); }
-.dark ::-webkit-scrollbar { width: 10px; height: 10px; }
-.dark ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 9999px; }
-.dark ::-webkit-scrollbar-track { background: #171717; }
+/* ───────────── HOME HERO ENTRANCE ───────────── */
 
-/* HomePage hero background: keep the same image, only invert colors in dark mode */
-.dark .home-bg-image { filter: invert(1) hue-rotate(180deg); }
-.dark .home-bg-overlay { background-color: rgba(10, 10, 10, 0.7) !important; }
+@keyframes hero-focus { from { opacity: 0; filter: blur(8px); transform: scale(1.015); } }
+@keyframes hero-rise { from { opacity: 0; transform: translateY(var(--rise, 10px)); } }
+@keyframes hero-drift { from { opacity: 0; transform: translate(24px, -18px) scale(0.9); } }
+@keyframes hero-draw { from { stroke-dasharray: 10; stroke-dashoffset: 10; } to { stroke-dasharray: 10; stroke-dashoffset: 0; } }
+@keyframes hero-pulse { 40% { transform: scale(1.12); } }
 
-/* LoginPage hero background: same treatment for consistency */
-.dark .login-bg-image { filter: invert(1) hue-rotate(180deg); }
-.dark .login-bg-overlay { background-color: rgba(10, 10, 10, 0.6) !important; }
+.hero-grid { animation: hero-focus 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.hero-card { --rise: 10px; animation: hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.25s backwards; }
+.hero-shield { animation: hero-pulse 0.6s ease-in-out 1s; }
+.hero-shield svg path:last-child { animation: hero-draw 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.85s backwards; }
+.hero-blob { animation: hero-drift 1.6s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.hero-word { --rise: 30px; animation: hero-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards; }
+
+/* the global reduced-motion rule shortens durations but keeps delays, which would leave these hidden; show them at once */
+@media (prefers-reduced-motion: reduce) {
+  .hero-grid, .hero-card, .hero-shield, .hero-shield svg path:last-child, .hero-blob, .hero-word { animation: none; }
+}
+.calm-mode .hero-grid, .calm-mode .hero-card, .calm-mode .hero-shield, .calm-mode .hero-shield svg path:last-child, .calm-mode .hero-blob, .calm-mode .hero-word { animation: none; }
+
+/* ───────────── COUNSELOR GRID ENTRANCE ───────────── */
+/* Cards rise into place one after another; the delay stops growing after the 9th card. */
+.counselor-grid > article { animation: counselor-rise 560ms cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--card-i, 0) * 70ms); }
+.counselor-grid > article:nth-child(2) { --card-i: 1; }
+.counselor-grid > article:nth-child(3) { --card-i: 2; }
+.counselor-grid > article:nth-child(4) { --card-i: 3; }
+.counselor-grid > article:nth-child(5) { --card-i: 4; }
+.counselor-grid > article:nth-child(6) { --card-i: 5; }
+.counselor-grid > article:nth-child(7) { --card-i: 6; }
+.counselor-grid > article:nth-child(8) { --card-i: 7; }
+.counselor-grid > article:nth-child(n+9) { --card-i: 8; }
+@keyframes counselor-rise { from { opacity: 0; translate: 0 16px; } to { opacity: 1; translate: 0 0; } }
+/* the global reduced-motion rule keeps delays, which would leave later cards hidden; show them at once */
+@media (prefers-reduced-motion: reduce) { .counselor-grid > article { animation: none; } }
+.calm-mode .counselor-grid > article { animation: none; }
+
+/* ───────────── CHAT: SEND ───────────── */
+/* A just-sent bubble grows out of its corner beside the composer. */
+.msg-send-in { transform-origin: right bottom; animation: msg-send-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes msg-send-in { from { opacity: 0; translate: 0 12px; scale: 0.9; } to { opacity: 1; translate: 0 0; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .msg-send-in { animation: msg-fade 160ms ease-out both; } }
+.calm-mode .msg-send-in { animation: none; }
+@keyframes msg-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ───────────── REACTIONS ───────────── */
+/* Calm, quick feedback: a press dip, a soft pop on add, a gentle settle on remove. */
+.react-btn { transition: background-color 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out, transform 120ms ease-out; }
+.react-btn:active { transform: scale(0.94); }
+.react-emoji { display: inline-block; transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1); }
+.react-btn:hover .react-emoji { transform: translateY(-1px); }
+.react-added { animation: react-ring 560ms ease-out; }
+.react-added .react-emoji { animation: react-pop 420ms cubic-bezier(0.16, 1, 0.3, 1); }
+.react-removed .react-emoji { animation: react-settle 220ms ease-out; }
+.react-count { display: inline-block; animation: react-count 240ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes react-pop { 0% { transform: scale(1); } 40% { transform: scale(1.32); } 70% { transform: scale(0.94); } 100% { transform: scale(1); } }
+@keyframes react-settle { from { transform: scale(0.86); } to { transform: scale(1); } }
+@keyframes react-ring { from { box-shadow: 0 0 0 0 rgb(var(--c-brand-400) / 0.35); } to { box-shadow: 0 0 0 6px rgb(var(--c-brand-400) / 0); } }
+@keyframes react-count { from { opacity: 0.3; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .react-btn:active, .react-btn:hover .react-emoji { transform: none; }
+  .react-added, .react-added .react-emoji, .react-removed .react-emoji, .react-count { animation: none; }
+}
+.calm-mode .react-btn:active, .calm-mode .react-btn:hover .react-emoji { transform: none; }
+.calm-mode .react-added, .calm-mode .react-added .react-emoji, .calm-mode .react-removed .react-emoji, .calm-mode .react-count { animation: none; }
+
+/* ───────────── TABS ───────────── */
+/* A gliding underline and a short, calm slide toward the tab you picked. */
+.tab-btn { transition: color 180ms ease-out, background-color 180ms ease-out, transform 120ms ease-out; }
+.tab-btn:active { transform: scale(0.97); }
+.tab-indicator { transition: transform 340ms cubic-bezier(0.16, 1, 0.3, 1), width 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tab-slide-next { animation: tab-slide-next 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+.tab-slide-prev { animation: tab-slide-prev 340ms cubic-bezier(0.16, 1, 0.3, 1); }
+@keyframes tab-slide-next { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tab-slide-prev { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes tab-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .tab-btn:active { transform: none; }
+  .tab-indicator { transition: none; }
+  .tab-slide-next, .tab-slide-prev { animation: tab-fade 160ms ease-out; }
+}
+.calm-mode .tab-btn:active { transform: none; }
+.calm-mode .tab-indicator { transition: none; }
+.calm-mode .tab-slide-next, .calm-mode .tab-slide-prev { animation: none; }
+
+/* ───────────── PAGE MOTION (PageShell) ───────────── */
+/* Calm entrance: header, then content, rise 8px and fade in. Fill-mode
+   "backwards" drops the transform afterwards, so fixed dialogs inside the
+   page are never trapped by a leftover transform. */
+.page-enter { animation: page-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.page-enter-late { animation-delay: 70ms; }
+@keyframes page-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Satisfying click: a small dip on press, colour changes eased. */
+.page-motion button:not(:disabled) {
+  transition-property: color, background-color, border-color, opacity, box-shadow, scale;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+}
+.page-motion button:not(:disabled):active { scale: 0.97; } /* `scale` composes with any positioning transform */
+
+/* Helpful focus: text fields glow softly in brand green while you type. */
+.page-motion :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select) {
+  transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
+}
+.page-motion :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus {
+  box-shadow: 0 0 0 3px rgb(var(--c-brand-500) / 0.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+  .page-motion button:not(:disabled):active { scale: none; }
+}
+.calm-mode .page-enter { animation: none; }
+.calm-mode .page-motion button:not(:disabled):active { scale: none; }
+
+/* ───────────── LOGIN ───────────── */
+/* Pieces rise in one after another; a failed sign-in gives the card a small shake. */
+.login-rise { animation: login-rise 520ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+@keyframes login-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.login-shake-a { animation: login-shake-a 320ms ease-out; }
+.login-shake-b { animation: login-shake-b 320ms ease-out; }
+@keyframes login-shake-a { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@keyframes login-shake-b { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+@media (prefers-reduced-motion: reduce) {
+  .login-rise, .login-shake-a, .login-shake-b { animation: none; }
+}

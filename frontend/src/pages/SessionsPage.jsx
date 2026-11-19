@@ -1,12 +1,16 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, CheckCircle, Trash2, Loader } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Calendar, CalendarCheck, Clock, MessageCircle, ArrowUpRight, ChevronLeft, ChevronRight as ChevronRightIcon, CalendarDays, Loader, X } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import EmptyState from '../components/EmptyState';
-import Modal from '../components/Modal';
+import EmptyState from '../ui/EmptyState';
+import StatusBadge from '../ui/StatusBadge';
+import ChatRequestModal from '../components/modals/ChatRequestModal';
+import BusyCounselorModal from '../components/modals/BusyCounselorModal';
+import FaceToFaceModal from '../components/modals/FaceToFaceModal';
+import ScheduleDayModal from '../components/modals/ScheduleDayModal';
 import { toast } from 'react-toastify';
 import { PATHS } from '../lib/routes';
 
@@ -14,6 +18,8 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const getDaysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
 const getFirstDay = (year, month) => new Date(year, month, 1).getDay();
+const formatLocalDate = (date = new Date()) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 const formatLongDate = (dateStr) => {
   if (!dateStr) return '';
@@ -22,11 +28,16 @@ const formatLongDate = (dateStr) => {
   });
 };
 
+const timeSortValue = (time) => {
+  const value = Date.parse(`1970-01-01 ${time}`);
+  return Number.isNaN(value) ? Number.MAX_SAFE_INTEGER : value;
+};
+
 const groupSlotsByDate = (slots) => {
   const byDate = {};
   slots
     .slice()
-    .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time))
+    .sort((a, b) => a.date.localeCompare(b.date) || timeSortValue(a.time) - timeSortValue(b.time))
     .forEach((slot) => {
       if (!byDate[slot.date]) byDate[slot.date] = {};
       const key = String(slot.counselorId);
@@ -60,33 +71,33 @@ const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDate
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <button onClick={onPrev} className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors">
+        <button onClick={onPrev} className="size-7 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors">
           <ChevronLeft size={14} />
         </button>
-        <span className="text-sm font-medium text-neutral-900">{monthLabel}</span>
-        <button onClick={onNext} className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors">
+        <span className="text-sm font-medium text-ink">{monthLabel}</span>
+        <button onClick={onNext} className="size-7 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink transition-colors">
           <ChevronRightIcon size={14} />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-px bg-neutral-200 rounded-sm overflow-hidden">
+      <div className="grid grid-cols-7 gap-px bg-line rounded-lg overflow-hidden">
         {WEEKDAYS.map((wd) => (
-          <div key={wd} className="bg-neutral-50 px-2 py-1.5 text-[9px] font-semibold tracking-[0.1em] uppercase text-neutral-400 text-center">{wd}</div>
+          <div key={wd} className="bg-canvas px-2 py-1.5 text-xs font-semibold text-ink-muted text-center">{wd}</div>
         ))}
         {cells.map((cell, i) => {
-          if (!cell) return <div key={`e-${i}`} className="bg-white min-h-[56px]" />;
+          if (!cell) return <div key={`e-${i}`} className="bg-surface min-h-[56px]" />;
           return (
             <button
               key={cell.dateStr}
               onClick={() => onDateClick(cell)}
-              className={`bg-white min-h-[56px] p-1.5 text-left transition-colors hover:bg-neutral-50 ${cell.isToday ? 'ring-1 ring-inset ring-neutral-900' : ''
+              className={`bg-surface min-h-[56px] p-1.5 text-left transition-colors hover:bg-canvas ${cell.isToday ? 'ring-1 ring-inset ring-brand-600' : ''
                 }`}
             >
-              <span className={`text-[10px] font-medium ${cell.isToday ? 'bg-neutral-900 text-white size-4 inline-flex items-center justify-center rounded-full' : 'text-neutral-500'
+              <span className={`text-xs font-medium ${cell.isToday ? 'bg-brand-600 text-brand-fg size-4 inline-flex items-center justify-center rounded-full' : 'text-ink-muted'
                 }`}>
                 {cell.day}
               </span>
-              {cell.bookings.length > 0 && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-neutral-900 mx-auto" /></div>}
-              {cell.slots.length > 0 && !cell.bookings.length && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-emerald-400 mx-auto" /></div>}
+              {cell.bookings.length > 0 && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-brand-600 mx-auto" /></div>}
+              {cell.slots.length > 0 && !cell.bookings.length && <div className="mt-0.5"><span className="block size-1.5 rounded-full bg-brand-400 mx-auto" /></div>}
             </button>
           );
         })}
@@ -95,72 +106,102 @@ const MiniCalendar = ({ year, month, onPrev, onNext, bookings, openSlots, onDate
   );
 };
 
-const Pagination = ({ page, totalPages, onChange }) => {
-  if (totalPages <= 1) return null;
-  return (
-    <div className="flex items-center justify-center gap-2 pt-1">
-      <button
-        type="button"
-        onClick={() => onChange(page - 1)}
-        disabled={page === 0}
-        className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-40"
-        aria-label="Previous page"
-      >
-        <ChevronLeft size={14} />
-      </button>
-      <span className="text-[11px] text-neutral-500">{page + 1} / {totalPages}</span>
-      <button
-        type="button"
-        onClick={() => onChange(page + 1)}
-        disabled={page >= totalPages - 1}
-        className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 transition-colors disabled:opacity-40"
-        aria-label="Next page"
-      >
-        <ChevronRightIcon size={14} />
-      </button>
-    </div>
-  );
+const getSessionOutcome = (session) => {
+  if (session.actionTaken === 'gca') return { label: 'Admitted', tone: 'success' };
+  if (session.actionTaken === 'referred') {
+    const counselor = session.counselorName || session.counselor?.fullName || 'counselor';
+    return { label: `Referred to ${counselor}${session.referredByName ? ` by ${session.referredByName}` : ''}`, tone: 'info' };
+  }
+  if (session.actionTaken === 'adjunct') return { label: 'Adjunct', tone: 'warning' };
+  if (['confirmed', 'active', 'on-going', 'paused', 'completed', 'ended'].includes(session.status)) {
+    return { label: 'Admitted', tone: 'success' };
+  }
+  return null;
 };
 
-const SessionCard = ({ session, type }) => {
+// Local start of "YYYY-MM-DD" + "09:00 AM", or null when unparsable.
+const sessionStart = ({ date, time }) => {
+  const t = String(time || '').trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AP]M))?$/i);
+  const [y, m, d] = String(date || '').split('-').map(Number);
+  if (!t || !y || !m || !d) return null;
+  let h = Number(t[1]);
+  if (t[3]) h = (h % 12) + (t[3].toUpperCase() === 'PM' ? 12 : 0);
+  return new Date(y, m - 1, d, h, Number(t[2]));
+};
+
+// Mirrors isStudentCancellable in appointment.controller.js.
+const canCancel = (s) => {
+  if (s.type === 'Face-To-Face') {
+    const start = sessionStart(s);
+    return !!start && start > new Date() && ['pending', 'confirmed', 'active'].includes(s.status);
+  }
+  return s.status === 'pending';
+};
+
+const SessionCard = ({ session, type, onCancel, cancelling }) => {
   const isUpcoming = type === 'upcoming';
   const counselorLabel = session.counselorName || session.counselor?.fullName || `Counselor #${session.counselorId}`;
+  const outcome = getSessionOutcome(session);
+  const statusLabel = session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed')
+    ? 'Approved'
+    : session.status;
+  const showStatus = !['approved', 'declined', 'completed'].includes(String(statusLabel).toLowerCase());
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-5">
+    <div className={`${isUpcoming
+      ? 'rounded-xl border border-line bg-surface p-5'
+      : 'rounded-none border-0 bg-surface p-3.5 transition-colors hover:bg-canvas/60 sm:p-4'
+    }`}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-3.5 min-w-0">
-          <div className={`size-10 rounded-full flex items-center justify-center shrink-0 ${session.type === 'Chat' ? 'bg-emerald-50 text-emerald-600' : 'bg-neutral-100 text-neutral-500'
+          <div className={`${isUpcoming ? 'size-10' : 'size-9'} rounded-full flex items-center justify-center shrink-0 ${session.type === 'Chat' ? 'bg-brand-soft text-brand-soft-ink' : 'bg-line text-ink-muted'
             }`}>
-            {session.type === 'Chat' ? <MessageCircle size={18} /> : <CalendarCheck size={18} />}
+            {session.type === 'Chat' ? <MessageCircle size={isUpcoming ? 18 : 16} /> : <CalendarCheck size={isUpcoming ? 18 : 16} />}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2.5 mb-0.5">
-              <h3 className="text-sm font-medium text-neutral-900">{counselorLabel}</h3>
-              <span className={`text-[9px] font-semibold tracking-[0.1em] uppercase px-2 py-0.5 rounded-sm border ${session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                session.status === 'confirmed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' :
-                  session.status === 'pending' ? 'text-amber-600 border-amber-200 bg-amber-50' :
-                    'text-emerald-400 border-emerald-200'
-                }`}>
-                {session.type === 'Face-To-Face' && (session.status === 'active' || session.status === 'confirmed') ? 'Approved' : session.status}
-              </span>
+            <div className="mb-0.5 flex flex-wrap items-center gap-2.5 gap-y-1">
+              <h3 className="text-sm font-medium text-ink">{counselorLabel}</h3>
+              {showStatus && <StatusBadge status={statusLabel} />}
+              {outcome && <StatusBadge tone={outcome.tone}>{outcome.label}</StatusBadge>}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-400 mt-1">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted mt-1">
               <span className="inline-flex items-center gap-1"><Calendar size={11} /> {session.date}</span>
               <span className="inline-flex items-center gap-1"><Clock size={11} /> {session.time}</span>
               <span>{session.duration}</span>
-              <span className="text-[10px] font-medium uppercase">{session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}</span>
+              <span className="text-xs font-medium">{session.type === 'Chat' ? 'Chat' : 'Face-to-Face'}</span>
             </div>
             {!isUpcoming && session.notes && (
-              <p className="text-xs text-neutral-500 mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
+              <p className="text-xs text-ink-muted mt-2 italic">&ldquo;{session.notes}&rdquo;</p>
             )}
           </div>
         </div>
 
-        {isUpcoming && session.type === 'Chat' && (
-          <Link to={PATHS.MESSAGES} className="shrink-0 size-9 flex items-center justify-center rounded-sm border border-neutral-200 text-neutral-500 hover:text-neutral-900 hover:border-neutral-400 transition-colors">
-            <ArrowUpRight size={15} />
-          </Link>
+        {/* Card actions share the top-right slot so every card keeps the same height. */}
+        {isUpcoming && (session.type === 'Chat' || (onCancel && canCancel(session))) && (
+          <div className="flex shrink-0 items-center gap-2">
+            {onCancel && canCancel(session) && (
+              <button
+                type="button"
+                onClick={() => onCancel(session)}
+                disabled={cancelling}
+                aria-label={`${session.status === 'pending' ? 'Cancel request' : 'Cancel session'} with ${counselorLabel}`}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-danger/40 px-3 text-xs font-semibold text-danger-ink transition-colors hover:bg-danger-soft disabled:opacity-50"
+              >
+                {cancelling ? <Loader size={13} className="animate-spin" aria-hidden="true" /> : <X size={13} aria-hidden="true" />}
+                Cancel
+              </button>
+            )}
+            {session.type === 'Chat' && (
+              <Link
+                to={PATHS.MESSAGES}
+                aria-label={`Open chat with ${counselorLabel}`}
+                title={`Open chat with ${counselorLabel}`}
+                className="size-9 flex items-center justify-center rounded-lg border border-line text-ink-muted hover:text-ink hover:border-line-strong transition-colors"
+              >
+                <ArrowUpRight size={15} />
+              </Link>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -168,6 +209,7 @@ const SessionCard = ({ session, type }) => {
 };
 
 const SessionsPage = () => {
+  const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -176,11 +218,32 @@ const SessionsPage = () => {
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDay, setSelectedDay] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [showPast, setShowPast] = useState(false);
   const [slots, setSlots] = useState([]);
-  const [archiving, setArchiving] = useState(false);
-  const [pastPage, setPastPage] = useState(0);
   const [slotsPage, setSlotsPage] = useState(0);
   const [slotCounselorFilter, setSlotCounselorFilter] = useState('');
+
+  const chatPollRef = useRef(null);
+
+  // ─── Request Chat Session state ───
+  const [chatRequestOpen, setChatRequestOpen] = useState(false);
+  const [chatConcern, setChatConcern] = useState('');
+  const [chatCounselors, setChatCounselors] = useState([]);
+  const [chatCounselorId, setChatCounselorId] = useState('');
+  const [chatSubmitting, setChatSubmitting] = useState(false);
+  const [chatLoadingCounselors, setChatLoadingCounselors] = useState(false);
+  const [pendingChatRequest, setPendingChatRequest] = useState(null);
+  const [busyChatRequest, setBusyChatRequest] = useState(null);
+
+  // ─── Book Face-To-Face state ───
+  const [f2fOpen, setF2fOpen] = useState(false);
+  const [f2fCounselorId, setF2fCounselorId] = useState('');
+  const [f2fAllSlots, setF2fAllSlots] = useState([]);
+  const [f2fDate, setF2fDate] = useState('');
+  const [f2fTime, setF2fTime] = useState('');
+  const [f2fConcern, setF2fConcern] = useState('');
+  const [f2fSubmitting, setF2fSubmitting] = useState(false);
+  const [f2fLoadingSlots, setF2fLoadingSlots] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -204,6 +267,17 @@ const SessionsPage = () => {
     return () => socket.off("appointment:updated", fetchData);
   }, []);
 
+  const refreshAppointments = async () => {
+    try {
+      const res = await axiosInstance.get('/appointments');
+      setAppointments(res.data);
+      return res.data;
+    } catch (err) {
+      console.error('Failed to refresh appointments:', err);
+      return [];
+    }
+  };
+
   const refreshSlots = async () => {
     try {
       const slotRes = await axiosInstance.get('/availability');
@@ -213,16 +287,16 @@ const SessionsPage = () => {
     }
   };
 
-  const upcoming = appointments.filter((a) => ['pending', 'confirmed', 'active', 'on-going', 'paused'].includes(a.status));
-  const past = appointments.filter((a) => ['completed', 'cancelled', 'declined', 'ended', 'archived'].includes(a.status));
-  const hasPast = past.length > 0;
+  const visibleAppointments = appointments.filter((a) => ['pending', 'active'].includes(a.status));
+  const upcoming = visibleAppointments;
+  const pastSessions = appointments.filter((a) => ['completed', 'ended', 'declined', 'cancelled', 'archived'].includes(a.status));
 
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   const bookableSlots = slots.filter((s) => s.date >= todayStr);
 
   const dateStr = selectedDay?.dateStr || '';
   const daySlots = bookableSlots.filter((s) => s.date === dateStr);
-  const dayBookings = appointments.filter((b) => b.date === dateStr);
+  const dayBookings = visibleAppointments.filter((b) => b.date === dateStr);
   const slotCounselors = (() => {
     const map = new Map();
     bookableSlots.forEach((s) => map.set(String(s.counselorId), s.fullName));
@@ -246,14 +320,6 @@ const SessionsPage = () => {
     safeSlotsPage * SLOTS_PER_PAGE + SLOTS_PER_PAGE
   );
 
-  const PAST_PER_PAGE = 3;
-  const pastTotalPages = Math.max(1, Math.ceil(past.length / PAST_PER_PAGE));
-  const safePastPage = Math.min(pastPage, pastTotalPages - 1);
-  const visiblePast = past.slice(
-    safePastPage * PAST_PER_PAGE,
-    safePastPage * PAST_PER_PAGE + PAST_PER_PAGE
-  );
-
   const handleDateClick = (cell) => { setSelectedDay(cell); setModalOpen(true); };
   const handleBook = async (slot) => {
     try {
@@ -265,208 +331,373 @@ const SessionsPage = () => {
         concern: '',
       });
       toast.success(`Booked ${slot.time} — awaiting counselor confirmation`);
-      const res = await axiosInstance.get('/appointments');
-      setAppointments(res.data);
+      await refreshAppointments();
       await refreshSlots();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to book slot');
     }
   };
 
-  const handleClearPast = async () => {
-    const confirmed = await new Promise((resolve) => {
-      toast(({ closeToast }) => (
-        <div className="flex items-center gap-3 py-3">
-          <span className="text-sm text-neutral-700">Clear all past sessions?</span>
-          <button
-            onClick={() => { closeToast(); resolve(true); }}
-            className="px-3 py-1 text-[8px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm"
-          >
-            Clear
-          </button>
-          <button
-            onClick={() => { closeToast(); resolve(false); }}
-            className="px-3 py-1 text-[8px] font-semibold tracking-[0.1em] uppercase text-neutral-500 border border-neutral-300 hover:text-neutral-700 transition-colors rounded-sm"
-          >
-            Cancel
-          </button>
-        </div>
-      ));
-    });
-    if (!confirmed) return;
-    setArchiving(true);
+  // ─── Request Chat Session ───
+
+  const openChatCounselors = async () => {
+    setChatLoadingCounselors(true);
     try {
-      await axiosInstance.post('/appointments/archive-past');
-      const res = await axiosInstance.get('/appointments');
-      setAppointments(res.data);
-      toast.success('Past sessions cleared');
+      const res = await axiosInstance.get('/message/users');
+      setChatCounselors(res.data);
     } catch {
-      toast.error('Failed to clear past sessions');
+      toast.error('Failed to load counselors.');
     } finally {
-      setArchiving(false);
+      setChatLoadingCounselors(false);
     }
   };
 
-  if (loading) return <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
+  const handleOpenChatRequest = () => {
+    setChatConcern('');
+    setChatCounselorId('');
+    setChatRequestOpen(true);
+    openChatCounselors();
+  };
+
+  const handleCloseChatRequest = () => {
+    setChatRequestOpen(false);
+    setChatConcern('');
+    setChatCounselorId('');
+  };
+
+  const finishChatRequest = (appointment) => {
+    toast.success('Chat session requested! \n Waiting for counselor to accept...');
+    handleCloseChatRequest();
+    setBusyChatRequest(null);
+    setPendingChatRequest(appointment);
+    refreshAppointments();
+  };
+
+  const handleRequestChat = async () => {
+    if (!chatConcern.trim()) {
+      toast.error('Please describe your concern briefly.');
+      return;
+    }
+    if (!chatCounselorId) {
+      toast.error('Please select a counselor.');
+      return;
+    }
+    const request = {
+      counselorId: Number(chatCounselorId),
+      type: 'Chat',
+      date: formatLocalDate(),
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+      concern: chatConcern.trim(),
+    };
+    setChatSubmitting(true);
+    try {
+      const res = await axiosInstance.post('/appointments', request);
+      finishChatRequest(res.data);
+    } catch (err) {
+      if (err.response?.data?.code === 'COUNSELOR_BUSY') {
+        setChatRequestOpen(false);
+        setBusyChatRequest(request);
+      } else {
+        toast.error(err.response?.data?.error || 'Failed to request Chat session.');
+      }
+    } finally {
+      setChatSubmitting(false);
+    }
+  };
+
+  const handleWaitForCounselor = async () => {
+    setChatSubmitting(true);
+    try {
+      const res = await axiosInstance.post('/appointments', { ...busyChatRequest, waitIfBusy: true });
+      finishChatRequest(res.data);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to request Chat session.');
+    } finally {
+      setChatSubmitting(false);
+    }
+  };
+
+  const handleBookAnotherCounselor = () => {
+    setChatConcern(busyChatRequest.concern);
+    setChatCounselorId('');
+    setBusyChatRequest(null);
+    setChatRequestOpen(true);
+  };
+
+  const [cancellingId, setCancellingId] = useState(null);
+  const handleCancelSession = async (session) => {
+    const when = `${session.date} at ${session.time}`;
+    if (!window.confirm(`Cancel your ${session.type === 'Chat' ? 'chat' : 'face-to-face'} session on ${when}?`)) return;
+    setCancellingId(session._id);
+    try {
+      await axiosInstance.patch(`/appointments/${session._id}`, { status: 'cancelled' });
+      toast.success('Session cancelled.');
+      await Promise.all([refreshAppointments(), refreshSlots()]);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to cancel.');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
+  const handleCancelChatRequest = async () => {
+    try {
+      await axiosInstance.patch(`/appointments/${pendingChatRequest._id}`, { status: 'cancelled' });
+      toast.success('Request cancelled.');
+    } catch {
+      toast.error('Failed to cancel.');
+    }
+    setPendingChatRequest(null);
+  };
+
+  useEffect(() => {
+    if (!pendingChatRequest) return;
+    chatPollRef.current = setInterval(async () => {
+      try {
+        const res = await axiosInstance.get('/appointments');
+        const updated = res.data.find((a) => a._id === pendingChatRequest._id);
+        if (!updated || updated.status === 'declined' || updated.status === 'cancelled') {
+          setPendingChatRequest(null);
+          toast.error('Chat request was declined.');
+          clearInterval(chatPollRef.current);
+        } else if (updated.status === 'active') {
+          setPendingChatRequest(null);
+          clearInterval(chatPollRef.current);
+          navigate(PATHS.MESSAGES);
+        }
+      } catch {
+        clearInterval(chatPollRef.current);
+      }
+    }, 3000);
+    return () => clearInterval(chatPollRef.current);
+  }, [pendingChatRequest, navigate]);
+
+  // ─── Book Face-To-Face ───
+
+  const f2fAvailableDates = useMemo(() => {
+    const counts = {};
+    f2fAllSlots
+      .filter((s) => s.isAvailable)
+      .forEach((s) => { counts[s.date] = (counts[s.date] || 0) + 1; });
+    return Object.entries(counts)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [f2fAllSlots]);
+
+  const f2fAvailableTimes = useMemo(
+    () => f2fAllSlots
+      .filter((s) => s.isAvailable && s.date === f2fDate)
+      .map((s) => s.time)
+      .sort(),
+    [f2fAllSlots, f2fDate]
+  );
+
+  const handleOpenF2f = () => {
+    setF2fCounselorId('');
+    setF2fDate('');
+    setF2fTime('');
+    setF2fConcern('');
+    setF2fAllSlots([]);
+    setF2fOpen(true);
+    openChatCounselors();
+  };
+
+  const handleCloseF2f = () => {
+    setF2fOpen(false);
+    setF2fConcern('');
+    setF2fAllSlots([]);
+    setF2fDate('');
+    setF2fTime('');
+  };
+
+  const handleF2fCounselorChange = async (counselorId) => {
+    setF2fCounselorId(counselorId);
+    setF2fDate('');
+    setF2fTime('');
+    setF2fAllSlots([]);
+    if (!counselorId) return;
+    setF2fLoadingSlots(true);
+    try {
+      const slotRes = await axiosInstance.get(`/availability/${counselorId}`);
+      setF2fAllSlots(slotRes.data);
+    } catch {
+      setF2fAllSlots([]);
+    } finally {
+      setF2fLoadingSlots(false);
+    }
+  };
+
+  const handleBookF2f = async () => {
+    if (!f2fCounselorId || !f2fDate || !f2fTime || !f2fConcern.trim()) {
+      toast.error('Please select counselor, date, time, and describe your concern.');
+      return;
+    }
+    setF2fSubmitting(true);
+    try {
+      await axiosInstance.post('/appointments', {
+        counselorId: Number(f2fCounselorId),
+        type: 'Face-To-Face',
+        date: f2fDate,
+        time: f2fTime,
+        concern: f2fConcern.trim(),
+      });
+      toast.success('Face-to-face session booked! Awaiting counselor confirmation.');
+      handleCloseF2f();
+      await refreshAppointments();
+      await refreshSlots();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to book session.');
+    } finally {
+      setF2fSubmitting(false);
+    }
+  };
+
+  if (loading) return <PageShell title="My Sessions" description="Manage your sessions and book appointments"><PageShellSkeleton showCalendar showSidebar /></PageShell>;
 
   return (
-    <PageShell title="My Sessions" subtitle="Manage your sessions and book appointments">
+    <PageShell
+      title="My Sessions"
+      description="Manage your sessions and book appointments"
+    >
       <div className="space-y-8">
 
-        <div>
-          <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Calendar</h3>
-          <div className="bg-white border border-neutral-200 rounded-sm p-5 max-w-lg">
-            <MiniCalendar
-              year={year} month={month}
-              onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
-              onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
-              bookings={appointments} openSlots={bookableSlots}
-              onDateClick={handleDateClick}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 mb-3">Active Sessions</h3>
-            {upcoming.length === 0 ? (
-              <div className="bg-white border border-neutral-200 rounded-sm">
-                <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
+        {pendingChatRequest && (
+          <div className="flex items-center justify-between gap-4 bg-surface border border-line rounded-lg p-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="relative flex size-2.5 shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-warning-soft0/60 opacity-75" />
+                <span className="relative inline-flex size-2.5 rounded-full bg-warning-soft0" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">Chat session requested</p>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  {pendingChatRequest.concern || 'Waiting for your counselor to accept the session.'}
+                </p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {upcoming.map((s) => <SessionCard key={s._id} session={s} type="upcoming" />)}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h3 className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Available Slots</h3>
-              {slotCounselors.length > 0 && (
-                <select
-                  value={slotCounselorFilter}
-                  onChange={(e) => setSlotCounselorFilter(e.target.value)}
-                  className="bg-transparent border border-neutral-200 text-xs rounded-sm px-2.5 py-1.5 text-neutral-700 focus:border-neutral-900 outline-none transition-colors"
-                >
-                  <option value="">All Counselors</option>
-                  {slotCounselors.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              )}
             </div>
-            {groupedSlots.length === 0 ? (
-              <div className="bg-white border border-neutral-200 rounded-sm p-6 text-center">
-                <p className="text-xs text-neutral-400">No available slots at this time.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {visibleGroupedSlots.map(({ date, counselors }) => {
-                  const totalTimes = counselors.reduce((n, c) => n + c.times.length, 0);
-                  return (
-                    <div key={date} className="bg-white border border-neutral-200 rounded-sm overflow-hidden">
-                      <div className="px-4 py-2.5 border-b border-neutral-100 flex items-center gap-2">
-                        <CalendarDays size={13} className="text-neutral-400 shrink-0" />
-                        <span className="text-xs font-medium text-neutral-900">{formatLongDate(date)}</span>
-                        <span className="text-[10px] text-neutral-400 ml-auto">{totalTimes} slot{totalTimes !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div className="divide-y divide-neutral-100">
-                        {counselors.map((c) => (
-                          <div key={c.counselorId} className="px-4 py-3">
-                            <p className="text-xs font-medium text-neutral-700 mb-2">{c.fullName || `Counselor #${c.counselorId}`}</p>
-                            <div className="flex flex-wrap gap-2">
-                              {c.times.map(({ time, slot }) => (
-                                <button
-                                  key={slot._id}
-                                  onClick={() => handleBook(slot)}
-                                  className="px-3 py-1.5 text-xs rounded-sm border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
-                                >
-                                  {time}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            <Pagination page={safeSlotsPage} totalPages={slotsTotalPages} onChange={setSlotsPage} />
-          </div>
-        </div>
-
-        <div>
-          <div className="flex items-center gap-4 mb-4">
-            <span className="h-px flex-1 bg-neutral-200" />
-            <span className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 shrink-0">Past Sessions</span>
-            {hasPast && (
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="flex items-center gap-2 text-xs text-ink-muted">
+                <Loader size={12} className="animate-spin" />
+                Checking for updates...
+              </span>
               <button
-                onClick={handleClearPast}
-                disabled={archiving}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold tracking-[0.1em] uppercase text-red-600 hover:text-red-700 transition-colors rounded-sm disabled:opacity-50"
+                onClick={handleCancelChatRequest}
+                className="px-3 py-1.5 text-xs font-medium text-ink-muted border border-line-strong hover:text-danger-ink hover:border-danger/30 transition-colors rounded-lg"
               >
-                {archiving ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                Clear All
+                Cancel Request
               </button>
-            )}
-            <span className="h-px flex-1 bg-neutral-200" />
-          </div>
-          {past.length === 0 ? (
-            <div className="bg-white border border-neutral-200 rounded-sm">
-              <EmptyState icon={Clock} title="No past sessions" description="Your session history will appear here after your first appointment." />
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {visiblePast.map((s) => <SessionCard key={s._id} session={s} type="past" />)}
-              <Pagination page={safePastPage} totalPages={pastTotalPages} onChange={setPastPage} />
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={selectedDay ? `Schedule — ${dateStr}` : ''}>
-        <div className="max-h-[60vh] overflow-y-auto pr-1">
-        {dayBookings.length > 0 && (
-          <div className="mb-4">
-            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Your Appointments</span>
-            <div className="space-y-1.5">
-              {dayBookings.map((b) => (
-                <div key={b._id} className="text-sm text-neutral-700 flex items-center gap-2"><CheckCircle size={14} className="text-neutral-900" /> {b.time} — {b.type}</div>
-              ))}
             </div>
           </div>
         )}
-        {daySlots.length > 0 ? (
-          <div>
-            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400 block mb-2">Available Slots</span>
-            <div className="space-y-3">
-              {daySlotGroups.map((c) => (
-                <div key={c.counselorId}>
-                  <p className="text-xs font-medium text-neutral-700 mb-1.5">{c.fullName || `Counselor #${c.counselorId}`}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {c.times.map(({ time, slot }) => (
-                      <button
-                        key={slot._id}
-                        onClick={() => { handleBook(slot); setModalOpen(false); }}
-                        className="px-3 py-1.5 text-xs rounded-sm border border-neutral-200 text-neutral-700 hover:border-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
-                      >
-                        {time}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-2">
+            <h3 className="text-xs font-semibold text-ink-muted mb-3">Calendar</h3>
+            <div className="bg-surface border border-line rounded-lg p-5">
+              <MiniCalendar
+                year={year} month={month}
+                onPrev={() => { if (month === 0) { setYear((y) => y - 1); setMonth(11); } else setMonth((m) => m - 1); }}
+                onNext={() => { if (month === 11) { setYear((y) => y + 1); setMonth(0); } else setMonth((m) => m + 1); }}
+                bookings={visibleAppointments} openSlots={bookableSlots}
+                onDateClick={handleDateClick}
+              />
             </div>
           </div>
-        ) : dayBookings.length === 0 ? (
-          <p className="text-sm text-neutral-400 py-4 text-center">No slots or bookings for this day.</p>
-        ) : null}
+
+          <div className="lg:col-span-3">
+            <h3 className="text-xs font-semibold text-ink-muted mb-3">Active Sessions</h3>
+            {upcoming.length === 0 ? (
+              <EmptyState icon={CalendarDays} title="No active sessions" description="Request a session with your counselor to get started." />
+            ) : (
+              <div className="space-y-2">
+                {upcoming.map((s) => (
+                  <SessionCard key={s._id} session={s} type="upcoming" onCancel={handleCancelSession} cancelling={cancellingId === s._id} />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </Modal>
+
+        {pastSessions.length > 0 && (
+          <section className="overflow-hidden rounded-2xl border border-line bg-surface" aria-label="Past sessions">
+            <div className="flex items-start justify-between gap-4 p-4 sm:p-5">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">History</p>
+                <h3 className="mt-1 text-sm font-semibold text-ink">Past Sessions</h3>
+                <p className="mt-1 text-xs text-ink-muted">Review your previous counseling sessions.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPast((visible) => !visible)}
+                className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-xs font-semibold text-brand-600 transition-colors hover:border-brand-300 hover:bg-brand-soft"
+              >
+                {showPast ? 'Hide past sessions' : `View past sessions (${pastSessions.length})`}
+              </button>
+            </div>
+            {showPast && (
+              <div className="mx-4 mb-4 overflow-hidden rounded-xl border border-line divide-y divide-line sm:mx-5 sm:mb-5">
+                {pastSessions.map((session) => (
+                  <SessionCard key={session._id} session={session} type="past" />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+      </div>
+
+      <ChatRequestModal
+        isOpen={chatRequestOpen}
+        onClose={handleCloseChatRequest}
+        chatLoadingCounselors={chatLoadingCounselors}
+        chatCounselorId={chatCounselorId}
+        setChatCounselorId={setChatCounselorId}
+        chatCounselors={chatCounselors}
+        chatConcern={chatConcern}
+        setChatConcern={setChatConcern}
+        chatSubmitting={chatSubmitting}
+        onSubmit={handleRequestChat}
+      />
+
+      <BusyCounselorModal
+        isOpen={Boolean(busyChatRequest)}
+        onClose={() => setBusyChatRequest(null)}
+        chatSubmitting={chatSubmitting}
+        onBookAnotherCounselor={handleBookAnotherCounselor}
+        onWaitForCounselor={handleWaitForCounselor}
+      />
+
+      <FaceToFaceModal
+        isOpen={f2fOpen}
+        onClose={handleCloseF2f}
+        chatLoadingCounselors={chatLoadingCounselors}
+        chatCounselors={chatCounselors}
+        f2fCounselorId={f2fCounselorId}
+        handleF2fCounselorChange={handleF2fCounselorChange}
+        f2fLoadingSlots={f2fLoadingSlots}
+        f2fAvailableDates={f2fAvailableDates}
+        f2fDate={f2fDate}
+        setF2fDate={setF2fDate}
+        setF2fTime={setF2fTime}
+        f2fAvailableTimes={f2fAvailableTimes}
+        f2fTime={f2fTime}
+        f2fConcern={f2fConcern}
+        setF2fConcern={setF2fConcern}
+        f2fSubmitting={f2fSubmitting}
+        onSubmit={handleBookF2f}
+      />
+
+      <ScheduleDayModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        selectedDay={selectedDay}
+        dateStr={dateStr}
+        dayBookings={dayBookings}
+        daySlots={daySlots}
+        daySlotGroups={daySlotGroups}
+        onBook={handleBook}
+        setModalOpen={setModalOpen}
+      />
     </PageShell>
   );
 };

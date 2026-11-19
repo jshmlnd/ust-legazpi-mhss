@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios";
-import toast from "react-hot-toast";
+import { toast } from "react-toastify";
 import { getSocket } from "../lib/socket";
 import { showNotification } from "../lib/notifications";
-import { loadPrefs } from "../lib/prefs";
+import { getPrefs } from "../lib/prefs";
 import { useAuthStore } from "./useAuthStore";
 
 export const analyzeCrisis = async (text) => {
@@ -48,8 +48,20 @@ export const useChatStore = create((set, get) => ({
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/message/users");
-      set({ users: res.data });
+      const res = await axiosInstance.get("/message/users?scope=chat");
+      set((state) => {
+        const selectedStillAvailable = state.selectedUser
+          && res.data.some((user) => String(user._id) === String(state.selectedUser._id));
+        return {
+          users: res.data,
+          ...(selectedStillAvailable ? {} : {
+            selectedUser: null,
+            messages: [],
+            crisisMessageMap: {},
+            currentAppointmentId: null,
+          }),
+        };
+      });
     } catch {
       toast.error("Failed to load contacts");
     } finally {
@@ -68,6 +80,20 @@ export const useChatStore = create((set, get) => ({
       const combined = [...msgRes.data, ...logRes.data]
         .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
       set({ messages: combined, currentAppointmentId: appointmentId || null });
+
+      const authUser = useAuthStore.getState().authUser;
+      const peerTexts = combined.filter((m) => m.text && String(m.senderId) !== String(authUser?._id));
+      if (peerTexts.length) {
+        axiosInstance.post("/crisis/analyze", { texts: peerTexts.map((m) => m.text) })
+          .then(({ data }) => {
+            const map = {};
+            data.forEach((a, i) => { if (a?.isCrisis) map[peerTexts[i]._id] = a.severity.level; });
+            if (Object.keys(map).length) {
+              set((s) => ({ crisisMessageMap: { ...s.crisisMessageMap, ...map } }));
+            }
+          })
+          .catch(() => { });
+      }
     } catch {
       toast.error("Failed to load messages");
     } finally {
@@ -83,20 +109,27 @@ export const useChatStore = create((set, get) => ({
     const isCounselor = authUser?.userType?.toLowerCase() === 'counselor';
     const text = messageData.text || '';
     try {
-      const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, messageData);
-      set({ messages: [...messages, res.data] });
+      let payload = messageData;
+      if (messageData.file) {
+        payload = new FormData();
+        payload.append('media', messageData.file);
+        if (messageData.text) payload.append('text', messageData.text);
+        if (messageData.type) payload.append('type', messageData.type);
+      }
+      const res = await axiosInstance.post(`/message/send/${selectedUser._id}`, payload);
+      set({ messages: [...messages, { ...res.data, _fresh: true }] }); // _fresh: play the send animation once
 
       if (!isCounselor && text) {
         const analysis = await analyzeCrisis(text);
         if (analysis.isCrisis) {
           set((state) => ({
-            flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id },
+            flaggedMessage: { userId: selectedUser._id, text, messageId: res.data._id, severity: analysis.severity?.level },
             crisisAnalysis: analysis,
             crisisMessageMap: { ...state.crisisMessageMap, [res.data._id]: analysis.severity.level },
           }));
           logCrisisAudit({
-            studentId: selectedUser._id,
-            counselorId: authUser?._id,
+            studentId: authUser?._id,
+            counselorId: selectedUser._id,
             messageId: res.data._id,
             analysis,
           });
@@ -183,7 +216,7 @@ export const useChatStore = create((set, get) => ({
           if (analysis.isCrisis) {
             const authUser = useAuthStore.getState().authUser;
             set((state) => ({
-              flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id },
+              flaggedMessage: { userId: message.senderId, text: message.text, messageId: message._id, severity: analysis.severity?.level },
               crisisAnalysis: analysis,
               crisisMessageMap: { ...state.crisisMessageMap, [message._id]: analysis.severity.level },
             }));
@@ -206,7 +239,7 @@ export const useChatStore = create((set, get) => ({
         const senderName = message.senderModel === 'Counselor' ? 'Counselor' : `Student STU-${message.senderId}`;
         const notifBody = message.text || 'Sent an image';
         const authUser = useAuthStore.getState().authUser;
-        if (loadPrefs(authUser?._id).messageNotifications) {
+        if (getPrefs(authUser?._id).messageNotifications) {
           showNotification(senderName, notifBody);
         }
       }
@@ -219,14 +252,20 @@ export const useChatStore = create((set, get) => ({
         (String(callLog.callerId) === String(selectedUser._id) ||
           String(callLog.receiverId) === String(selectedUser._id));
 
-      if (isRelevant) {
-        // Only show call logs that belong to the active session; when a session is
-        // active, legacy (session-less) logs and other sessions' logs are excluded.
-        if (currentAppointmentId && String(callLog.appointmentId) !== String(currentAppointmentId)) {
-          return;
-        }
-        set({ messages: [...messages, callLog] });
-      }
+      if (!isRelevant) return;
+
+      // Session gating mirrors getCallLogs on the server: a log may only
+      // append when its session matches the one open in this thread. Logs
+      // from other sessions (or from a session-less call while a session is
+      // open) are dropped, so ended sessions never bleed into new ones.
+      const logSession = callLog.appointmentId ? String(callLog.appointmentId) : null;
+      const openSession = currentAppointmentId ? String(currentAppointmentId) : null;
+      if (logSession !== openSession) return;
+
+      // Socket retries or double-emits must not render the same log twice.
+      if (messages.some((m) => m._id === callLog._id)) return;
+
+      set({ messages: [...messages, callLog] });
     });
 
     socket.off("typing").on("typing", ({ userId }) => {

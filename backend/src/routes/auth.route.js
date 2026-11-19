@@ -1,21 +1,33 @@
 import express from "express";
-import { checkAuth, login, logout, register, registerCounselor, updateProfile, updatePassword, updateProfileDetails, setPin, verifyPin, setTwoFactor, verifyTwoFactor } from "../controllers/auth.controller.js";
-import { protectRoute, adminOnly } from "../middleware/auth.middleware.js";
+import { checkAuth, login, logout, register, registerCounselor, updateProfile, updatePassword, updateProfileDetails, setPin, verifyPin, removePin, verifyTwoFactor, totpSetup, totpVerify, totpDisable } from "../controllers/auth.controller.js";
+import { forgotPassword, resetPassword, verifyResetCode } from "../controllers/passwordReset.controller.js";
+import { verifyEmail, resendVerification } from "../controllers/emailVerification.controller.js";
+import { protectRoute, provisionKeyOnly } from "../middleware/auth.middleware.js";
+import { mediaMultipart } from "../middleware/mediaUpload.middleware.js";
+import { MAX_IMAGE_SIZE } from "../lib/mediaModeration.js";
 
 const router = express.Router();
 
 router.post("/login", login);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password", resetPassword);
+router.post("/verify-reset-code", verifyResetCode);
+router.get("/verify-email", verifyEmail);
+router.post("/resend-verification", resendVerification);
 router.post("/logout", logout);
-router.post("/register", register);
-router.post("/register-counselor", registerCounselor);
+router.post("/register", provisionKeyOnly, register);
+router.post("/register-counselor", provisionKeyOnly, registerCounselor);
 
-router.put("/profile", protectRoute, updateProfile);
+router.put("/profile", protectRoute, mediaMultipart({ maxFiles: 1, maxFileSize: MAX_IMAGE_SIZE, maxTotalSize: MAX_IMAGE_SIZE }), updateProfile);
 router.put("/password", protectRoute, updatePassword);
 router.put("/profile-details", protectRoute, updateProfileDetails);
 router.post("/pin", protectRoute, setPin);
 router.post("/pin/verify", protectRoute, verifyPin);
-router.put("/2fa", protectRoute, setTwoFactor);
+router.delete("/pin", protectRoute, removePin);
+router.put("/2fa", protectRoute, totpDisable);
+router.post("/2fa/setup", protectRoute, totpSetup);
 router.post("/2fa/verify", verifyTwoFactor);
+router.post("/2fa/confirm", protectRoute, totpVerify);
 
 router.get("/check", protectRoute, checkAuth);
 

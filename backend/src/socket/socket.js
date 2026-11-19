@@ -7,10 +7,18 @@ import Message from "../models/message.model.js";
 const userSocketMap = {};
 let io;
 
-export const getReceiverSocketId = (receiverId) => {
-  const socketIds = userSocketMap[receiverId];
-  return socketIds ? [...socketIds][0] : undefined;
-};
+/**
+ * Origins allowed for both the express API and the socket.io server.
+ * Keep these identical — a mismatch (e.g. vite falling back to :5174)
+ * silently breaks every real-time event while REST still works.
+ */
+export const ALLOWED_ORIGINS = [
+  process.env.CORS_ORIGIN,
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5174",
+].filter(Boolean);
 
 export const getReceiverSocketIds = (receiverId) => {
   const socketIds = userSocketMap[receiverId];
@@ -18,6 +26,12 @@ export const getReceiverSocketIds = (receiverId) => {
 };
 
 export const getIO = () => io;
+
+const emitToUser = (userId, event, payload) => {
+  for (const socketId of userSocketMap[String(userId)] || []) {
+    io.to(socketId).emit(event, payload);
+  }
+};
 
 const findUserById = async (userId) => {
   let user = await User.findById(userId).select("-password");
@@ -28,7 +42,7 @@ const findUserById = async (userId) => {
 export const setupSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: "http://localhost:5173",
+      origin: ALLOWED_ORIGINS,
       credentials: true,
     },
   });
@@ -67,62 +81,32 @@ export const setupSocket = (httpServer) => {
     io.emit("onlineUsers", Object.keys(userSocketMap));
 
     socket.on("call:offer", ({ calleeId, callerName, channelName }) => {
-      const targetSockets = userSocketMap[String(calleeId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("call:initiated", {
-            callerId: userId,
-            callerName: socket.user.fullName,
-            callerModel: socket.user.constructor.modelName,
-            channelName,
-          });
-        }
-      }
+      emitToUser(calleeId, "call:initiated", {
+        callerId: userId,
+        callerName: socket.user.fullName,
+        callerModel: socket.user.constructor.modelName,
+        channelName,
+      });
     });
 
     socket.on("call:answer", ({ callerId, channelName }) => {
-      const targetSockets = userSocketMap[String(callerId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("call:answer", { channelName });
-        }
-      }
+      emitToUser(callerId, "call:answer", { channelName });
     });
 
     socket.on("call:ended", ({ targetId }) => {
-      const targetSockets = userSocketMap[String(targetId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("call:ended");
-        }
-      }
+      emitToUser(targetId, "call:ended");
     });
 
     socket.on("call:rejected", ({ callerId }) => {
-      const targetSockets = userSocketMap[String(callerId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("call:rejected");
-        }
-      }
+      emitToUser(callerId, "call:rejected");
     });
 
     socket.on("typing", ({ receiverId }) => {
-      const targetSockets = userSocketMap[String(receiverId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("typing", { userId: userId });
-        }
-      }
+      emitToUser(receiverId, "typing", { userId });
     });
 
     socket.on("stopTyping", ({ receiverId }) => {
-      const targetSockets = userSocketMap[String(receiverId)];
-      if (targetSockets) {
-        for (const socketId of targetSockets) {
-          io.to(socketId).emit("stopTyping", { userId: userId });
-        }
-      }
+      emitToUser(receiverId, "stopTyping", { userId });
     });
 
     socket.on("markAsRead", async ({ senderId }) => {
@@ -131,12 +115,7 @@ export const setupSocket = (httpServer) => {
           { senderId: senderId, receiverId: Number(userId), read: false },
           { $set: { read: true } }
         );
-        const targetSockets = userSocketMap[String(senderId)];
-        if (targetSockets) {
-          for (const socketId of targetSockets) {
-            io.to(socketId).emit("messagesRead", { readerId: userId });
-          }
-        }
+        emitToUser(senderId, "messagesRead", { readerId: userId });
       } catch (error) {
         console.error("Error marking messages as read:", error);
       }

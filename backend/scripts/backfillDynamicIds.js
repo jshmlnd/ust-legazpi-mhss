@@ -1,17 +1,8 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { generateDynamicCode } from "../src/lib/generateId.js";
 
 dotenv.config();
-
-const DYNAMIC_ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-const generateDynamicCode = () => {
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += DYNAMIC_ID_ALPHABET[Math.floor(Math.random() * DYNAMIC_ID_ALPHABET.length)];
-  }
-  return code;
-};
 
 const run = async () => {
   const uri = process.env.MONGODB_URI;

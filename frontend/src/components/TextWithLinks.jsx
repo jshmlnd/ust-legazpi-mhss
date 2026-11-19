@@ -34,7 +34,7 @@ const TextWithLinks = ({ text, className = '', maxLines }) => {
         href={seg.href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-emerald-600 hover:text-emerald-700 underline break-all"
+        className="text-brand-soft-ink hover:text-brand-soft-ink underline break-all"
       >
         {seg.value}
       </a>
@@ -46,7 +46,7 @@ const TextWithLinks = ({ text, className = '', maxLines }) => {
   if (maxLines) {
     return (
       <p
-        className={`text-xs text-neutral-600 leading-relaxed ${className}`}
+        className={`text-xs text-ink-soft leading-relaxed ${className}`}
         style={{
           display: '-webkit-box',
           WebkitLineClamp: maxLines,
@@ -60,7 +60,7 @@ const TextWithLinks = ({ text, className = '', maxLines }) => {
   }
 
   return (
-    <p className={`text-xs text-neutral-600 leading-relaxed ${className}`}>
+    <p className={`text-xs text-ink-soft leading-relaxed ${className}`}>
       {content}
     </p>
   );

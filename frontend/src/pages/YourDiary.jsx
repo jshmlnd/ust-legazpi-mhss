@@ -1,111 +1,105 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Book, Plus, Trash2, Clock, Smile, Meh, Frown, Angry, Heart, CalendarDays } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Book, Plus, Pencil, Trash2, Clock, Meh } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import Modal from '../components/Modal';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../ui/EmptyState';
 import { toast } from 'react-toastify';
-import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-} from 'recharts';
+import EntryForm, { MOODS } from '../components/modals/EntryForm';
+import Modal from '../ui/Modal';
+import Button from '../ui/Button';
 
-const MOODS = [
-  { key: 'great', icon: Heart, label: 'Great', color: 'text-emerald-600 bg-emerald-50' },
-  { key: 'good', icon: Smile, label: 'Good', color: 'text-blue-600 bg-blue-50' },
-  { key: 'okay', icon: Meh, label: 'Okay', color: 'text-amber-600 bg-amber-50' },
-  { key: 'low', icon: Frown, label: 'Low', color: 'text-orange-600 bg-orange-50' },
-  { key: 'bad', icon: Angry, label: 'Bad', color: 'text-red-600 bg-red-50' },
-];
+// Entries store "MM-DD-YYYY"; show "Nov 16, 2026". Falls back to createdAt.
+const formatEntryDate = (raw, createdAt) => {
+  const mdy = String(raw || '').match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  const d = mdy ? new Date(Number(mdy[3]), Number(mdy[1]) - 1, Number(mdy[2])) : new Date(raw || createdAt || NaN);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
-const EntryCard = ({ entry, onDelete }) => {
-  const mood = MOODS.find((m) => m.key === entry.mood);
-  const MoodIcon = mood?.icon || Meh;
+const PAGE_SIZE = 5;
 
+const Pagination = ({ page, totalPages, total, onChange }) => {
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+  const btn = 'h-8 min-w-8 px-2.5 rounded-lg text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-40 disabled:pointer-events-none';
   return (
-    <div className="bg-white p-5 hover:bg-neutral-50 transition-colors">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className={`size-8 rounded-sm flex items-center justify-center shrink-0 ${mood?.color || 'bg-neutral-100 text-neutral-500'}`}>
-            {MoodIcon && <MoodIcon size={15} />}
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-sm font-medium text-neutral-900 truncate">{entry.title}</h3>
-            <div className="flex items-center gap-2 text-[10px] text-neutral-400 mt-0.5">
-              <span>{entry.date}</span>
-              <span className="text-neutral-200">·</span>
-              <Clock size={10} /> {entry.time || '—'}
-            </div>
-          </div>
-        </div>
-        <button onClick={() => onDelete(entry._id)} className="shrink-0 size-7 flex items-center justify-center rounded-sm text-neutral-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-          <Trash2 size={12} />
+    <nav aria-label="Diary pages" className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <p className="text-xs text-ink-muted">Showing {from}–{to} of {total}</p>
+      <div className="flex items-center gap-1">
+        <button type="button" onClick={() => onChange(page - 1)} disabled={page === 1} className={`${btn} text-ink-soft hover:bg-line`}>
+          Previous
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => onChange(n)}
+            aria-current={n === page ? 'page' : undefined}
+            className={`${btn} ${n === page ? 'bg-brand-600 text-brand-fg' : 'text-ink-soft hover:bg-line'}`}
+          >
+            {n}
+          </button>
+        ))}
+        <button type="button" onClick={() => onChange(page + 1)} disabled={page === totalPages} className={`${btn} text-ink-soft hover:bg-line`}>
+          Next
         </button>
       </div>
-      <p className="text-xs text-neutral-600 leading-relaxed whitespace-pre-line line-clamp-3">{entry.content}</p>
-    </div>
+    </nav>
   );
 };
 
-const EntryForm = ({ onSave, onClose }) => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [mood, setMood] = useState('okay');
-  const [saving, setSaving] = useState(false);
+const EntryCard = ({ entry, onEdit, onDelete }) => {
+  const mood = MOODS.find((m) => m.key === entry.mood);
+  const MoodIcon = mood?.icon || Meh;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
-    setSaving(true);
-    const ok = await onSave({ title: title.trim(), content: content.trim(), mood });
-    if (!ok) { setSaving(false); return; }
-    setTitle(''); setContent(''); setMood('okay');
-    onClose();
-  };
+  const shownDate = formatEntryDate(entry.date, entry.createdAt);
 
   return (
-    <Modal isOpen onClose={onClose} title="New Journal Entry">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Entry title..."
-          className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-        />
-        <textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder="What&apos;s on your mind?"
-          rows={8}
-          className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-none"
-        />
-        <div>
-          <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-2">Mood</span>
-          <div className="flex flex-wrap gap-2">
-            {MOODS.map((m) => {
-              const Icon = m.icon;
-              const selected = mood === m.key;
-              return (
-                <button
-                  key={m.key}
-                  type="button"
-                  onClick={() => setMood(m.key)}
-                  className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-sm border transition-colors ${
-                    selected ? `${m.color} border-transparent` : 'text-neutral-500 border-neutral-200 hover:border-neutral-400'
-                  }`}
-                >
-                  <Icon size={14} /> {m.label}
-                </button>
-              );
-            })}
+    <article className="!rounded-[1.25rem] border border-line bg-surface p-5 shadow-e1 transition-colors hover:border-line-strong">
+      <div className="flex items-start gap-3">
+        <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${mood?.color || 'bg-line text-ink-muted'}`}>
+          {MoodIcon && <MoodIcon size={18} aria-hidden="true" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-semibold text-ink truncate">{entry.title}</h3>
+              {(shownDate || entry.time) && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-muted">
+                  {shownDate && <span>{shownDate}</span>}
+                  {shownDate && entry.time && <span aria-hidden="true">·</span>}
+                  {entry.time && <span className="inline-flex items-center gap-1"><Clock size={11} aria-hidden="true" />{entry.time}</span>}
+                  {mood && <span className="sr-only">Mood: {mood.label || mood.key}</span>}
+                </p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onEdit(entry)}
+              aria-label={`Edit entry "${entry.title}"`}
+              title="Edit"
+              className="size-8 flex items-center justify-center rounded-lg text-ink-muted hover:text-ink hover:bg-line transition-colors"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(entry)}
+              aria-label={`Delete entry "${entry.title}"`}
+              title="Delete"
+              className="size-8 flex items-center justify-center rounded-lg text-ink-muted hover:text-danger-ink hover:bg-danger-soft transition-colors"
+            >
+              <Trash2 size={14} />
+            </button>
+            </div>
           </div>
+          {entry.content && (
+            <p className="mt-3 text-sm text-ink-soft leading-relaxed whitespace-pre-line line-clamp-3">{entry.content}</p>
+          )}
         </div>
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-          <button type="submit" disabled={saving} className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm disabled:opacity-50">{saving ? 'Saving...' : 'Save Entry'}</button>
-        </div>
-      </form>
-    </Modal>
+      </div>
+    </article>
   );
 };
 
@@ -116,8 +110,8 @@ const MoodOverview = ({ entries }) => {
   const total = entries.length || 1;
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-5">
-      <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 block mb-4">Mood Overview</span>
+    <div className="bg-surface border border-line rounded-lg p-5">
+      <span className="text-xs font-semibold text-ink-muted block mb-4">Total Entries</span>
       <div className="space-y-3">
         {MOODS.map((m) => {
           const Icon = m.icon;
@@ -129,13 +123,10 @@ const MoodOverview = ({ entries }) => {
                 <span className={`inline-flex items-center gap-1.5 font-medium ${m.color.split(' ')[0]}`}>
                   <Icon size={13} /> {m.label}
                 </span>
-                <span className="text-neutral-400">{count}</span>
+                <span className="text-ink-muted">{count}</span>
               </div>
-              <div className="h-1 bg-neutral-100 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all duration-500 ${
-                  m.key === 'great' ? 'bg-emerald-500' : m.key === 'good' ? 'bg-blue-500' :
-                  m.key === 'okay' ? 'bg-amber-400' : m.key === 'low' ? 'bg-orange-500' : 'bg-red-500'
-                }`} style={{ width: `${pct}%` }} />
+              <div className="h-1 bg-line rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all duration-500 ${m.bar}`} style={{ width: `${pct}%` }} />
               </div>
             </div>
           );
@@ -145,142 +136,15 @@ const MoodOverview = ({ entries }) => {
   );
 };
 
-const MoodTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-neutral-200 px-4 py-3 rounded-sm">
-        <p className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-400 mb-1">{label}</p>
-        <p className="text-sm font-medium text-neutral-900">Mood Score: {payload[0].value}</p>
-      </div>
-    );
-  }
-  return null;
-};
-
-const WeeklyMoodChart = ({ data }) => (
-  <div className="bg-white border border-neutral-200 rounded-sm">
-    <div className="px-6 pt-6 pb-2">
-      <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Mood Trends</span>
-      <h3 className="mt-1 text-sm font-medium text-neutral-900">Weekly Mood Overview</h3>
-    </div>
-    <div className="px-2 pb-4 h-52">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 20, bottom: 0, left: 0 }}>
-          <defs>
-            <linearGradient id="moodFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.15} />
-              <stop offset="100%" stopColor="#14b8a6" stopOpacity={0} />
-            </linearGradient>
-          </defs>
-          <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a3a3a3', fontWeight: 500 }} dy={8} />
-          <YAxis domain={[0, 10]} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#a3a3a3', fontWeight: 500 }} dx={-4} />
-          <Tooltip content={<MoodTooltip />} cursor={{ stroke: '#d4d4d4', strokeWidth: 1 }} />
-          <Area type="monotone" dataKey="score" stroke="#14b8a6" strokeWidth={2} fill="url(#moodFill)" dot={{ r: 3, fill: '#14b8a6', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#14b8a6', stroke: '#fff', strokeWidth: 2 }} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  </div>
-);
-
-const ActivityHeatmap = ({ entries }) => {
-  const entryDates = useMemo(() => {
-    const dates = new Set();
-    entries.forEach((e) => { dates.add(e.date); });
-    return dates;
-  }, [entries]);
-
-  const weeks = useMemo(() => {
-    const result = [];
-    const today = new Date();
-    const startDate = new Date(today);
-    startDate.setDate(startDate.getDate() - 111);
-
-    const dayOfWeek = startDate.getDay();
-    startDate.setDate(startDate.getDate() - dayOfWeek);
-
-    for (let w = 0; w < 16; w++) {
-      const week = [];
-      for (let d = 0; d < 7; d++) {
-        const date = new Date(startDate);
-        date.setDate(date.getDate() + w * 7 + d);
-        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-        week.push({
-          date: dateStr,
-          hasEntry: entryDates.has(dateStr),
-          isFuture: date > today,
-        });
-      }
-      result.push(week);
-    }
-    return result;
-  }, [entryDates]);
-
-  return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <CalendarDays size={14} className="text-neutral-500" />
-        <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Activity</span>
-      </div>
-      <div className="flex gap-1">
-        <div className="flex flex-col gap-1 mr-2 pt-px">
-          {['S', 'M', 'T', 'W', 'Th', 'F', 'S'].map((label, i) => (
-            <div key={i} className="h-3 min-w-[14px] flex items-center">
-              <span className="text-[8px] leading-none text-neutral-400">{label}</span>
-            </div>
-          ))}
-        </div>
-        {weeks.map((week, wi) => (
-          <div key={wi} className="flex flex-col gap-1">
-            {week.map((day, di) => (
-              <div
-                key={di}
-                className={`size-3 rounded-[3px] transition-colors ${
-                  day.isFuture
-                    ? 'bg-transparent'
-                    : day.hasEntry
-                    ? 'bg-emerald-500'
-                    : 'bg-neutral-100'
-                }`}
-                title={`${day.date}${day.hasEntry ? ' - Journal entry' : ''}`}
-              />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5 mt-3 justify-end">
-        <span className="text-[9px] text-neutral-400">Less</span>
-        <div className="size-3 rounded-[3px] bg-neutral-100" />
-        <div className="size-3 rounded-[3px] bg-emerald-500" />
-        <span className="text-[9px] text-neutral-400">More</span>
-      </div>
-    </div>
-  );
-};
-
-const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
-
 const YourDiary = () => {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-
-  const weeklyMoodData = useMemo(() => {
-    const today = new Date();
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const result = [];
-
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      const dayMoods = entries.filter((e) => e.date === dateStr);
-      const avgScore = dayMoods.length > 0
-        ? Math.round(dayMoods.reduce((sum, e) => sum + (MOOD_SCORE[e.mood] || 5), 0) / dayMoods.length)
-        : 0;
-      result.push({ day: dayNames[date.getDay()], score: avgScore });
-    }
-    return result;
-  }, [entries]);
+  const [editing, setEditing] = useState(null);
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+  // Clamp after deletes so the last page never comes up empty.
+  const currentPage = Math.min(page, totalPages);
 
   useEffect(() => {
     const fetchEntries = async () => {
@@ -298,6 +162,12 @@ const YourDiary = () => {
 
   const handleSave = async (entry) => {
     try {
+      if (editing) {
+        const res = await axiosInstance.patch(`/journal/${editing._id}`, entry);
+        setEntries((prev) => prev.map((e) => (e._id === editing._id ? res.data : e)));
+        toast.success('Entry updated');
+        return true;
+      }
       const res = await axiosInstance.post('/journal', entry);
       setEntries((prev) => [res.data, ...prev]);
       toast.success('Entry saved');
@@ -309,26 +179,34 @@ const YourDiary = () => {
     }
   };
 
-  const handleDelete = async (id) => {
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setDeleting(true);
     try {
-      await axiosInstance.delete(`/journal/${id}`);
-      setEntries((prev) => prev.filter((e) => e._id !== id));
+      await axiosInstance.delete(`/journal/${pendingDelete._id}`);
+      setEntries((prev) => prev.filter((e) => e._id !== pendingDelete._id));
       toast.success('Entry deleted');
+      setPendingDelete(null);
     } catch {
       toast.error('Failed to delete entry');
+    } finally {
+      setDeleting(false);
     }
   };
 
-  if (loading) return <PageShell title="Your Diary" subtitle="A private space for your thoughts and reflections"><PageShellSkeleton showSidebar count={3} /></PageShell>;
+  if (loading) return <PageShell title="My Diary" description="A private space for your thoughts and reflections"><PageShellSkeleton showSidebar count={3} /></PageShell>;
 
   return (
     <PageShell
-      title="Your Diary"
-      subtitle="A private space for your thoughts and reflections"
+      title="My Diary"
+      description="A private space for your thoughts and reflections"
       actions={
         <button
           onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm"
+          className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
         >
           <Plus size={14} /> New Entry
         </button>
@@ -336,28 +214,47 @@ const YourDiary = () => {
     >
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
-          <div className="mb-6">
-            <WeeklyMoodChart data={weeklyMoodData} />
-          </div>
           {entries.length === 0 ? (
             <EmptyState icon={Book} title="No journal entries yet" description="Start writing to track your emotions and thoughts over time." action={
-              <button onClick={() => setModalOpen(true)} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
+              <button onClick={() => setModalOpen(true)} className="px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg">
                 Write First Entry
               </button>
             } />
           ) : (
-            <div className="space-y-px bg-neutral-200 rounded-sm overflow-hidden">
-              {entries.map((e) => <EntryCard key={e._id} entry={e} onDelete={handleDelete} />)}
-            </div>
+            <>
+              <div className="space-y-3">
+                {entries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((e) => (
+                  <EntryCard key={e._id} entry={e} onEdit={(entry) => { setEditing(entry); setModalOpen(true); }} onDelete={setPendingDelete} />
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <Pagination page={currentPage} totalPages={totalPages} total={entries.length} onChange={setPage} />
+              )}
+            </>
           )}
         </div>
         <div className="lg:col-span-1 space-y-6">
           <MoodOverview entries={entries} />
-          <ActivityHeatmap entries={entries} />
         </div>
       </div>
 
-      {modalOpen && <EntryForm onSave={handleSave} onClose={() => setModalOpen(false)} />}
+      <Modal
+        isOpen={!!pendingDelete}
+        onClose={() => { if (!deleting) setPendingDelete(null); }}
+        title="Delete this entry?"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setPendingDelete(null)} disabled={deleting}>Keep entry</Button>
+            <Button variant="destructive" icon={Trash2} onClick={confirmDelete} loading={deleting}>Delete</Button>
+          </div>
+        }
+      >
+        <p className="text-sm leading-relaxed text-ink-soft">
+          <span className="font-semibold text-ink">{pendingDelete?.title}</span> will be permanently removed. This can&apos;t be undone.
+        </p>
+      </Modal>
+
+      {modalOpen && <EntryForm key={editing?._id ?? 'new'} initial={editing} onSave={handleSave} onClose={() => { setModalOpen(false); setEditing(null); }} />}
     </PageShell>
   );
 };

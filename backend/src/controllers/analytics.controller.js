@@ -1,18 +1,39 @@
 import User from "../models/user.model.js";
 import Counselor from "../models/counselor.model.js";
 import Appointment from "../models/appointment.model.js";
+import SessionSummary from "../models/sessionSummary.model.js";
 import JournalEntry from "../models/journalEntry.model.js";
 import SelfCareModule from "../models/selfCareModule.model.js";
 import Resource from "../models/resource.model.js";
 import { getDailyDynamicId } from "../lib/generateId.js";
+import { mapConcernRisk, ARCHIVABLE_STATUSES, counselorVisible } from "../lib/appointmentTriage.js";
 
 const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
 
 export const getDashboard = async (req, res) => {
   try {
     const totalStudents = await User.countDocuments();
-    const completedSessions = await Appointment.countDocuments({ status: { $in: ["completed", "ended"] } });
-    const pendingSessions = await Appointment.countDocuments({ status: { $in: ["pending", "active", "on-going", "paused"] } });
+    const completedSessions = await Appointment.countDocuments({ counselorId: req.user._id, status: { $in: ["completed", "ended"] } });
+    // Requests awaiting this counselor's decision; matches the Requests page and sidebar badge.
+    const pendingSessions = await Appointment.countDocuments({ counselorId: req.user._id, status: "pending", counselorArchived: { $ne: true } });
+
+    // Active students — distinct students with at least one appointment, across all counselors.
+    const activeStudentIds = await Appointment.distinct("studentId");
+
+    // Avg. active students per month — distinct students seen each month
+    // over the last 6 months (all counselors), averaged over months that had activity.
+    const monthly = await Appointment.aggregate([
+      { $group: { _id: {
+        y: { $year: "$createdAt" },
+        m: { $month: "$createdAt" },
+      }, students: { $addToSet: "$studentId" } } },
+      { $project: { count: { $size: "$students" } } },
+      { $sort: { "_id.y": -1, "_id.m": -1 } },
+      { $limit: 6 },
+    ]);
+    const avgActiveStudents = monthly.length > 0
+      ? Math.round(monthly.reduce((sum, mo) => sum + mo.count, 0) / monthly.length)
+      : 0;
 
     const journalEntries = await JournalEntry.find();
     const avgSentiment = journalEntries.length > 0
@@ -24,6 +45,8 @@ export const getDashboard = async (req, res) => {
 
     res.json({
       totalStudents,
+      activeStudents: activeStudentIds.length,
+      avgActiveStudents,
       completedSessions,
       pendingSessions,
       avgSentiment: avgSentiment === "—" ? 0 : parseFloat(avgSentiment),
@@ -32,6 +55,51 @@ export const getDashboard = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in getDashboard:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+/* Weekly Sessions Trend — per-day session counts split by type, for the
+   counselor dashboard's two-line chart. Counts both type spellings that
+   exist in the data ('Face-To-Face' and the legacy 'f2f'). Uses the
+   appointment's createdAt so days align with "this week" even when the
+   date strings use a different locale format. */
+export const getWeeklySessions = async (req, res) => {
+  try {
+    // Rolling 7-day window ending today, oldest first (Mon..Sun order).
+    const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const days = [];
+    const dayKeys = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0, 0, 0, 0);
+      dayKeys.push(d.getTime());
+      days.push({
+        day: weekdays[d.getDay()],
+        date: `${d.getMonth() + 1}/${d.getDate()}`,
+        chat: 0,
+        f2f: 0,
+      });
+    }
+    const since = new Date(dayKeys[0]);
+
+    const sessions = await Appointment.find({ createdAt: { $gte: since } })
+      .select("type createdAt")
+      .lean();
+
+    sessions.forEach((s) => {
+      const d = new Date(s.createdAt);
+      d.setHours(0, 0, 0, 0);
+      const idx = dayKeys.indexOf(d.getTime());
+      if (idx === -1) return;
+      if (s.type === "Chat") days[idx].chat += 1;
+      else if (s.type === "Face-To-Face" || s.type === "f2f") days[idx].f2f += 1;
+    });
+
+    res.json(days);
+  } catch (error) {
+    console.error("Error in getWeeklySessions:", error.message);
     res.status(500).json({ error: "Internal server error" });
   }
 };
@@ -77,26 +145,56 @@ export const getSessionDistribution = async (req, res) => {
 
 export const getUpcomingSessions = async (req, res) => {
   try {
-    const sessions = await Appointment.find({
-      counselorId: req.user._id,
-      counselorArchived: { $ne: true },
-      status: { $in: ["pending", "active", "declined", "completed", "cancelled", "on-going", "paused", "ended"] },
-    })
+    // ?archived=1 lists what the counselor cleared or archived (read-only on the client).
+    const archived = req.query.archived === "1";
+    const sessions = await Appointment.find(archived
+      ? { counselorId: req.user._id, counselorArchived: true, status: { $in: ARCHIVABLE_STATUSES } }
+      : {
+        counselorId: req.user._id,
+        ...counselorVisible,
+        status: { $in: ["pending", "active", "declined", "completed", "cancelled", "on-going", "paused", "ended"] },
+      })
       .sort({ createdAt: -1 })
-      .limit(20);
+      .limit(archived ? 200 : 20);
 
     const studentIds = [...new Set(sessions.map((s) => s.studentId))];
-    const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId").lean();
-    const dynamicMap = Object.fromEntries(students.map((s) => [String(s._id), s.dynamicId]));
+    const students = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName showNameToCounselor").lean();
+    const studentMap = Object.fromEntries(students.map((s) => [String(s._id), s]));
+
+    const summaries = await SessionSummary.find({ appointmentId: { $in: sessions.map((s) => s._id) } })
+      .select("appointmentId summary generatedAt editedAt generatedByAi")
+      .lean();
+    const summaryMap = Object.fromEntries(summaries.map((summary) => [String(summary.appointmentId), summary]));
+
+    const counselorIds = [...new Set(
+      sessions.flatMap((s) => [s.counselorId, s.referredById]).filter(Boolean).map(String)
+    )];
+    const counselors = counselorIds.length > 0
+      ? await Counselor.find({ _id: { $in: counselorIds } }).select("fullName").lean()
+      : [];
+    const counselorMap = Object.fromEntries(counselors.map((c) => [String(c._id), c.fullName]));
 
     const result = sessions.map((s) => ({
       _id: s._id,
-      id: `STU-${getDailyDynamicId(dynamicMap[String(s.studentId)]) || s.studentId}`,
+      id: `STU-${getDailyDynamicId(studentMap[String(s.studentId)]?.dynamicId) || s.studentId}`,
       studentId: s.studentId,
+      studentName: studentMap[String(s.studentId)]?.showNameToCounselor
+        ? studentMap[String(s.studentId)].fullName
+        : null,
       type: s.type,
       time: s.time,
       date: s.date,
+      concern: s.concern,
+      concernRisk: mapConcernRisk(s.concernRisk, s.concern),
       status: s.status,
+      counselorId: s.counselorId,
+      counselorName: counselorMap[String(s.counselorId)] || null,
+      referredByName: s.referredById ? counselorMap[String(s.referredById)] || null : null,
+      actionTaken: s.actionTaken || null,
+      summary: summaryMap[String(s._id)]?.summary || null,
+      summaryGeneratedAt: summaryMap[String(s._id)]?.generatedAt || null,
+      summaryEditedAt: summaryMap[String(s._id)]?.editedAt || null,
+      summaryGeneratedByAi: summaryMap[String(s._id)]?.generatedByAi ?? null,
     }));
     res.json(result);
   } catch (error) {
@@ -199,7 +297,7 @@ export const getStudentInfo = async (req, res) => {
       _id: student._id,
       studentId: student.studentId,
       dynamicId: getDailyDynamicId(student.dynamicId),
-      fullName: student.fullName,
+      fullName: student.showNameToCounselor ? student.fullName : null,
       department: student.department,
       program: student.program,
       yearLevel: student.yearLevel || 1,

@@ -1,122 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
-import { Trash2, Search, Eye, Heart, Megaphone, PenSquare, RotateCcw, ArchiveRestore, Plus, Image, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Trash2, Search, Eye, Heart, Megaphone, PenSquare, RotateCcw, ArchiveRestore, Plus } from 'lucide-react';
 import { axiosInstance } from '../lib/axios';
 import { getSocket } from '../lib/socket';
-import { compressImage } from '../lib/compressImage';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../ui/EmptyState';
 import TextWithLinks from '../components/TextWithLinks';
-import Modal from '../components/Modal';
+import EditAnnouncementModal from '../components/modals/EditAnnouncementModal';
 import { toast } from 'react-toastify';
 
 const getTotalReactions = (reactions) => {
   if (!reactions || typeof reactions !== 'object') return 0;
   return Object.values(reactions).reduce((sum, users) => sum + (Array.isArray(users) ? users.length : 0), 0);
-};
-
-const MAX_IMAGES = 4;
-
-const EditAnnouncementModal = ({ isOpen, onClose, announcement, onSave }) => {
-  const [title, setTitle] = useState(announcement?.title || '');
-  const [body, setBody] = useState(announcement?.body || '');
-  const [images, setImages] = useState(announcement?.images || []);
-  const fileInputRef = useRef(null);
-
-  const handleImageSelect = async (e) => {
-    const files = Array.from(e.target.files || []);
-    const remaining = MAX_IMAGES - images.length;
-    const toAdd = files.slice(0, remaining);
-    const compressed = await Promise.all(
-      toAdd.map((file) => new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target.result);
-        reader.readAsDataURL(file);
-      })).map((p) => p.then(compressImage))
-    );
-    setImages((prev) => [...prev, ...compressed]);
-    e.target.value = '';
-  };
-
-  const removeImage = (index) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!title.trim() || !body.trim()) return;
-    await onSave({ title: title.trim(), body: body.trim(), images });
-  };
-
-  const isCreate = !announcement;
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isCreate ? 'Create Announcement' : 'Edit Announcement'}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Title</label>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Announcement title..."
-            className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Body</label>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Write your announcement..."
-            rows={5}
-            className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors resize-y min-h-[100px]"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">
-            Images ({images.length}/{MAX_IMAGES})
-          </label>
-          {images.length > 0 && (
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              {images.map((img, i) => (
-                <div key={i} className="relative group rounded-sm overflow-hidden border border-neutral-200">
-                  <img src={img} alt="" className="w-full h-28 object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    className="absolute top-1.5 right-1.5 size-5 flex items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          {images.length < MAX_IMAGES && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-dashed border-neutral-300 rounded-sm text-xs text-neutral-500 hover:border-neutral-500 hover:text-neutral-700 transition-colors"
-            >
-              <Image size={14} /> Add image or GIF
-            </button>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            multiple
-            onChange={handleImageSelect}
-            className="hidden"
-          />
-        </div>
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-          <button type="submit" className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">{isCreate ? 'Create' : 'Save Changes'}</button>
-        </div>
-      </form>
-    </Modal>
-  );
 };
 
 const CounselorAnnouncementManagerPage = () => {
@@ -190,8 +85,11 @@ const CounselorAnnouncementManagerPage = () => {
       setDeletedAnnouncements((prev) => prev.filter((a) => !selected.has(a._id)));
       setSelected(new Set());
       toast.success(`${showDeleted ? 'Permanently deleted' : 'Deleted'} ${selected.size} announcement(s)`);
-    } catch {
-      toast.error('Failed to delete announcements');
+    } catch (err) {
+      const message = err.response?.status === 401
+        ? 'Your session has expired — please sign in again.'
+        : 'Failed to delete announcements';
+      toast.error(message);
     }
   };
 
@@ -203,7 +101,7 @@ const CounselorAnnouncementManagerPage = () => {
       toast(
         ({ closeToast }) => (
           <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-900">Deleted "{title}"</span>
+            <span className="text-sm text-ink">Deleted "{title}"</span>
             <button
               onClick={async () => {
                 try {
@@ -215,7 +113,7 @@ const CounselorAnnouncementManagerPage = () => {
                   toast.error('Failed to restore');
                 }
               }}
-              className="px-3 py-1 text-xs font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 rounded-sm transition-colors"
+              className="px-3 py-1 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 rounded-lg transition-colors"
             >
               Undo
             </button>
@@ -223,8 +121,11 @@ const CounselorAnnouncementManagerPage = () => {
         ),
         { autoClose: 5000 }
       );
-    } catch {
-      toast.error('Failed to delete announcement');
+    } catch (err) {
+      const message = err.response?.status === 401
+        ? 'Your session has expired — please sign in again.'
+        : 'Failed to delete announcement';
+      toast.error(message);
     }
   };
 
@@ -250,25 +151,42 @@ const CounselorAnnouncementManagerPage = () => {
 
   const handleCreate = async (data) => {
     try {
-      const res = await axiosInstance.post('/announcements', { ...data, author: 'Counseling Office' });
+      const payload = new FormData();
+      payload.append('title', data.title);
+      payload.append('body', data.body);
+      payload.append('author', 'Counseling Office');
+      payload.append('existingImages', JSON.stringify(data.existingImages || []));
+      (data.files || []).forEach((file) => payload.append('images', file));
+      const res = await axiosInstance.post('/announcements', payload);
       setAnnouncements((prev) => [res.data, ...prev]);
       setCreateModalOpen(false);
       toast.success('Announcement created');
-    } catch {
-      toast.error('Failed to create announcement');
+    } catch (err) {
+      const message = err.response?.status === 401
+        ? 'Your session has expired — please sign in again.'
+        : err.response?.data?.error || 'Failed to create announcement';
+      toast.error(message);
     }
   };
 
   const handleEdit = async (data) => {
     if (!editingAnnouncement) return;
     try {
-      const res = await axiosInstance.put(`/announcements/${editingAnnouncement._id}`, data);
+      const payload = new FormData();
+      payload.append('title', data.title);
+      payload.append('body', data.body);
+      payload.append('existingImages', JSON.stringify(data.existingImages || []));
+      (data.files || []).forEach((file) => payload.append('images', file));
+      const res = await axiosInstance.put(`/announcements/${editingAnnouncement._id}`, payload);
       setAnnouncements((prev) => prev.map((a) => (a._id === editingAnnouncement._id ? res.data : a)));
       setEditModalOpen(false);
       setEditingAnnouncement(null);
       toast.success('Announcement updated');
-    } catch {
-      toast.error('Failed to update announcement');
+    } catch (err) {
+      const message = err.response?.status === 401
+        ? 'Your session has expired — please sign in again.'
+        : err.response?.data?.error || 'Failed to update announcement';
+      toast.error(message);
     }
   };
 
@@ -280,7 +198,9 @@ const CounselorAnnouncementManagerPage = () => {
     : '0.0';
   const totalReactions = announcements.reduce((sum, a) => sum + getTotalReactions(a.reactions), 0);
   const mostReacted = announcements.length > 0
-    ? announcements.sort((a, b) => getTotalReactions(b.reactions) - getTotalReactions(a.reactions))[0].title
+    ? announcements.reduce((most, announcement) => (
+      getTotalReactions(announcement.reactions) > getTotalReactions(most.reactions) ? announcement : most
+    ), announcements[0]).title
     : '—';
 
   const metrics = [
@@ -290,67 +210,58 @@ const CounselorAnnouncementManagerPage = () => {
     { label: 'Most Reactions', value: mostReacted },
   ];
 
-  if (loading) return <PageShell title="Announcement Manager" subtitle="Monitor and manage all campus announcements"><PageShellSkeleton columns={4} count={4} /></PageShell>;
+  if (loading) return <PageShell title="Announcement Management" description="Monitor and manage all campus announcements"><PageShellSkeleton count={4} /></PageShell>;
 
   return (
     <PageShell
-      title="Announcement Manager"
-      subtitle="Monitor and manage all campus announcements"
+      title="Announcement Management"
+      description="Monitor and manage all campus announcements"
       actions={
         selected.size > 0 ? (
-          <button onClick={handleBatchDelete} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-red-600 hover:bg-red-700 transition-colors rounded-sm">
+          <button onClick={handleBatchDelete} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-danger hover:bg-danger/90 transition-colors rounded-lg">
             <Trash2 size={14} /> {showDeleted ? 'Permanently Delete' : 'Delete'} {selected.size}
           </button>
         ) : !showDeleted ? (
-          <button onClick={() => setCreateModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
+          <button onClick={() => setCreateModalOpen(true)} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg">
             <Plus size={14} /> New Announcement
           </button>
         ) : null
       }
     >
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-px bg-neutral-200 rounded-sm overflow-hidden mb-6">
-        {metrics.map((m) => (
-          <div key={m.label} className="bg-white px-6 py-5">
-            <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">{m.label}</span>
-            <p className="mt-1.5 text-lg font-medium text-neutral-900 truncate">{m.value}</p>
-          </div>
-        ))}
-      </div>
-
       <div className="flex items-center gap-4 mb-4">
         <button
           onClick={() => { setShowDeleted(false); setSelected(new Set()); setSearch(''); }}
-          className={`text-[11px] font-semibold tracking-[0.1em] uppercase pb-1 border-b-2 transition-colors ${!showDeleted ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-400 hover:text-neutral-700'}`}
+          className={`text-xs font-semibold pb-1 border-b-2 transition-colors ${!showDeleted ? 'border-brand-600 text-ink' : 'border-transparent text-ink-muted hover:text-ink-soft'}`}
         >
           Active ({announcements.length})
         </button>
         <button
           onClick={() => { setShowDeleted(true); setSelected(new Set()); setSearch(''); }}
-          className={`inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.1em] uppercase pb-1 border-b-2 transition-colors ${showDeleted ? 'border-neutral-900 text-neutral-900' : 'border-transparent text-neutral-400 hover:text-neutral-700'}`}
+          className={`inline-flex items-center gap-1.5 text-xs font-semibold pb-1 border-b-2 transition-colors ${showDeleted ? 'border-brand-600 text-ink' : 'border-transparent text-ink-muted hover:text-ink-soft'}`}
         >
           <ArchiveRestore size={13} /> Deleted ({deletedAnnouncements.length})
         </button>
       </div>
 
       <div className="mb-4 relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by title or author..."
-          className="w-full max-w-xs pl-9 pr-3 py-2 bg-transparent border border-neutral-200 text-sm rounded-sm text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors"
+          className="w-full max-w-xs pl-9 pr-3 py-2 bg-transparent border border-line text-sm rounded-lg text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors"
         />
       </div>
 
       {filtered.length === 0 ? (
         <EmptyState icon={showDeleted ? ArchiveRestore : Megaphone} title={showDeleted ? 'No deleted announcements' : 'No announcements found'} description="Try adjusting your search." />
       ) : (
-        <div className="bg-white border border-neutral-200 rounded-sm overflow-hidden">
+        <div className="bg-surface border border-line rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-neutral-100">
-                  <th className="px-6 py-3.5 w-10">
+                <tr className="border-b border-line">
+                  <th className="px-3 py-3.5 sm:px-6 w-10">
                     <input
                       type="checkbox"
                       checked={selected.size === filtered.length && filtered.length > 0}
@@ -358,20 +269,20 @@ const CounselorAnnouncementManagerPage = () => {
                         if (selected.size === filtered.length) setSelected(new Set());
                         else setSelected(new Set(filtered.map((a) => a._id)));
                       }}
-                      className="size-3.5 rounded-sm border-neutral-300 text-neutral-900 focus:ring-0"
+                      className="size-3.5 rounded-lg border-line-strong text-ink focus:ring-0"
                     />
                   </th>
-                  <th className="px-6 py-3.5 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Title</th>
-                  <th className="px-6 py-3.5 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Author</th>
-                  <th className="px-6 py-3.5 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Date</th>
-                  <th className="px-6 py-3.5 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">
+                  <th className="px-3 py-3.5 sm:px-6 min-w-44 text-xs font-semibold text-ink-muted">Title</th>
+                  <th className="hidden lg:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">Author</th>
+                  <th className="hidden lg:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">Date</th>
+                  <th className="hidden xl:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">
                     <span className="inline-flex items-center gap-1"><Eye size={11} /> Views</span>
                   </th>
-                  <th className="px-6 py-3.5 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">
+                  <th className="hidden xl:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">
                     <span className="inline-flex items-center gap-1"><Heart size={11} /> Reactions</span>
                   </th>
-                  <th className="px-6 py-3.5 text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">Engagement</th>
-                  <th className="px-6 py-3.5 w-20" />
+                  <th className="hidden xl:table-cell px-6 py-3.5 text-xs font-semibold text-ink-muted">Engagement</th>
+                  <th className="px-3 py-3.5 sm:px-6 w-24 sm:w-32" />
                 </tr>
               </thead>
               <tbody>
@@ -379,45 +290,72 @@ const CounselorAnnouncementManagerPage = () => {
                   const totalReactionCount = getTotalReactions(a.reactions);
                   const engagement = a.views > 0 ? Math.min((totalReactionCount / (a.views * 5)) * 100, 100).toFixed(1) : '0.0';
                   return (
-                    <tr key={a._id} className="border-b border-neutral-100 last:border-b-0 hover:bg-neutral-50 transition-colors">
-                      <td className="px-6 py-3.5">
+                    <tr key={a._id} className="border-b border-line last:border-b-0 hover:bg-canvas transition-colors">
+                      <td className="px-3 py-3.5 sm:px-6">
                         <input
                           type="checkbox"
                           checked={selected.has(a._id)}
                           onChange={() => toggleSelect(a._id)}
-                          className="size-3.5 rounded-sm border-neutral-300 text-neutral-900 focus:ring-0"
+                          className="size-3.5 rounded-lg border-line-strong text-ink focus:ring-0"
                         />
                       </td>
-                      <td className="px-6 py-3.5">
-                        <span className="text-sm font-medium text-neutral-900">{a.title}</span>
+                      <td className="px-3 py-3.5 sm:px-6">
+                        <span className="text-sm font-medium text-ink">{a.title}</span>
                         <TextWithLinks text={a.body} maxLines={1} className="mt-0.5" />
+                        {/* columns hidden below lg/xl collapse into this line */}
+                        <span className="mt-1 block text-xs text-ink-muted lg:hidden">
+                          {a.author} · {a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-ink-muted xl:hidden">
+                          {a.views || 0} views · {totalReactionCount} reactions · {engagement}%
+                        </span>
                       </td>
-                      <td className="px-6 py-3.5 text-sm text-neutral-600">{a.author}</td>
-                      <td className="px-6 py-3.5 text-sm text-neutral-500">{a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}</td>
-                      <td className="px-6 py-3.5">
-                        <span className="inline-flex items-center gap-1.5 text-sm text-neutral-600"><Eye size={12} className="text-neutral-400" /> {a.views || 0}</span>
+                      <td className="hidden lg:table-cell px-6 py-3.5 text-sm text-ink-soft">{a.author}</td>
+                      <td className="hidden lg:table-cell px-6 py-3.5 text-sm text-ink-muted">{a.date || (a.createdAt ? new Date(a.createdAt).toLocaleDateString() : '—')}</td>
+                      <td className="hidden xl:table-cell px-6 py-3.5">
+                        <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><Eye size={12} className="text-ink-muted" /> {a.views || 0}</span>
                       </td>
-                      <td className="px-6 py-3.5">
-                        <span className="inline-flex items-center gap-1.5 text-sm text-neutral-600"><Heart size={12} className="text-neutral-400" /> {totalReactionCount}</span>
+                      <td className="hidden xl:table-cell px-6 py-3.5">
+                        <span className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><Heart size={12} className="text-ink-muted" /> {totalReactionCount}</span>
                       </td>
-                      <td className="px-6 py-3.5 text-sm text-neutral-500">{engagement}%</td>
-                      <td className="px-6 py-3.5 text-right">
+                      <td className="hidden xl:table-cell px-6 py-3.5 text-sm text-ink-muted">{engagement}%</td>
+                      <td className="px-3 py-3.5 sm:px-6 text-right">
                         {showDeleted ? (
-                          <div className="flex items-center gap-3 justify-end">
-                            <button onClick={() => handleRestoreSingle(a._id)} className="text-neutral-400 hover:text-green-600 transition-colors" title="Restore">
-                              <RotateCcw size={14} />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              onClick={() => handleRestoreSingle(a._id)}
+                              className="size-8 flex items-center justify-center rounded-lg border border-line bg-surface text-ink-muted hover:text-success-ink hover:border-success/30 transition-colors"
+                              title="Restore"
+                              aria-label={`Restore ${a.title}`}
+                            >
+                              <RotateCcw size={15} />
                             </button>
-                            <button onClick={() => handlePermanentDelete(a._id, a.title)} className="text-neutral-400 hover:text-red-600 transition-colors" title="Permanently delete">
-                              <Trash2 size={14} />
+                            <button
+                              onClick={() => handlePermanentDelete(a._id, a.title)}
+                              className="size-8 flex items-center justify-center rounded-lg border border-line bg-surface text-ink-muted hover:text-danger-ink hover:border-danger/30 transition-colors"
+                              title="Permanently delete"
+                              aria-label={`Permanently delete ${a.title}`}
+                            >
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-4 justify-end">
-                            <button onClick={() => { setEditingAnnouncement(a); setEditModalOpen(true); }} className="text-neutral-400 hover:text-neutral-900 transition-colors" title="Edit">
-                              <PenSquare size={14} />
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              onClick={() => { setEditingAnnouncement(a); setEditModalOpen(true); }}
+                              className="size-8 flex items-center justify-center rounded-lg border border-line bg-surface text-ink-muted hover:text-ink hover:border-line-strong transition-colors"
+                              title="Edit"
+                              aria-label={`Edit ${a.title}`}
+                            >
+                              <PenSquare size={15} />
                             </button>
-                            <button onClick={() => handleDeleteSingle(a._id, a.title)} className="text-neutral-400 hover:text-red-600 transition-colors" title="Delete">
-                              <Trash2 size={14} />
+                            <button
+                              onClick={() => handleDeleteSingle(a._id, a.title)}
+                              className="size-8 flex items-center justify-center rounded-lg border border-line bg-surface text-ink-muted hover:text-danger-ink hover:border-danger/30 transition-colors"
+                              title="Delete"
+                              aria-label={`Delete ${a.title}`}
+                            >
+                              <Trash2 size={15} />
                             </button>
                           </div>
                         )}

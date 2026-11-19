@@ -1,9 +1,17 @@
 import AvailabilitySlot from "../models/availabilitySlot.model.js";
 import Counselor from "../models/counselor.model.js";
+import { appointmentStart } from "../lib/appointmentTriage.js";
+
+// Students only see slots they can still book; counselors keep their history.
+const forViewer = (req, slots) => {
+  if (req.user?.constructor?.modelName !== "User") return slots;
+  const now = new Date();
+  return slots.filter((slot) => (appointmentStart(slot) ?? 0) > now);
+};
 
 export const getAllSlots = async (req, res) => {
   try {
-    const slots = await AvailabilitySlot.find().sort({ date: 1, time: 1 });
+    const slots = forViewer(req, await AvailabilitySlot.find().sort({ date: 1, time: 1 }));
     const counselorIds = [...new Set(slots.map((slot) => slot.counselorId))];
     const counselors = counselorIds.length > 0
       ? await Counselor.find({ _id: { $in: counselorIds } }).select("fullName _id").lean()
@@ -27,7 +35,7 @@ export const getSlots = async (req, res) => {
     const filter = { counselorId: Number(counselorId) };
     if (date) filter.date = date;
     const slots = await AvailabilitySlot.find(filter).sort({ date: 1, time: 1 });
-    res.json(slots);
+    res.json(forViewer(req, slots));
   } catch (error) {
     console.error("Error in getSlots:", error.message);
     res.status(500).json({ error: "Internal server error" });

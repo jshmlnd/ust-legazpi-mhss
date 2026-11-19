@@ -1,28 +1,31 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Shield, Mail, Hash, Building2, BookOpen, Eye, EyeOff, Check, X, Loader, Pencil, KeyRound, Settings } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { axiosInstance } from '../lib/axios';
 import { usePrefs } from '../lib/prefs';
-import PageShell from '../components/PageShell';
+import PageShell from '../ui/PageShell';
+import { Toggle, PinInput } from '../ui';
 import SectionDivider from '../components/SectionDivider';
 import AvatarUpload from '../components/AvatarUpload';
+import TotpModal from '../components/modals/TotpModal';
 import { toast } from 'react-toastify';
 
 const StrengthBar = ({ score }) => {
   const levels = [
-    { label: 'Weak', color: 'bg-red-500', width: '25%', textColor: 'text-red-600' },
+    { label: 'Weak', color: 'bg-danger-soft0', width: '25%', textColor: 'text-danger-ink' },
     { label: 'Fair', color: 'bg-orange-500', width: '50%', textColor: 'text-orange-600' },
-    { label: 'Good', color: 'bg-amber-500', width: '75%', textColor: 'text-amber-600' },
-    { label: 'Strong', color: 'bg-emerald-500', width: '100%', textColor: 'text-emerald-600' },
+    { label: 'Good', color: 'bg-warning-soft0', width: '75%', textColor: 'text-warning-ink' },
+    { label: 'Strong', color: 'bg-brand-soft0', width: '100%', textColor: 'text-brand-soft-ink' },
   ];
   const level = levels[Math.min(score, 3)];
 
   return (
     <div>
-      <div className="h-1 bg-neutral-100 rounded-full overflow-hidden mt-1.5">
+      <div className="h-1 bg-line rounded-full overflow-hidden mt-1.5">
         <div className={`h-full rounded-full transition-all duration-500 ${level.color}`} style={{ width: level.width }} />
       </div>
-      <p className={`text-[10px] font-medium mt-1 ${level.textColor}`}>{level.label} password</p>
+      <p className={`text-xs font-medium mt-1 ${level.textColor}`}>{level.label} password</p>
     </div>
   );
 };
@@ -37,29 +40,51 @@ const getPasswordStrength = (pw) => {
 };
 
 const ValidationRule = ({ passes, label }) => (
-  <div className={`flex items-center gap-2 text-[11px] ${passes ? 'text-emerald-600' : 'text-neutral-400'}`}>
+  <div className={`flex items-center gap-2 text-xs ${passes ? 'text-brand-soft-ink' : 'text-ink-muted'}`}>
     {passes ? <Check size={12} /> : <X size={12} />}
     {label}
   </div>
 );
 
-const SecurityCard = () => {
+const SecurityCard = ({ onGoToPreferences }) => {
   const { authUser } = useAuthStore();
   const [form, setForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [show, setShow] = useState({ current: false, new: false, confirm: false });
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const [hasPin, setHasPin] = useState(!!authUser?.pin);
-  // Modes: 'setup' | 'verify' | 'change-verify' | 'change-set'
-  const [pinMode, setPinMode] = useState(hasPin ? 'verify' : 'setup');
+  const [hasPin, setHasPin] = useState(!!authUser?.hasPin);
+  const totpOn = !!authUser?.totpEnabled;
+  const twoFAEnabled = !!authUser?.twoFactorEnabled;
+  // A second factor (authenticator app, PIN 2FA, or a plain PIN) gates the
+  // password form until verified. TOTP-only accounts verify with a code.
+  const needsVerification = hasPin || twoFAEnabled || totpOn;
+  // Modes: 'setup' | 'verify' | 'change-verify' | 'change-set' | 'remove-verify'
+  const [pinMode, setPinMode] = useState(needsVerification ? 'verify' : 'setup');
   const [pinValue, setPinValue] = useState('');
   const [pinConfirm, setPinConfirm] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
   const [pinVerified, setPinVerified] = useState(false);
 
-  const twoFAEnabled = !!authUser?.twoFactorEnabled;
-  const pinSatisfied = !twoFAEnabled || pinVerified;
+  // Render-time adjustment (avoids setState-in-effect): when the account's
+  // PIN existence changes externally (e.g. 2FA toggled in Preferences while
+  // this card is mounted), realign hasPin and the PIN mode during render.
+  const [lastSeenPin, setLastSeenPin] = useState(!!authUser?.hasPin);
+  if (lastSeenPin !== !!authUser?.hasPin) {
+    const pinExists = !!authUser?.hasPin;
+    setLastSeenPin(pinExists);
+    setHasPin(pinExists);
+    setPinMode((m) => {
+      if (pinExists && m === 'setup') return 'verify';
+      // No PIN left: drop to setup only when no other factor gates the form.
+      if (!pinExists && m !== 'setup' && !totpOn && !twoFAEnabled) return 'setup';
+      return m;
+    });
+  }
+
+  // Password change is gated while any second factor is active (PIN 2FA or
+  // authenticator app) until the user verifies it with the current code.
+  const pinSatisfied = (!twoFAEnabled && !totpOn) || pinVerified;
 
   const strength = getPasswordStrength(form.newPassword);
   const passwordsMatch = form.newPassword === form.confirmPassword && form.confirmPassword.length > 0;
@@ -71,8 +96,8 @@ const SecurityCard = () => {
   const canSubmit = form.currentPassword.length > 0 && form.newPassword.length >= 8 && passwordsMatch && pinSatisfied;
   const isChangeSet = pinMode === 'change-set';
   const canSetPin = pinMode === 'setup' || isChangeSet
-    ? pinValue.length >= 4 && pinValue === pinConfirm
-    : pinValue.length >= 4;
+    ? pinValue.length >= 6 && pinValue === pinConfirm
+    : pinValue.length >= 4; // verify modes: 4–6 digit PINs and 6-digit TOTP codes
 
   const handleChange = (e) => setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -84,6 +109,7 @@ const SecurityCard = () => {
     try {
       await axiosInstance.post('/auth/pin', { pin: pinValue });
       setHasPin(true);
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, hasPin: true } : s.authUser }));
       setPinMode('verify');
       resetPinInputs();
       setStatus({ type: 'success', message: 'PIN set successfully.' });
@@ -98,9 +124,11 @@ const SecurityCard = () => {
     setPinLoading(true);
     setStatus(null);
     try {
+      // /auth/pin/verify accepts a TOTP code when the authenticator app is
+      // enrolled (server-side precedence), otherwise the account PIN.
       await axiosInstance.post('/auth/pin/verify', { pin: pinValue });
       setPinVerified(true);
-      setStatus({ type: 'success', message: 'PIN verified. You can now change your password.' });
+      setStatus({ type: 'success', message: 'Verified. You can now change your password.' });
     } catch (err) {
       setStatus({ type: 'error', message: err.response?.data?.message || 'Failed to verify PIN.' });
     } finally {
@@ -112,10 +140,28 @@ const SecurityCard = () => {
     setPinLoading(true);
     setStatus(null);
     try {
-      await axiosInstance.post('/auth/pin/verify', { pin: pinValue });
+      // PIN management always requires the actual PIN, never a TOTP code.
+      await axiosInstance.post('/auth/pin/verify', { pin: pinValue, expect: 'pin' });
       setPinMode('change-set');
       resetPinInputs();
       setStatus({ type: 'success', message: 'Current PIN verified. Enter your new PIN below.' });
+    } catch (err) {
+      setStatus({ type: 'error', message: err.response?.data?.message || 'Incorrect PIN.' });
+    } finally {
+      setPinLoading(false);
+    }
+  };
+
+  const handleRemovePin = async () => {
+    setPinLoading(true);
+    setStatus(null);
+    try {
+      await axiosInstance.delete('/auth/pin', { data: { pin: pinValue } });
+      setHasPin(false);
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, hasPin: false, twoFactorEnabled: false } : s.authUser }));
+      setPinMode('setup');
+      resetPinInputs();
+      setStatus({ type: 'success', message: 'PIN removed successfully.' });
     } catch (err) {
       setStatus({ type: 'error', message: err.response?.data?.message || 'Incorrect PIN.' });
     } finally {
@@ -148,56 +194,64 @@ const SecurityCard = () => {
     }
   };
 
-  const inputClass = 'w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 pr-9 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors';
+  const inputClass = 'w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2.5 pr-9 text-ink placeholder:text-ink-muted focus:border-brand-600 outline-none transition-colors';
 
   const pinLabel = pinMode === 'setup'
     ? 'Set a PIN (required to change password)'
     : pinMode === 'verify'
-      ? 'Enter your PIN to unlock password change'
+      ? totpOn
+        ? 'Enter the code from your authenticator app to unlock password change'
+        : 'Enter your PIN to unlock password change'
       : pinMode === 'change-verify'
-        ? 'Enter current PIN to authorize change'
-        : 'Set your new PIN';
+        ? totpOn
+          ? 'Enter an authenticator code to authorize the change'
+          : 'Enter current PIN to authorize change'
+        : pinMode === 'remove-verify'
+          ? 'Enter current PIN to remove PIN'
+          : 'Set your new PIN';
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-6">
+    <div className="bg-surface border border-line rounded-lg p-6">
       <div className="flex items-center gap-2.5 mb-5">
-        <div className="size-9 rounded-sm bg-neutral-100 flex items-center justify-center text-neutral-500">
+        <div className="size-9 rounded-lg bg-line flex items-center justify-center text-ink-muted">
           <Shield size={16} />
         </div>
         <div>
-          <h3 className="text-sm font-medium text-neutral-900">Security Settings</h3>
-          <p className="text-[11px] text-neutral-400">{twoFAEnabled ? 'Verify your PIN, then change your password' : 'Change your password'}</p>
+          <h3 className="text-sm font-medium text-ink">Security Settings</h3>
+          <p className="text-xs text-ink-muted">{(twoFAEnabled || totpOn) ? 'Verify your second factor, then change your password' : 'Change your password'}</p>
         </div>
       </div>
 
       {status && (
-        <div className={`mb-4 px-4 py-3 rounded-sm text-xs font-medium border ${
-          status.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'
+        <div className={`mb-4 px-4 py-3 rounded-lg text-xs font-medium border ${
+          status.type === 'success' ? 'bg-brand-soft text-brand-soft-ink border-brand-200' : 'bg-danger-soft text-danger-ink border-danger/30'
         }`}>
           {status.message}
         </div>
       )}
 
-      {/* PIN Section */}
-      {(twoFAEnabled && !pinVerified) && (
-      <div className="mb-5 pb-5 border-b border-neutral-100">
+      {/* 2FA verification section — shown while any second factor gates the
+          password form; accepts an authenticator code (TOTP) or the PIN. */}
+      {((twoFAEnabled || hasPin || totpOn) && !pinVerified) && (
+      <div className="mb-5 pb-5 border-b border-line">
         <div className="flex items-center gap-2 mb-3">
-          <KeyRound size={14} className="text-neutral-400" />
-          <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">{pinLabel}</span>
+          <KeyRound size={14} className="text-ink-muted" />
+          <span className="text-xs font-semibold text-ink-muted">{pinLabel}</span>
         </div>
 
         {pinMode === 'setup' ? (
           <form onSubmit={(e) => { e.preventDefault(); handleSetPin(); }} className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New PIN</label>
-              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="At least 4 digits" maxLength={6} className={inputClass} />
+              <label className="text-xs font-semibold text-ink-muted">New PIN</label>
+              <PinInput value={pinValue} onChange={setPinValue} ariaLabel="New PIN digits" className="max-w-xs" />
+              <p className="text-xs text-ink-muted">Use 4–6 digits.</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm PIN</label>
-              <input type="password" value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Confirm PIN" maxLength={6} className={inputClass} />
+              <label className="text-xs font-semibold text-ink-muted">Confirm PIN</label>
+              <PinInput value={pinConfirm} onChange={setPinConfirm} error={pinValue.length > 0 && pinValue !== pinConfirm} ariaLabel="Confirm PIN digits" className="max-w-xs" />
             </div>
-            {pinValue.length > 0 && pinValue !== pinConfirm && <p className="text-[11px] text-red-500">PINs do not match</p>}
-            <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+            {pinValue.length > 0 && pinValue !== pinConfirm && <p className="text-xs text-danger">PINs do not match</p>}
+            <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg">
               {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
               Set PIN
             </button>
@@ -205,15 +259,15 @@ const SecurityCard = () => {
         ) : pinMode === 'change-verify' ? (
           <form onSubmit={(e) => { e.preventDefault(); handleChangePinVerify(); }} className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current PIN</label>
-              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter current PIN" maxLength={6} className={inputClass} />
+              <label className="text-xs font-semibold text-ink-muted">Current PIN</label>
+              <PinInput value={pinValue} onChange={setPinValue} ariaLabel="Current PIN digits" className="max-w-xs" />
             </div>
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg">
                 {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
                 Verify Current PIN
               </button>
-              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-xs font-medium text-ink-muted hover:text-ink transition-colors">
                 Cancel
               </button>
             </div>
@@ -221,20 +275,37 @@ const SecurityCard = () => {
         ) : pinMode === 'change-set' ? (
           <form onSubmit={(e) => { e.preventDefault(); handleSetPin(); }} className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New PIN</label>
-              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="At least 4 digits" maxLength={6} className={inputClass} />
+              <label className="text-xs font-semibold text-ink-muted">New PIN</label>
+              <PinInput value={pinValue} onChange={setPinValue} ariaLabel="New PIN digits" className="max-w-xs" />
+              <p className="text-xs text-ink-muted">Use 4–6 digits.</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm New PIN</label>
-              <input type="password" value={pinConfirm} onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Confirm new PIN" maxLength={6} className={inputClass} />
+              <label className="text-xs font-semibold text-ink-muted">Confirm New PIN</label>
+              <PinInput value={pinConfirm} onChange={setPinConfirm} error={pinValue.length > 0 && pinValue !== pinConfirm} ariaLabel="Confirm New PIN digits" className="max-w-xs" />
             </div>
-            {pinValue.length > 0 && pinValue !== pinConfirm && <p className="text-[11px] text-red-500">PINs do not match</p>}
+            {pinValue.length > 0 && pinValue !== pinConfirm && <p className="text-xs text-danger">PINs do not match</p>}
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg">
                 {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
                 Update PIN
               </button>
-              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
+              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-xs font-medium text-ink-muted hover:text-ink transition-colors">
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : pinMode === 'remove-verify' ? (
+          <form onSubmit={(e) => { e.preventDefault(); handleRemovePin(); }} className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-ink-muted">Current PIN</label>
+              <PinInput value={pinValue} onChange={setPinValue} ariaLabel="Current PIN digits" className="max-w-xs" />
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-danger hover:bg-danger/90 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg">
+                {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
+                Confirm Remove PIN
+              </button>
+              <button type="button" onClick={() => { setPinMode('verify'); resetPinInputs(); }} className="text-xs font-medium text-ink-muted hover:text-ink transition-colors">
                 Cancel
               </button>
             </div>
@@ -242,41 +313,84 @@ const SecurityCard = () => {
         ) : (
           <form onSubmit={(e) => { e.preventDefault(); handleVerifyPin(); }} className="space-y-3">
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Enter PIN</label>
-              <input type="password" value={pinValue} onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Enter your PIN" maxLength={6} className={inputClass} />
+              <label className="text-xs font-semibold text-ink-muted">{totpOn ? 'Authenticator code' : 'Enter PIN'}</label>
+              <PinInput value={pinValue} onChange={setPinValue} ariaLabel={totpOn ? 'Authenticator code digits' : 'PIN digits'} className="max-w-xs" />
             </div>
             <div className="flex items-center gap-2">
-              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm">
+              <button type="submit" disabled={!canSetPin || pinLoading} className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg">
                 {pinLoading ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
-                Verify PIN
+                {totpOn ? 'Verify code' : 'Verify PIN'}
               </button>
-              <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-[11px] font-medium text-neutral-500 hover:text-neutral-900 transition-colors">
-                Change PIN
-              </button>
+              {hasPin && (
+                <button type="button" onClick={() => { setPinMode('change-verify'); resetPinInputs(); }} className="text-xs pl-5 font-medium text-ink-muted hover:text-ink transition-colors">
+                  Change PIN
+                </button>
+              )}
+              {hasPin && !totpOn && (
+                <button type="button" onClick={() => { setPinMode('remove-verify'); resetPinInputs(); }} className="text-xs pl-5 font-medium text-danger hover:text-danger-ink transition-colors">
+                  Remove PIN
+                </button>
+              )}
             </div>
           </form>
         )}
       </div>
       )}
 
+      {/* Locked-state panel — populates the card while the password form is
+          gated behind PIN verification (2FA on, PIN not yet verified). */}
+      {!pinSatisfied && (
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 bg-canvas rounded-lg p-4">
+            <Shield size={16} className="text-ink-muted shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Two-Factor Authentication (2FA) is protecting this account</p>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Password settings stay locked until you verify, so they can't be changed without it.
+              </p>
+              {onGoToPreferences && (
+                <button type="button" onClick={onGoToPreferences} className="text-xs font-medium text-brand-600 hover:underline mt-2">
+                  Manage 2FA in Preferences
+                </button>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-ink-muted mb-2">Security tips</p>
+            <ul className="space-y-1.5">
+              {[
+                "Never share your PIN or password — the counseling team will never ask for them.",
+                "Use a password you don't use on any other site.",
+                "Change or remove your PIN anytime with the actions above.",
+              ].map((tip) => (
+                <li key={tip} className="flex items-start gap-2 text-xs text-ink-muted">
+                  <Check size={12} className="text-brand-soft-ink shrink-0 mt-0.5" />
+                  {tip}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {/* Password Section — shown automatically unless 2FA requires PIN */}
       {pinSatisfied && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Current Password</label>
+            <label className="text-xs font-semibold text-ink-muted">Current Password</label>
             <div className="relative">
               <input name="currentPassword" type={show.current ? 'text' : 'password'} value={form.currentPassword} onChange={handleChange} placeholder="Enter current password" className={inputClass} />
-              <button type="button" onClick={() => setShow((p) => ({ ...p, current: !p.current }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+              <button type="button" onClick={() => setShow((p) => ({ ...p, current: !p.current }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-soft">
                 {show.current ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">New Password</label>
+            <label className="text-xs font-semibold text-ink-muted">New Password</label>
             <div className="relative">
               <input name="newPassword" type={show.new ? 'text' : 'password'} value={form.newPassword} onChange={handleChange} placeholder="Enter new password" className={inputClass} />
-              <button type="button" onClick={() => setShow((p) => ({ ...p, new: !p.new }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+              <button type="button" onClick={() => setShow((p) => ({ ...p, new: !p.new }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-soft">
                 {show.new ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
@@ -284,20 +398,20 @@ const SecurityCard = () => {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Confirm New Password</label>
+            <label className="text-xs font-semibold text-ink-muted">Confirm New Password</label>
             <div className="relative">
               <input name="confirmPassword" type={show.confirm ? 'text' : 'password'} value={form.confirmPassword} onChange={handleChange} placeholder="Confirm new password" className={inputClass} />
-              <button type="button" onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600">
+              <button type="button" onClick={() => setShow((p) => ({ ...p, confirm: !p.confirm }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-soft">
                 {show.confirm ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
             {form.confirmPassword.length > 0 && !passwordsMatch && (
-              <p className="text-[11px] text-red-500 mt-0.5">Passwords do not match</p>
+              <p className="text-xs text-danger mt-0.5">Passwords do not match</p>
             )}
           </div>
 
           {form.newPassword.length > 0 && (
-            <div className="bg-neutral-50 rounded-sm p-3 space-y-1.5">
+            <div className="bg-canvas rounded-lg p-3 space-y-1.5">
               <ValidationRule passes={hasMinLength} label="At least 8 characters" />
               <ValidationRule passes={hasUpper} label="One uppercase letter" />
               <ValidationRule passes={hasNumber} label="One number" />
@@ -309,7 +423,7 @@ const SecurityCard = () => {
             <button
               type="submit"
               disabled={!canSubmit || loading}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong disabled:cursor-not-allowed transition-colors rounded-lg"
             >
               {loading ? <Loader size={14} className="animate-spin" /> : <Shield size={14} />}
               {loading ? 'Updating...' : 'Update Password'}
@@ -322,197 +436,301 @@ const SecurityCard = () => {
 };
 
 const PreferencesCard = () => {
-  const { authUser, setTwoFactor } = useAuthStore();
+  const { authUser, totpSetup, totpConfirm, totpDisable } = useAuthStore();
   const { prefs, togglePref } = usePrefs(authUser?._id);
+  const isStudent = authUser?.userType?.toLowerCase() === 'student';
+  const [showName, setShowName] = useState(!!authUser?.showNameToCounselor);
+  const [savingVisibility, setSavingVisibility] = useState(false);
 
-  const [twoFA, setTwoFA] = useState(!!authUser?.twoFactorEnabled);
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pendingEnabled, setPendingEnabled] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinConfirm, setPinConfirm] = useState('');
-  const [saving2FA, setSaving2FA] = useState(false);
-  const [pinError, setPinError] = useState(null);
+  // OGT Updates newsletter opt-out — server-backed (the mail dispatcher reads
+  // it), like the account-synced toggles below (lib/prefs.js SYNCED_PREFS).
+  const [ogtUpdates, setOgtUpdates] = useState(authUser?.receiveOgtUpdates !== false);
+  const [savingOgtUpdates, setSavingOgtUpdates] = useState(false);
 
-  const needsPinSetup = pendingEnabled && !authUser?.pin;
+  // Render-time adjustment (avoids setState-in-effect): resync when the
+  // server-reported visibility changes underneath us.
+  const [lastSeenShowName, setLastSeenShowName] = useState(!!authUser?.showNameToCounselor);
+  if (lastSeenShowName !== !!authUser?.showNameToCounselor) {
+    setLastSeenShowName(!!authUser?.showNameToCounselor);
+    setShowName(!!authUser?.showNameToCounselor);
+  }
 
-  const inputClass = 'w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 placeholder-neutral-400 focus:border-neutral-900 outline-none transition-colors';
-
-  const handleToggleTwoFA = (checked) => {
-    setPendingEnabled(checked);
-    setPinInput('');
-    setPinConfirm('');
-    setPinError(null);
-    setShowPinModal(true);
+  const handleToggleVisibility = async (checked) => {
+    setShowName(checked);
+    setSavingVisibility(true);
+    try {
+      const res = await axiosInstance.put('/auth/profile-details', { showNameToCounselor: checked });
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, showNameToCounselor: res.data.showNameToCounselor } : s.authUser }));
+      toast.success(checked ? 'Your name will be visible to counselors.' : 'You are now anonymous to counselors.');
+    } catch {
+      setShowName((v) => !v);
+      toast.error('Failed to update visibility.');
+    } finally {
+      setSavingVisibility(false);
+    }
   };
 
-  const confirmToggleTwoFA = async () => {
-    setSaving2FA(true);
-    setPinError(null);
+  const handleToggleOgtUpdates = async (checked) => {
+    setOgtUpdates(checked);
+    setSavingOgtUpdates(true);
     try {
-      if (needsPinSetup) {
-        if (pinInput.length < 4 || pinInput !== pinConfirm) {
-          setPinError('Please enter a PIN of at least 4 digits that matches.');
-          setSaving2FA(false);
-          return;
-        }
-        await axiosInstance.post('/auth/pin', { pin: pinInput });
-        const res = await setTwoFactor(true, pinInput);
-        setTwoFA(res.twoFactorEnabled);
-      } else {
-        const res = await setTwoFactor(pendingEnabled, pinInput);
-        setTwoFA(res.twoFactorEnabled);
-      }
-      setShowPinModal(false);
-      toast.success(pendingEnabled ? 'PIN 2FA enabled.' : 'PIN 2FA disabled.');
-    } catch (err) {
-      setPinError(err.response?.data?.message || 'Failed to update 2FA.');
+      const res = await axiosInstance.put('/auth/profile-details', { receiveOgtUpdates: checked });
+      useAuthStore.setState((s) => ({ authUser: s.authUser ? { ...s.authUser, receiveOgtUpdates: res.data.receiveOgtUpdates } : s.authUser }));
+      toast.success(checked ? "You'll receive OGT Updates emails." : 'You unsubscribed from OGT Updates emails.');
+    } catch {
+      setOgtUpdates((v) => !v);
+      toast.error('Failed to update OGT Updates preference.');
     } finally {
-      setSaving2FA(false);
+      setSavingOgtUpdates(false);
+    }
+  };
+
+  // ── Authenticator app (TOTP) enrollment state ──
+  const totpOn = !!authUser?.totpEnabled;
+  const [showTotpModal, setShowTotpModal] = useState(false);
+  const [totpPhase, setTotpPhase] = useState('loading'); // 'loading' | 'qr' | 'disable'
+  const [qrDataUrl, setQrDataUrl] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
+  const [totpToken, setTotpToken] = useState('');
+  const [totpError, setTotpError] = useState(null);
+  const [savingTotp, setSavingTotp] = useState(false);
+  const [disableWithPin, setDisableWithPin] = useState(false);
+
+  // Match the app-wide modal behavior: Escape closes the TOTP dialog.
+  useEffect(() => {
+    if (showTotpModal) {
+      const handleKey = (e) => { if (e.key === 'Escape') setShowTotpModal(false); };
+      document.addEventListener('keydown', handleKey);
+      return () => document.removeEventListener('keydown', handleKey);
+    }
+  }, [showTotpModal]);
+
+  const startTotpSetup = async () => {
+    setShowTotpModal(true);
+    setTotpPhase('loading');
+    setTotpToken('');
+    setTotpError(null);
+    try {
+      const data = await totpSetup();
+      setQrDataUrl(data.qrDataUrl);
+      setTotpSecret(data.secret);
+      setTotpPhase('qr');
+    } catch (err) {
+      setShowTotpModal(false);
+      toast.error(err.response?.data?.message || 'Failed to start authenticator setup.');
+    }
+  };
+
+  const confirmTotpSetup = async () => {
+    if (totpToken.length !== 6) {
+      setTotpError('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    setSavingTotp(true);
+    setTotpError(null);
+    try {
+      await totpConfirm(totpToken);
+      setShowTotpModal(false);
+      toast.success('Authenticator app enabled.');
+    } catch (err) {
+      setTotpError(err.response?.data?.message || 'Incorrect code. Try again.');
+      setTotpToken('');
+    } finally {
+      setSavingTotp(false);
+    }
+  };
+
+  const startTotpDisable = () => {
+    setShowTotpModal(true);
+    setTotpPhase('disable');
+    setTotpToken('');
+    setTotpError(null);
+    setDisableWithPin(false);
+  };
+
+  const confirmTotpDisable = async () => {
+    if (totpToken.length < 4) {
+      setTotpError(disableWithPin ? 'Enter your PIN.' : 'Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    setSavingTotp(true);
+    setTotpError(null);
+    try {
+      await totpDisable(disableWithPin ? { pin: totpToken } : { token: totpToken });
+      setShowTotpModal(false);
+      toast.success('Authenticator app disabled.');
+    } catch (err) {
+      setTotpError(err.response?.data?.message || 'Failed to disable authenticator.');
+      setTotpToken('');
+    } finally {
+      setSavingTotp(false);
     }
   };
 
   const items = [
     { key: 'sessionReminders', title: 'Session Reminders', desc: 'Email me before scheduled counseling sessions.' },
     { key: 'messageNotifications', title: 'Message Notifications', desc: 'Notify me when I receive new chat messages.' },
-    { key: 'calmMode', title: 'Calm Mode', desc: 'Reduce animations for a calmer experience.' },
-    //{ key: 'switchmode', title: 'Dark Mode', desc: 'Switch between light and dark appearance.' },
-    // Hindi ko maayos ayos tong dark mode kasi may mga components na hindi nag-aadjust sa dark mode. Tanggalin ko muna.
   ];
 
   return (
-    <div className="bg-white border border-neutral-200 rounded-sm p-6">
+    <div className="bg-surface border border-line rounded-lg p-6">
       <div className="flex items-center gap-2.5 mb-5">
-        <div className="size-9 rounded-sm bg-neutral-100 flex items-center justify-center text-neutral-500">
+        <div className="size-9 rounded-lg bg-line flex items-center justify-center text-ink-muted">
           <Settings size={16} />
         </div>
         <div>
-          <h3 className="text-sm font-medium text-neutral-900">Preferences</h3>
-          <p className="text-[11px] text-neutral-400">Personalize your experience</p>
+          <h3 className="text-sm font-medium text-ink">Preferences</h3>
+          <p className="text-xs text-ink-muted">Personalize your experience</p>
         </div>
       </div>
 
-      <div className="divide-y divide-neutral-100">
+      <div className="divide-y divide-line">
+        {isStudent && (
+          <div className="flex items-center justify-between gap-4 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Show full name to counselor</p>
+              <p className="text-xs text-ink-muted mt-0.5">Otherwise counselors only see your Dynamic ID.</p>
+            </div>
+            <Toggle
+              checked={showName}
+              disabled={savingVisibility}
+              onChange={(checked) => handleToggleVisibility(checked)}
+              ariaLabel="Show my name to counselor"
+            />
+          </div>
+        )}
+        {isStudent && (
+          <div className="flex items-center justify-between gap-4 py-4">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Receive OGT Updates</p>
+              <p className="text-xs text-ink-muted mt-0.5">Email me when the Office of Guidance and Testing posts a new announcement.</p>
+            </div>
+            <Toggle
+              checked={ogtUpdates}
+              disabled={savingOgtUpdates}
+              onChange={(checked) => handleToggleOgtUpdates(checked)}
+              ariaLabel="Receive OGT Updates emails"
+            />
+          </div>
+        )}
         <div className="flex items-center justify-between gap-4 py-4">
           <div className="min-w-0">
-            <p className="text-sm font-medium text-neutral-900">PIN 2FA</p>
-            <p className="text-[11px] text-neutral-400 mt-0.5">Add an extra layer of security using your PIN.</p>
+            <p className="text-sm font-medium text-ink">Two-Factor Authentication</p>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {totpOn
+                ? 'A code from your authenticator app is required at sign-in.'
+                : 'Add a second sign-in step using Google Authenticator or any TOTP app.'}
+            </p>
           </div>
-          <input
-            type="checkbox"
-            className="toggle toggle-sm"
-            checked={twoFA}
-            onChange={(e) => handleToggleTwoFA(e.target.checked)}
-          />
+          {totpOn ? (
+            <button
+              type="button"
+              onClick={startTotpDisable}
+              className="shrink-0 px-3 py-1.5 text-xs font-semibold text-danger border border-danger/30 hover:bg-danger-soft transition-colors rounded-lg"
+            >
+              Disable
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={startTotpSetup}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 transition-colors rounded-lg"
+            >
+              <KeyRound size={12} />
+              Set up
+            </button>
+          )}
         </div>
 
         {items.map((it) => (
           <div key={it.key} className="flex items-center justify-between gap-4 py-4">
             <div className="min-w-0">
-              <p className="text-sm font-medium text-neutral-900">{it.title}</p>
-              <p className="text-[11px] text-neutral-400 mt-0.5">{it.desc}</p>
+              <p className="text-sm font-medium text-ink">{it.title}</p>
+              <p className="text-xs text-ink-muted mt-0.5">{it.desc}</p>
             </div>
-            <input
-              type="checkbox"
-              className="toggle toggle-sm"
-              checked={prefs[it.key]}
+            <Toggle
+              checked={!!prefs[it.key]}
               onChange={() => togglePref(it.key)}
+              ariaLabel={it.title}
             />
           </div>
         ))}
       </div>
 
-      <p className="text-[10px] text-neutral-400 mt-4">Preferences are saved on this device.</p>
+      <p className="text-xs text-ink-muted mt-4">Preferences are saved to your account.</p>
 
-      {showPinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-sm p-6 w-full max-w-sm">
-            <h4 className="text-sm font-medium text-neutral-900 mb-1">
-              {needsPinSetup ? 'Set up a PIN' : pendingEnabled ? 'Enable PIN 2FA' : 'Disable PIN 2FA'}
-            </h4>
-            <p className="text-[11px] text-neutral-400 mb-4">
-              {needsPinSetup
-                ? 'Create a PIN to secure your account with two-factor authentication.'
-                : `Enter your PIN to ${pendingEnabled ? 'enable' : 'disable'} two-factor authentication.`}
-            </p>
-
-            {needsPinSetup ? (
-              <div className="space-y-3">
-                <input
-                  type="password"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="New PIN (at least 4 digits)"
-                  maxLength={6}
-                  autoFocus
-                  className={inputClass}
-                />
-                <input
-                  type="password"
-                  value={pinConfirm}
-                  onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="Confirm PIN"
-                  maxLength={6}
-                  className={inputClass}
-                />
-                {pinInput.length > 0 && pinInput !== pinConfirm && (
-                  <p className="text-[11px] text-red-500">PINs do not match</p>
-                )}
-              </div>
-            ) : (
-              <input
-                type="password"
-                value={pinInput}
-                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter PIN"
-                maxLength={6}
-                autoFocus
-                className={inputClass}
-              />
-            )}
-
-            {pinError && <p className="text-[11px] text-red-500 mt-2">{pinError}</p>}
-            <div className="flex items-center gap-2 mt-5">
-              <button
-                type="button"
-                onClick={() => setShowPinModal(false)}
-                className="flex-1 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-sm"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmToggleTwoFA}
-                disabled={
-                  saving2FA ||
-                  (needsPinSetup
-                    ? !(pinInput.length >= 4 && pinInput === pinConfirm)
-                    : pinInput.length < 4)
-                }
-                className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 disabled:cursor-not-allowed transition-colors rounded-sm"
-              >
-                {saving2FA ? <Loader size={12} className="animate-spin" /> : <KeyRound size={12} />}
-                {needsPinSetup ? 'Set PIN' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <TotpModal
+        isOpen={showTotpModal}
+        onClose={() => setShowTotpModal(false)}
+        totpPhase={totpPhase}
+        qrDataUrl={qrDataUrl}
+        totpSecret={totpSecret}
+        totpToken={totpToken}
+        setTotpToken={setTotpToken}
+        setTotpError={setTotpError}
+        totpError={totpError}
+        savingTotp={savingTotp}
+        confirmTotpSetup={confirmTotpSetup}
+        authUser={authUser}
+        disableWithPin={disableWithPin}
+        setDisableWithPin={setDisableWithPin}
+        confirmTotpDisable={confirmTotpDisable}
+      />
     </div>
   );
 };
+
+const DEPARTMENTS = ['CEAFA', 'CHS', 'CASE', 'CBMA'];
 
 const ProfilePage = () => {
   const { authUser, updateProfile } = useAuthStore();
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('profile');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const activeTab = ['profile', 'security', 'preferences'].includes(requestedTab) ? requestedTab : 'profile';
+  const setActiveTab = (tab) => setSearchParams(tab === 'profile' ? {} : { tab }, { replace: true });
 
   const TABS = [
     { key: 'profile', label: 'Profile' },
     { key: 'security', label: 'Security' },
     { key: 'preferences', label: 'Preferences' },
   ];
+
+  // Panels slide in from the side of the tab you moved toward; 0 = first load, no slide.
+  const [slideDir, setSlideDir] = useState(0);
+  const switchTab = (key) => {
+    const order = TABS.map((t) => t.key);
+    const from = order.indexOf(activeTab);
+    const to = order.indexOf(key);
+    if (from === to) return;
+    setSlideDir(to > from ? 1 : -1);
+    setActiveTab(key);
+  };
+
+  // One underline that glides between tabs, sized to the active label.
+  const tabRefs = useRef({});
+  const [indicator, setIndicator] = useState(null);
+  useEffect(() => {
+    const el = tabRefs.current[activeTab];
+    if (!el) return undefined;
+    const ro = new ResizeObserver(() => setIndicator({ left: el.offsetLeft, width: el.offsetWidth }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activeTab]);
+
+  const onTabKeyDown = (e) => {
+    const order = TABS.map((t) => t.key);
+    const i = order.indexOf(activeTab);
+    const next = e.key === 'ArrowRight' ? order[(i + 1) % order.length]
+      : e.key === 'ArrowLeft' ? order[(i - 1 + order.length) % order.length]
+      : e.key === 'Home' ? order[0] : e.key === 'End' ? order[order.length - 1] : null;
+    if (!next) return;
+    e.preventDefault();
+    switchTab(next);
+    tabRefs.current[next]?.focus();
+  };
 
   if (!authUser) return null;
 
@@ -524,12 +742,12 @@ const ProfilePage = () => {
     ...(isStudent ? [{ icon: Hash, label: 'Student ID', value: authUser.studentId }] : []),
     ...(isCounselor ? [{ icon: Hash, label: 'Counselor ID', value: authUser.counselorId }] : []),
     { icon: Building2, label: 'Department', value: authUser.department },
-    { icon: BookOpen, label: 'Program', value: authUser.program },
+    ...(isStudent ? [{ icon: BookOpen, label: 'Program', value: authUser.program }] : []),
   ];
 
-  const handleUpload = async (base64) => {
+  const handleUpload = async (file) => {
     try {
-      await updateProfile(base64);
+      await updateProfile(file);
       toast.success('Profile picture updated');
     } catch {
       toast.error('Failed to update profile picture');
@@ -550,7 +768,6 @@ const ProfilePage = () => {
       fullName: authUser.fullName || '',
       email: authUser.email || '',
       department: authUser.department || '',
-      program: authUser.program || '',
     });
     setEditing(true);
   };
@@ -570,39 +787,66 @@ const ProfilePage = () => {
   };
 
   return (
-    <PageShell title="My Account" subtitle="Manage your profile and account settings">
-      <div className="mb-6 border-b border-neutral-200">
-        <div className="flex gap-1">
+    <PageShell title="My Account" description="Manage your profile and account settings">
+      <div className="mb-6 border-b border-line">
+        <div className="relative flex gap-1" role="tablist" aria-label="Account sections" onKeyDown={onTabKeyDown}>
           {TABS.map((t) => (
             <button
               key={t.key}
-              onClick={() => setActiveTab(t.key)}
-              className={`px-4 py-2.5 text-[11px] font-semibold tracking-[0.1em] uppercase transition-colors border-b-2 -mb-px ${
-                activeTab === t.key
-                  ? 'border-neutral-900 text-neutral-900'
-                  : 'border-transparent text-neutral-400 hover:text-neutral-700'
+              ref={(el) => { tabRefs.current[t.key] = el; }}
+              type="button"
+              role="tab"
+              id={`tab-${t.key}`}
+              aria-selected={activeTab === t.key}
+              aria-controls={`panel-${t.key}`}
+              tabIndex={activeTab === t.key ? 0 : -1}
+              onClick={() => switchTab(t.key)}
+              className={`tab-btn rounded-t-lg px-4 py-2.5 text-xs font-semibold outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600 ${
+                activeTab === t.key ? 'text-ink' : 'text-ink-muted hover:text-ink-soft hover:bg-line/40'
               }`}
             >
               {t.label}
             </button>
           ))}
+          {indicator && (
+            <span
+              aria-hidden="true"
+              className="tab-indicator pointer-events-none absolute -bottom-px left-0 h-0.5 rounded-full bg-brand-600"
+              style={{ width: indicator.width, transform: `translateX(${indicator.left}px)` }}
+            />
+          )}
         </div>
       </div>
 
+      <div
+        key={activeTab}
+        role="tabpanel"
+        id={`panel-${activeTab}`}
+        aria-labelledby={`tab-${activeTab}`}
+        className={slideDir > 0 ? 'tab-slide-next' : slideDir < 0 ? 'tab-slide-prev' : undefined}
+      >
+
       {activeTab === 'profile' && (
         <div className="max-w-2xl">
-          <div className="bg-white border border-neutral-200 rounded-sm p-6">
+          <div className="bg-surface border border-line rounded-lg p-6">
             <div className="flex items-center gap-4 mb-5">
-              <AvatarUpload
-                profilePic={authUser.profilePic}
-                fullName={authUser.fullName}
-                onUpload={handleUpload}
-                onRemove={handleRemove}
-                size="lg"
-              />
+              {isStudent ? (
+                // Students stay anonymous, so there is no photo to upload.
+                <span className="size-24 shrink-0 rounded-full bg-brand-600 text-brand-fg flex items-center justify-center text-3xl font-semibold" aria-hidden="true">
+                  {authUser.fullName?.[0]?.toUpperCase() || 'S'}
+                </span>
+              ) : (
+                <AvatarUpload
+                  profilePic={authUser.profilePic}
+                  fullName={authUser.fullName}
+                  onUpload={handleUpload}
+                  onRemove={handleRemove}
+                  size="lg"
+                />
+              )}
               <div>
-                <h2 className="text-base font-medium text-neutral-900">{authUser.fullName || 'User'}</h2>
-                <span className="text-xs text-neutral-400">
+                <h2 className="text-base font-medium text-ink">{authUser.fullName || 'User'}</h2>
+                <span className="text-xs text-ink-muted">
                   {isCounselor ? 'Counselor' : 'Student'}
                 </span>
               </div>
@@ -611,7 +855,12 @@ const ProfilePage = () => {
             <div className="flex items-center justify-between mb-3">
               <SectionDivider label="Details" />
               {isCounselor && !editing && (
-                <button onClick={startEditing} className="text-neutral-400 hover:text-neutral-700 transition-colors">
+                <button
+                  onClick={startEditing}
+                  className="size-8 flex items-center justify-center rounded-lg text-ink-muted hover:text-ink-soft hover:bg-line transition-colors"
+                  title="Edit profile"
+                  aria-label="Edit profile"
+                >
                   <Pencil size={14} />
                 </button>
               )}
@@ -622,23 +871,35 @@ const ProfilePage = () => {
                 {[
                   { key: 'fullName', label: 'Full Name' },
                   { key: 'email', label: 'Email' },
-                  { key: 'department', label: 'Department' },
-                  { key: 'program', label: 'Program' },
                 ].map(({ key, label }) => (
                   <div key={key} className="space-y-1">
-                    <label className="text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">{label}</label>
+                    <label className="text-xs font-semibold text-ink-muted">{label}</label>
                     <input
                       value={editForm[key] || ''}
                       onChange={(e) => setEditForm({ ...editForm, [key]: e.target.value })}
-                      className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2 text-neutral-900 focus:border-neutral-900 outline-none transition-colors"
+                      className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2 text-ink focus:border-brand-600 outline-none transition-colors"
                     />
                   </div>
                 ))}
+                <div className="space-y-1">
+                  <label htmlFor="profile-department" className="text-xs font-semibold text-ink-muted">Department</label>
+                  <select
+                    id="profile-department"
+                    value={editForm.department || ''}
+                    onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
+                    className="w-full bg-transparent border border-line text-sm rounded-lg px-3 py-2 text-ink focus:border-brand-600 outline-none transition-colors"
+                  >
+                    <option value="">Not assigned</option>
+                    {DEPARTMENTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex gap-2 pt-2">
-                  <button onClick={() => setEditing(false)} className="flex-1 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-600 bg-neutral-100 hover:bg-neutral-200 transition-colors rounded-sm">
+                  <button onClick={() => setEditing(false)} className="flex-1 px-4 py-2 text-xs font-semibold text-ink-soft bg-line hover:bg-line transition-colors rounded-lg">
                     Cancel
                   </button>
-                  <button onClick={saveProfile} disabled={saving} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 disabled:bg-neutral-300 transition-colors rounded-sm">
+                  <button onClick={saveProfile} disabled={saving} className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-brand-fg bg-brand-600 hover:bg-brand-700 disabled:bg-line-strong transition-colors rounded-lg">
                     {saving ? <Loader size={12} className="animate-spin" /> : 'Save'}
                   </button>
                 </div>
@@ -648,10 +909,10 @@ const ProfilePage = () => {
                 {meta.map((item) => {
                   const Icon = item.icon;
                   return (
-                    <div key={item.label} className="flex items-center gap-3 py-3 border-b border-neutral-100 last:border-b-0">
-                      <Icon size={14} className="text-neutral-400 shrink-0" />
-                      <span className="text-xs text-neutral-500 w-24 shrink-0">{item.label}</span>
-                      <span className="text-sm text-neutral-900 truncate">{item.value || '—'}</span>
+                    <div key={item.label} className="flex items-center gap-3 py-3 border-b border-line last:border-b-0">
+                      <Icon size={14} className="text-ink-muted shrink-0" />
+                      <span className="text-xs text-ink-muted w-24 shrink-0">{item.label}</span>
+                      <span className="text-sm text-ink truncate">{item.value || '—'}</span>
                     </div>
                   );
                 })}
@@ -661,9 +922,43 @@ const ProfilePage = () => {
         </div>
       )}
 
-      {activeTab === 'security' && <SecurityCard />}
+      {activeTab === 'security' && (
+        <div className="space-y-6">
+          <SecurityCard onGoToPreferences={() => switchTab('preferences')} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="bg-surface border border-line rounded-lg p-4">
+              <div className="size-8 rounded-lg bg-line flex items-center justify-center text-ink-muted mb-3">
+                <Shield size={14} />
+              </div>
+              <p className="text-sm font-medium text-ink">Protected sign-in</p>
+              <p className="text-xs text-ink-muted mt-1">
+                2FA adds a second step at login. Enable it anytime in Preferences.
+              </p>
+            </div>
+            <div className="bg-surface border border-line rounded-lg p-4">
+              <div className="size-8 rounded-lg bg-line flex items-center justify-center text-ink-muted mb-3">
+                <EyeOff size={14} />
+              </div>
+              <p className="text-sm font-medium text-ink">Identity protection</p>
+              <p className="text-xs text-ink-muted mt-1">
+                Your identity stays private — you control what counselors can see in Preferences.
+              </p>
+            </div>
+            <div className="bg-surface border border-line rounded-lg p-4">
+              <div className="size-8 rounded-lg bg-line flex items-center justify-center text-ink-muted mb-3">
+                <KeyRound size={14} />
+              </div>
+              <p className="text-sm font-medium text-ink">Keep credentials safe</p>
+              <p className="text-xs text-ink-muted mt-1">
+                Never share your password. The counseling team will never ask for them.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'preferences' && <PreferencesCard />}
+      </div>
     </PageShell>
   );
 };

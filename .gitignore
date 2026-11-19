@@ -1,4 +1,6 @@
 # Logs
+.freebuff
+.freebuff/project-id
 logs
 *.log
 npm-debug.log*
@@ -27,3 +29,6 @@ backend/node_modules/
 backend/.env
 .env
 node_modules/
+.mongo-data/
+backend/cookies*.txt
+backend/login.json

@@ -1,36 +1,59 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, FileText, Phone, Download, ExternalLink, MapPin, Grid3X3, Trash2, Pencil, Map, ArrowUpToLine, ArrowDownToLine } from 'lucide-react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import {
+  Plus, FileText, Phone, ExternalLink, MapPin, LayoutGrid, Map as MapIcon,
+  Columns2, Trash2, Pencil, ArrowUpToLine, ArrowDownToLine, CalendarDays,
+  Search, X, Clock, Globe, Brain, Stethoscope } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { axiosInstance } from '../lib/axios';
 import { useAuthStore } from '../store/useAuthStore';
-import PageShell from '../components/PageShell';
+import { Button } from '../ui';
+import PageShell from '../ui/PageShell';
 import { PageShellSkeleton } from '../components/skeleton';
-import Modal from '../components/Modal';
-import FormField from '../components/FormField';
 import RoleGate from '../components/RoleGate';
-import EmptyState from '../components/EmptyState';
+import EmptyState from '../ui/EmptyState';
 import { toast } from 'react-toastify';
+import ResourceFormModal, { RESOURCE_TYPES } from '../components/modals/ResourceFormModal';
 
-const RESOURCE_TYPES = [
-  { value: 'hotline', label: 'Emergency Hotline' },
-  { value: 'psychiatrist', label: 'Psychiatrist' },
-  { value: 'psychologist', label: 'Psychologist' },
-  { value: 'location', label: 'Physical Center' },
-];
-
-const TYPE_ICONS = { hotline: Phone, location: MapPin, psychologist: Phone, psychiatrist: Phone };
+const TYPE_ICONS = { hotline: Phone, location: MapPin, psychologist: Brain, psychiatrist: Stethoscope };
 const TYPE_LABELS = { hotline: 'Hotline', location: 'Center', psychologist: 'Psychologist', psychiatrist: 'Psychiatrist' };
+const TYPE_ICON_COLORS = {
+  hotline: 'bg-danger-soft text-danger-ink',
+  location: 'bg-brand-soft text-brand-soft-ink',
+  psychologist: 'bg-info-soft text-info-ink',
+  psychiatrist: 'bg-warning-soft text-warning-ink',
+};
+
+const formatDate = (value) => {
+  if (!value) return null;
+  const date = new Date(`${String(value).slice(0, 10)}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
 
 const MAP_CENTER = [13.1391, 123.7438];
 const MAP_ZOOM = 12;
 const ALBAY_BOUNDS = L.latLngBounds([12.8, 123.3], [13.6, 124.2]);
 
+// Marker colors track the Evergreen tokens; cssRgb reads the live CSS
+// variables at draw time.
+const cssRgb = (name, fallback) => {
+  if (typeof window === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+};
+
 const createMarkerIcon = (type, isSelected) => {
-  const colors = { hotline: '#a3a3a3', location: '#171717', psychologist: '#525252', psychiatrist: '#525252' };
-  const color = colors[type] || '#525252';
-  const border = isSelected ? '#000000' : color;
+  const colors = {
+    hotline: `rgb(${cssRgb('--c-ink-muted', '119 130 125')})`,
+    location: `rgb(${cssRgb('--c-brand-700', '4 120 87')})`,
+    psychologist: `rgb(${cssRgb('--c-ink-soft', '74 85 81')})`,
+    psychiatrist: `rgb(${cssRgb('--c-ink-soft', '74 85 81')})`,
+  };
+  const color = colors[type] || colors.psychologist;
+  const border = isSelected ? `rgb(${cssRgb('--c-brand-600', '5 150 105')})` : color;
+  const fill = isSelected ? `rgb(${cssRgb('--c-brand-700', '4 120 87')})` : `rgb(${cssRgb('--c-surface', '255 253 247')})`;
+  const ring = 'rgba(38, 91, 61, 0.12)';
   const size = isSelected ? 16 : 12;
   const half = size / 2;
 
@@ -38,10 +61,10 @@ const createMarkerIcon = (type, isSelected) => {
     className: '',
     html: `<div style="
       width: ${size}px; height: ${size}px;
-      background: ${isSelected ? '#171717' : 'white'};
+      background: ${fill};
       border: 2px solid ${border};
       border-radius: 50%;
-      box-shadow: ${isSelected ? '0 0 0 4px rgba(0,0,0,0.08)' : 'none'};
+      box-shadow: ${isSelected ? `0 0 0 4px ${ring}` : 'none'};
       transition: all 0.2s ease;
     "></div>`,
     iconSize: [size, size],
@@ -50,27 +73,44 @@ const createMarkerIcon = (type, isSelected) => {
   });
 };
 
-const MapBoundsUpdater = ({ resources, selectedId }) => {
+const MapBoundsUpdater = ({ resources, selectedId, markerRefs }) => {
   const map = useMap();
   const prevSelected = useRef(null);
+  const pendingOpen = useRef(null);
+
+  // Drop a still-waiting popup opener when the map goes away.
+  useEffect(() => () => { if (pendingOpen.current) map.off('moveend', pendingOpen.current); }, [map]);
 
   useEffect(() => {
     if (!selectedId || selectedId === prevSelected.current) return;
     prevSelected.current = selectedId;
+    // Only the latest selection may open its popup: stacked openers fired on the
+    // same moveend closed each other mid-open and crashed Leaflet's autopan.
+    if (pendingOpen.current) map.off('moveend', pendingOpen.current);
+    pendingOpen.current = null;
     const res = resources.find((r) => r._id === selectedId);
     if (res?.lat != null && res?.lng != null) {
+      // Open the details popup once the fly-to settles; opening it mid-flight makes the autopan fight the animation.
+      const open = () => {
+        pendingOpen.current = null;
+        const marker = markerRefs.current[selectedId];
+        if (marker && map.hasLayer(marker) && !marker.isPopupOpen()) marker.openPopup();
+      };
+      pendingOpen.current = open;
+      map.once('moveend', open);
       map.flyTo([res.lat, res.lng], 15, { duration: 0.6 });
     }
-  }, [selectedId, resources, map]);
+  }, [selectedId, resources, map, markerRefs]);
 
   return null;
 };
 
-const ResourceMap = ({ resources, selectedId, onSelect }) => {
+const ResourceMap = ({ resources, selectedId, onSelect, joined = false }) => {
   const locations = resources.filter((r) => r.lat != null && r.lng != null);
+  const markerRefs = useRef({});
 
   return (
-    <div className="h-full w-full rounded-sm overflow-hidden border border-neutral-200 relative z-0">
+    <div className={`h-full w-full overflow-hidden relative z-0 ${joined ? '' : 'rounded-xl border border-line shadow-e1'}`}>
       <MapContainer
         center={MAP_CENTER}
         zoom={MAP_ZOOM}
@@ -85,22 +125,25 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
           attribution='&copy; <a href="https://carto.com/">CARTO</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=cb1_2ewm_1_565ab8c78182c1772fdc12fc"
         />
-        <MapBoundsUpdater resources={resources} selectedId={selectedId} />
+        <MapBoundsUpdater resources={resources} selectedId={selectedId} markerRefs={markerRefs} />
         {locations.map((r) => (
           <Marker
             key={r._id}
+            ref={(m) => { markerRefs.current[r._id] = m; }}
             position={[r.lat, r.lng]}
             icon={createMarkerIcon(r.type, r._id === selectedId)}
             eventHandlers={{ click: () => onSelect(r) }}
           >
             <Popup>
-              <div className="font-sans text-[11px] leading-relaxed min-w-[180px]">
-                <p className="text-xs font-semibold text-neutral-900 mb-0.5">{r.title}</p>
-                {r.description && <p className="text-neutral-600 mt-1">{r.description}</p>}
-                {r.address && <p className="text-neutral-500 mt-1">{r.address}</p>}
-                {r.hours && <p className="text-neutral-400 mt-0.5">{r.hours}</p>}
-                {r.contact && <p className="text-neutral-500 mt-0.5">{r.contact}</p>}
-                <p className="text-neutral-400 mt-1.5 text-[10px] uppercase tracking-[0.05em]">{TYPE_LABELS[r.type]}</p>
+              <div className="font-sans text-xs leading-relaxed min-w-[180px]">
+                <p className="text-xs font-semibold text-ink mb-0.5">{r.title}</p>
+                {r.description && <p className="text-ink-soft mt-1">{r.description}</p>}
+                {r.address && <p className="text-ink-muted mt-1">{r.address}</p>}
+                {r.hours && <p className="text-ink-muted mt-0.5">{r.hours}</p>}
+                {r.contact && (
+                  <a href={`tel:${r.contact.replace(/\s/g, '')}`} className="block text-ink-soft font-medium mt-0.5 hover:underline">{r.contact}</a>
+                )}
+                <p className="text-ink-muted mt-1.5 text-xs">{TYPE_LABELS[r.type]}</p>
               </div>
             </Popup>
           </Marker>
@@ -110,81 +153,143 @@ const ResourceMap = ({ resources, selectedId, onSelect }) => {
   );
 };
 
+/* ─────────────────────────────────────────────────────────────
+   Card — selection highlights, actions live in a corner cluster
+   that fades in on hover (always visible on touch screens).
+   ───────────────────────────────────────────────────────────── */
 const ResourceCard = ({ resource, onEdit, onDelete, onSelect, isSelected, isCounselor, onMoveUp, onMoveDown }) => {
   const Icon = TYPE_ICONS[resource.type] || FileText;
+  const isMappable = resource.lat != null && resource.lng != null;
+  // Selected sits on a tinted surface, so secondary text steps up to ink-soft to keep contrast.
+  const muted = isSelected ? 'text-ink-soft' : 'text-ink-muted';
 
   return (
-    <div
-      className={`bg-white border rounded-sm relative transition-colors ${
-        isSelected ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-neutral-200'
+    <article
+      onClick={() => onSelect(resource)}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onSelect(resource);
+        }
+      }}
+      aria-current={isSelected || undefined}
+      className={`group border rounded-xl relative transition-all duration-200 p-5 h-full flex flex-col cursor-default
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+        isSelected
+          ? 'bg-brand-50 border-brand-600 ring-1 ring-brand-600 shadow-e2'
+          : 'bg-surface border-line hover:border-line-strong hover:shadow-e1'
       }`}
     >
-      <div
-        className="p-6 h-full flex flex-col cursor-default"
-        onClick={() => onSelect(resource)}
-      >
-        {isCounselor && (
-          <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveUp(resource._id); }}
-              className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 bg-white text-neutral-400 hover:text-neutral-900 transition-colors"
-              title="Move up"
-            >
-              <ArrowUpToLine size={12} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onMoveDown(resource._id); }}
-              className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 bg-white text-neutral-400 hover:text-neutral-900 transition-colors"
-              title="Move down"
-            >
-              <ArrowDownToLine size={12} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(resource); }}
-              className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 bg-white text-neutral-400 hover:text-neutral-900 transition-colors"
-              title="Edit"
-            >
-              <Pencil size={12} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(resource._id); }}
-              className="size-7 flex items-center justify-center rounded-sm border border-neutral-200 bg-white text-neutral-400 hover:text-red-600 transition-colors"
-              title="Delete"
-            >
-              <Trash2 size={12} />
-            </button>
-          </div>
-        )}
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="size-8 rounded-sm bg-neutral-100 flex items-center justify-center text-neutral-500">
-            <Icon size={15} />
-          </div>
-          <span className="text-[10px] font-semibold tracking-[0.15em] uppercase text-neutral-400">
-            {TYPE_LABELS[resource.type]}
-          </span>
+      {isCounselor && (
+        <div
+          className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 rounded-lg border border-line
+            bg-raised/95 backdrop-blur px-1 py-0.5 shadow-e1 opacity-0 group-hover:opacity-100
+            focus-within:opacity-100 max-md:opacity-100 transition-opacity"
+        >
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveUp(resource._id); }}
+            className="size-6 flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-line transition-colors"
+            title="Move up"
+            aria-label={`Move ${resource.title} up`}
+          >
+            <ArrowUpToLine size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveDown(resource._id); }}
+            className="size-6 flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-line transition-colors"
+            title="Move down"
+            aria-label={`Move ${resource.title} down`}
+          >
+            <ArrowDownToLine size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(resource); }}
+            className="size-6 flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-line transition-colors"
+            title="Edit"
+            aria-label={`Edit ${resource.title}`}
+          >
+            <Pencil size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(resource._id); }}
+            className="size-6 flex items-center justify-center rounded-md text-ink-muted hover:text-danger-ink hover:bg-danger-soft transition-colors"
+            title="Delete"
+            aria-label={`Delete ${resource.title}`}
+          >
+            <Trash2 size={12} />
+          </button>
         </div>
-        <h3 className="text-sm font-medium text-neutral-900 mb-1.5">{resource.title}</h3>
-        <p className="text-xs text-neutral-500 leading-relaxed flex-1">{resource.description}</p>
-        <div className="flex items-center justify-between mt-4 pt-3 border-t border-neutral-100">
-          <span className="text-[10px] text-neutral-400">{resource.date}</span>
-          <div className="flex items-center gap-2">
-            {resource.lat && <MapPin size={10} className="text-neutral-300" />}
+      )}
+
+      <div className="flex items-center gap-2.5 mb-3">
+        <div
+          className={`size-8 shrink-0 rounded-lg flex items-center justify-center transition-colors ${
+            isSelected ? 'bg-brand-700 text-brand-fg' : TYPE_ICON_COLORS[resource.type] || 'bg-line text-ink-muted'
+          }`}
+        >
+          <Icon size={15} aria-hidden="true" />
+        </div>
+        <span className={`min-w-0 truncate text-xs font-semibold ${isSelected ? 'text-brand-soft-ink' : 'text-ink-muted'} uppercase tracking-wide`}>
+          {TYPE_LABELS[resource.type]}
+        </span>
+      </div>
+
+      <h3 className="text-sm font-medium text-ink mb-1.5">{resource.title}</h3>
+      <p className={`text-xs ${muted} leading-relaxed flex-1 line-clamp-3`}>{resource.description}</p>
+
+      {(resource.contact || resource.address || resource.hours) && (
+        <div className="mt-3 space-y-1.5">
+          {resource.contact && (
+            <a
+              href={`tel:${resource.contact.replace(/\s/g, '')}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex items-center gap-1.5 text-xs font-medium text-ink-soft hover:text-ink hover:underline underline-offset-2 transition-colors"
+            >
+              <Phone size={12} className="text-ink-muted shrink-0" /> {resource.contact}
+            </a>
+          )}
+          {resource.address && (
+            <p className={`flex items-center gap-1.5 text-xs ${muted}`}>
+              <MapPin size={12} className="shrink-0" /> <span className="truncate">{resource.address}</span>
+            </p>
+          )}
+          {resource.hours && (
+            <p className={`flex items-center gap-1.5 text-xs ${muted}`}>
+              <CalendarDays size={12} className="shrink-0" /> {resource.hours}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className={`flex items-center justify-between mt-4 pt-3 border-t ${isSelected ? 'border-brand-200' : 'border-line'}`}>
+        {resource.date && <span className={`text-xs ${muted}`}>{formatDate(resource.date)}</span>}
+        <div className="flex items-center gap-2.5">
+          {isMappable && (
+            <span title="Shown on map">
+              <MapPin size={11} className="text-ink-muted" />
+              <span className="sr-only">Shown on map</span>
+            </span>
+          )}
+          {resource.url && (
             <a
               href={resource.url}
+              target="_blank"
+              rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="text-[10px] font-semibold tracking-[0.1em] uppercase text-neutral-900 hover:text-neutral-600 transition-colors inline-flex items-center gap-1"
+              className="text-xs font-semibold text-ink hover:text-brand-600 transition-colors inline-flex items-center gap-1"
             >
-              {resource.type === 'sheet' ? 'Download' : 'Open'} <ExternalLink size={10} />
+              Open <ExternalLink size={10} />
             </a>
-          </div>
+          )}
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
 const ResourceGrid = ({ resources, onSelect, selectedId, onEdit, onDelete, isCounselor, onMoveUp, onMoveDown }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px bg-neutral-200 rounded-sm overflow-hidden">
+  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
     {resources.map((r) => (
       <ResourceCard
         key={r._id}
@@ -201,54 +306,122 @@ const ResourceGrid = ({ resources, onSelect, selectedId, onEdit, onDelete, isCou
   </div>
 );
 
-const ResourceFormModal = ({ isOpen, onClose, onSubmit, initial }) => {
-  const empty = { title: '', type: 'hotline', description: '', url: '', address: '', hours: '', contact: '', mapUrl: '' };
-  const [form, setForm] = useState(initial || empty);
-  const isEdit = !!initial;
-
-  useEffect(() => {
-    setForm(initial ? { ...empty, ...initial } : empty);
-  }, [initial]);
-
-  const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(form);
-    setForm(empty);
-  };
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit Resource' : 'Add Resource'} wide>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="Title" name="title" value={form.title} onChange={handleChange} placeholder="e.g., Bicol Region Mental Health Hotline" required />
-          <div className="space-y-1.5">
-            <label className="block text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500">Type</label>
-            <select name="type" value={form.type} onChange={handleChange} className="w-full bg-transparent border border-neutral-200 text-sm rounded-sm px-3 py-2.5 text-neutral-900 focus:border-neutral-900 outline-none transition-colors">
-              {RESOURCE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
-        </div>
-        <FormField label="Description" name="description" type="textarea" value={form.description} onChange={handleChange} placeholder="Brief summary of the resource..." rows={3} required />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-              <FormField label="Address" name="address" value={form.address} onChange={handleChange} placeholder="Full address" />
-              <FormField label="Hours" name="hours" value={form.hours} onChange={handleChange} placeholder="e.g., Mon–Fri 8AM–5PM" />
-              <FormField label="Contact" name="contact" value={form.contact} onChange={handleChange} placeholder="Phone number" />
-            </div>
-        {form.type === 'location' && (
-          <>
-            <FormField label="Google Maps Link" name="mapUrl" value={form.mapUrl ?? ''} onChange={handleChange} placeholder="https://www.google.com/maps/..." />
-            <p className="text-[11px] text-neutral-400 -mt-1">Paste a Google Maps link to drop the pin automatically, or leave it blank to locate the address.</p>
-          </>
-        )}
-        <div className="flex items-center justify-end gap-3 pt-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-neutral-500 hover:text-neutral-900 transition-colors">Cancel</button>
-          <button type="submit" className="px-5 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">{isEdit ? 'Save Changes' : 'Add Resource'}</button>
-        </div>
-      </form>
-    </Modal>
+/* ─────────────────────────────────────────────────────────────
+   Detail panel — full description and contact rows for the
+   selected resource, replacing the old grid-only selection.
+   ───────────────────────────────────────────────────────────── */
+const DetailRow = ({ icon: Icon, children, href }) => {
+  const content = (
+    <>
+      <Icon size={14} className="text-ink-muted shrink-0" aria-hidden="true" />
+      <span className="text-xs text-ink-soft">{children}</span>
+    </>
+  );
+  return href ? (
+    <a href={href} className="flex items-start gap-2.5 py-2 group/row">
+      {content}
+    </a>
+  ) : (
+    <div className="flex items-start gap-2.5 py-2">{content}</div>
   );
 };
+
+const DetailPanel = ({ resource, onEdit, onDelete, isCounselor, onClose, joined = false }) => {
+  if (!resource) return null;
+  const Icon = TYPE_ICONS[resource.type] || FileText;
+  const isMappable = resource.lat != null && resource.lng != null;
+
+  return (
+    <aside
+      className={`bg-surface flex flex-col min-h-0 overflow-hidden ${joined ? 'h-full' : 'border border-line rounded-xl shadow-e1 h-auto lg:h-full'}`}
+      aria-label={`Details for ${resource.title}`}
+    >
+      <div className="relative shrink-0 overflow-hidden bg-side p-5">
+        <div aria-hidden="true" className="absolute -right-8 -top-8 size-32 rounded-full bg-side-active blur-2xl" />
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-side-hover text-side-ink">
+              <Icon size={18} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-side-ink-muted">{TYPE_LABELS[resource.type]}</p>
+              <h2 className="mt-0.5 text-sm font-semibold leading-snug text-side-ink">{resource.title}</h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close details"
+            className="shrink-0 flex size-7 items-center justify-center rounded-md text-side-ink-muted hover:text-side-ink hover:bg-side-hover transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-5 lg:flex-1 lg:min-h-0 lg:overflow-y-auto">
+        {resource.description && (
+          <p className="text-xs leading-relaxed text-ink-soft">{resource.description}</p>
+        )}
+
+        <div className="mt-4 divide-y divide-line">
+          {resource.contact && (
+            <DetailRow icon={Phone} href={`tel:${resource.contact.replace(/\s/g, '')}`}>
+              {resource.contact}
+            </DetailRow>
+          )}
+          {resource.address && (
+            <DetailRow icon={MapPin}>{resource.address}</DetailRow>
+          )}
+          {resource.hours && (
+            <DetailRow icon={Clock}>{resource.hours}</DetailRow>
+          )}
+          {resource.url && (
+            <DetailRow icon={Globe} href={resource.url}>
+              <span className="underline underline-offset-2 group-hover/row:text-brand-600 transition-colors">
+                Visit website
+              </span>
+            </DetailRow>
+          )}
+        </div>
+
+        {isMappable && (
+          <p className="mt-4 flex items-center gap-1.5 text-xs text-ink-muted">
+            <MapPin size={12} className="text-brand-600" /> Highlighted on the map
+          </p>
+        )}
+
+        {isCounselor && (
+          <div className="mt-5 flex items-center gap-2 border-t border-line pt-4">
+            <button
+              type="button"
+              onClick={() => onEdit(resource)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-ink border border-line-strong rounded-lg hover:border-ink-muted hover:bg-canvas transition-colors"
+            >
+              <Pencil size={12} /> Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => onDelete(resource._id)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-danger-ink border border-danger/30 rounded-lg hover:bg-danger-soft transition-colors"
+            >
+              <Trash2 size={12} /> Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
+
+/* ─────────────────────────────────────────────────────────────
+   Page
+   ───────────────────────────────────────────────────────────── */
+const VIEW_TABS = [
+  { key: 'grid', label: 'Grid', icon: LayoutGrid },
+  { key: 'split', label: 'Split', icon: Columns2 },
+  { key: 'map', label: 'Map', icon: MapIcon },
+];
 
 const ResourcePage = () => {
   const { authUser } = useAuthStore();
@@ -260,6 +433,10 @@ const ResourcePage = () => {
   const [editing, setEditing] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [viewMode, setViewMode] = useState('split');
+  const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [reloadToken, setReloadToken] = useState(0);
+  const refetch = useCallback(() => setReloadToken((t) => t + 1), []);
 
   const normalizeResource = (r) => ({
     ...r,
@@ -274,30 +451,31 @@ const ResourcePage = () => {
   });
 
   useEffect(() => {
-    const fetchResources = async () => {
+    let cancelled = false;
+    (async () => {
       try {
         const res = await axiosInstance.get('/resources');
-        setResources(res.data.map(normalizeResource));
+        if (!cancelled) setResources(res.data.map(normalizeResource));
       } catch (err) {
         console.error('Failed to fetch resources:', err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
-    fetchResources();
-  }, []);
+    })();
+    return () => { cancelled = true; };
+  }, [reloadToken]);
 
   const openAdd = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (r) => { setEditing(r); setModalOpen(true); };
 
   const handleSubmit = useCallback(async (resource) => {
     try {
-      // Coordinate fields only exist for physical centers; don't leak them
-      // into other types' payloads.
+      // Coordinate fields only exist for mappable types; don't leak them
+      // into hotlines' payloads.
       const payload = { ...resource };
       delete payload.lat;
       delete payload.lng;
-      if (resource.type !== 'location') {
+      if (resource.type === 'hotline') {
         delete payload.mapUrl;
       }
       let saved;
@@ -312,7 +490,7 @@ const ResourcePage = () => {
       }
       setModalOpen(false);
       setEditing(null);
-      if (saved.type === 'location' && (saved.lat == null || saved.lng == null)) {
+      if (saved.type !== 'hotline' && (saved.lat == null || saved.lng == null)) {
         toast.error('Saved, but the address could not be located — edit it to add coordinates');
       } else {
         toast.success(editing ? 'Resource updated' : 'Resource added');
@@ -333,110 +511,231 @@ const ResourcePage = () => {
     }
   }, []);
 
-  const handleMoveUp = useCallback(async (id) => {
-    setResources((prev) => {
-      const idx = prev.findIndex((r) => r._id === id);
-      if (idx <= 0) return prev;
-      const arr = [...prev];
-      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
-      return arr;
-    });
-  }, []);
+  // Optimistically swap, then persist the new order so it survives a reload.
+  const moveResource = useCallback(async (id, direction) => {
+    const idx = resources.findIndex((r) => r._id === id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= resources.length) return;
+    const next = [...resources];
+    [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+    setResources(next);
+    try {
+      const res = await axiosInstance.patch('/resources/reorder', { orderedIds: next.map((r) => r._id) });
+      setResources(res.data.map(normalizeResource));
+    } catch {
+      toast.error('Failed to save the new order');
+      refetch();
+    }
+  }, [resources, refetch]);
 
-  const handleMoveDown = useCallback(async (id) => {
-    setResources((prev) => {
-      const idx = prev.findIndex((r) => r._id === id);
-      if (idx < 0 || idx >= prev.length - 1) return prev;
-      const arr = [...prev];
-      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
-      return arr;
-    });
-  }, []);
+  const handleMoveUp = useCallback((id) => moveResource(id, 'up'), [moveResource]);
+  const handleMoveDown = useCallback((id) => moveResource(id, 'down'), [moveResource]);
 
   const handleSelect = useCallback((r) => {
     setSelectedId((prev) => (prev === r._id ? null : r._id));
   }, []);
 
-  if (loading) return <PageShell title="Wellness Resources" subtitle="Articles, hotlines, tools, and physical support centers"><PageShellSkeleton columns={3} count={6} /></PageShell>;
+  /* ── Derived: filtering + search ── */
+  const visibleResources = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return resources.filter((r) => {
+      if (typeFilter !== 'all' && r.type !== typeFilter) return false;
+      if (!q) return true;
+      const haystack = [r.title, r.description, r.address, r.contact, TYPE_LABELS[r.type]]
+        .filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [resources, query, typeFilter]);
+
+  const selectedResource = useMemo(
+    () => visibleResources.find((r) => r._id === selectedId) || null,
+    [visibleResources, selectedId],
+  );
+
+  const clearFilters = () => { setQuery(''); setTypeFilter('all'); };
+  const hasActiveFilters = query.trim() !== '' || typeFilter !== 'all';
+
+  const renderGrid = () => (
+    <ResourceGrid
+      resources={visibleResources}
+      onSelect={handleSelect}
+      selectedId={selectedId}
+      onEdit={openEdit}
+      onDelete={handleDelete}
+      isCounselor={isCounselor}
+      onMoveUp={handleMoveUp}
+      onMoveDown={handleMoveDown}
+    />
+  );
+
+  const renderEmpty = () => (
+    <EmptyState
+      icon={hasActiveFilters ? Search : FileText}
+      title={hasActiveFilters ? 'No matching resources' : 'No resources yet'}
+      description={
+        hasActiveFilters
+          ? 'Try a different search term or clear the filters.'
+          : isCounselor
+            ? 'Add wellness resources using the button above.'
+            : 'Check back later for wellness resources.'
+      }
+      action={hasActiveFilters ? (
+        <Button size="sm" onClick={clearFilters}>Clear filters</Button>
+      ) : undefined}
+    />
+  );
+
+  if (loading) {
+    // PageShellSkeleton draws its own full-page scaffold — wrapping it in
+    // PageShell would double the horizontal padding.
+    return <PageShellSkeleton count={6} />;
+  }
 
   return (
     <PageShell
-      title="Wellness Resources"
-      subtitle="Articles, hotlines, tools, and physical support centers"
+      title="Resource Map"
+      description="Discover Clinic Centers, Psychiatrists, and Psychologists"
       actions={
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center border border-neutral-200 rounded-sm overflow-hidden">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-2 text-[10px] font-semibold tracking-[0.1em] uppercase transition-colors flex items-center gap-1.5 ${
-                viewMode === 'grid' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-500 hover:text-neutral-900'
-              }`}
-            >
-              <Grid3X3 size={12} /> Grid
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`px-3 py-2 text-[10px] font-semibold tracking-[0.1em] uppercase transition-colors flex items-center gap-1.5 ${
-                viewMode === 'map' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-500 hover:text-neutral-900'
-              }`}
-            >
-              <Map size={12} /> Map
-            </button>
-            <button
-              onClick={() => setViewMode('split')}
-              className={`px-3 py-2 text-[10px] font-semibold tracking-[0.1em] uppercase transition-colors flex items-center gap-1.5 ${
-                viewMode === 'split' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-500 hover:text-neutral-900'
-              }`}
-            >
-              <MapPin size={12} /> Split
-            </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* Segmented view switcher */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-line bg-canvas p-0.5" role="tablist" aria-label="View mode">
+            {VIEW_TABS.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                role="tab"
+                aria-selected={viewMode === key}
+                onClick={() => setViewMode(key)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                  viewMode === key
+                    ? 'bg-surface text-ink shadow-e1'
+                    : 'text-ink-muted hover:text-ink'
+                }`}
+              >
+                <Icon size={13} /> {label}
+              </button>
+            ))}
           </div>
           <RoleGate roles={['counselor']}>
-            <button onClick={openAdd} className="inline-flex items-center gap-2 px-4 py-2 text-[11px] font-semibold tracking-[0.1em] uppercase text-white bg-neutral-900 hover:bg-neutral-800 transition-colors rounded-sm">
-              <Plus size={14} /> Add Resource
-            </button>
+            <Button onClick={openAdd} icon={Plus} size="md">Add Resource</Button>
           </RoleGate>
         </div>
       }
     >
-      {resources.length === 0 ? (
-        <EmptyState icon={FileText} title="No resources yet" description={isCounselor ? 'Add wellness resources using the button above.' : 'Check back later for wellness resources.'} />
-      ) : viewMode === 'map' ? (
-        <div className="h-[65vh] rounded-sm overflow-hidden">
-          <ResourceMap resources={resources} selectedId={selectedId} onSelect={handleSelect} />
-        </div>
-      ) : viewMode === 'split' ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="max-h-[65vh] overflow-y-auto">
-            <ResourceGrid
-              resources={resources}
-              onSelect={handleSelect}
-              selectedId={selectedId}
-              onEdit={openEdit}
-              onDelete={handleDelete}
-              isCounselor={isCounselor}
-              onMoveUp={handleMoveUp}
-              onMoveDown={handleMoveDown}
+      {/* Toolbar: search + type filters + result count */}
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="relative w-full sm:max-w-xs">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search resources..."
+              aria-label="Search resources"
+              className="w-full rounded-lg border border-line bg-surface py-2 pl-9 pr-8 text-sm text-ink
+                placeholder:text-ink-muted outline-none transition-colors
+                focus:border-brand-600 focus:ring-2 focus:ring-brand-600/20"
             />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+                className="absolute right-1.5 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-line transition-colors"
+              >
+                <X size={12} />
+              </button>
+            )}
           </div>
-          <div className="h-[65vh] rounded-sm overflow-hidden lg:sticky lg:top-[calc(68px+2rem)]">
-            <ResourceMap resources={resources} selectedId={selectedId} onSelect={handleSelect} />
+          <span className="hidden shrink-0 text-xs text-ink-muted lg:block" aria-live="polite">
+            {visibleResources.length} of {resources.length} shown
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter by type">
+          <button
+            type="button"
+            onClick={() => setTypeFilter('all')}
+            aria-pressed={typeFilter === 'all'}
+            className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+              typeFilter === 'all'
+                ? 'bg-brand-600 text-brand-fg border-brand-600'
+                : 'border-line-strong text-ink-muted hover:text-ink hover:border-ink-muted bg-surface'
+            }`}
+          >
+            All
+          </button>
+          {RESOURCE_TYPES.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              onClick={() => setTypeFilter(typeFilter === t.value ? 'all' : t.value)}
+              aria-pressed={typeFilter === t.value}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas ${
+                typeFilter === t.value
+                  ? 'bg-brand-600 text-brand-fg border-brand-600'
+                  : 'border-line-strong text-ink-muted hover:text-ink hover:border-ink-muted bg-surface'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Body */}
+      {visibleResources.length === 0 ? (
+        renderEmpty()
+      ) : viewMode === 'grid' ? (
+        renderGrid()
+      ) : viewMode === 'map' ? (
+        /* Map + details read as one card: a shared frame with a hairline divider. */
+        <div className="isolate grid grid-cols-1 overflow-hidden rounded-2xl border border-line bg-surface shadow-e1 sm:h-[60vh] sm:grid-cols-[minmax(0,1fr)_minmax(200px,38%)] lg:h-[65vh] lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="h-[45vh] min-h-[280px] max-h-[420px] sm:h-full sm:min-h-0 sm:max-h-none">
+            <ResourceMap joined resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
+          </div>
+          <div className="min-h-0 min-w-0 overflow-y-auto border-t border-line sm:h-full sm:border-t-0 sm:border-l">
+            {selectedResource ? (
+              <DetailPanel
+                joined
+                resource={selectedResource}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                isCounselor={isCounselor}
+                onClose={() => setSelectedId(null)}
+              />
+            ) : (
+              <aside className="flex h-full min-h-[160px] flex-col items-center justify-center gap-2 bg-canvas/40 p-6 text-center" aria-label="Resource details">
+                <MapPin size={20} className="text-ink-muted" aria-hidden="true" />
+                <p className="text-xs font-medium text-ink">Select a pin on the map</p>
+                <p className="text-xs text-ink-muted max-w-[220px]">Full details for the selected resource will appear here.</p>
+              </aside>
+            )}
           </div>
         </div>
       ) : (
-        <ResourceGrid
-          resources={resources}
-          onSelect={handleSelect}
-          selectedId={selectedId}
-          onEdit={openEdit}
-          onDelete={handleDelete}
-          isCounselor={isCounselor}
-          onMoveUp={handleMoveUp}
-          onMoveDown={handleMoveDown}
-        />
+        /* Split: list + sticky map + live detail panel */
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+          <div className="min-h-0">
+            <div className="lg:max-h-[65vh] lg:overflow-y-auto lg:pr-1 lg:-mr-1">
+              {renderGrid()}
+            </div>
+          </div>
+          <div className="h-[45vh] min-h-[280px] max-h-[420px] lg:h-[65vh] lg:max-h-none lg:sticky lg:top-24 flex flex-col min-h-0 gap-3">
+            <div className="flex-1 min-h-0">
+              <ResourceMap resources={visibleResources} selectedId={selectedId} onSelect={handleSelect} />
+            </div>
+          </div>
+        </div>
       )}
 
-      <ResourceFormModal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditing(null); }} onSubmit={handleSubmit} initial={editing} />
+      <ResourceFormModal
+        key={editing ? `edit-${editing._id}` : 'add'}
+        isOpen={modalOpen}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        onSubmit={handleSubmit}
+        initial={editing}
+      />
     </PageShell>
   );
 };

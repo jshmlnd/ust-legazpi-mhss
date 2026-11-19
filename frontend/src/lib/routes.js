@@ -1,5 +1,5 @@
 import {
-  Home, LayoutDashboard, Shield, MessageSquare, Calendar, CalendarDays,
+  Home, LayoutDashboard, MessageSquare, Calendar, CalendarDays,
   ClipboardList, Heart, Book, Megaphone, User,
   MapPinned,
   MessageCircleQuestionMark,
@@ -28,9 +28,6 @@ export const PATHS = {
   STUDENT_IDENTITY_DETAIL: '/identity/user/:id',
   PROFILE: '/profile',
 
-  ADMIN: '/admin',
-  ADMIN_REGISTER_STUDENT: '/admin/register-student',
-  ADMIN_REGISTER_COUNSELOR: '/admin/register-counselor',
 };
 
 /**
@@ -45,7 +42,6 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Home', path: PATHS.HOME, icon: Home, roles: ['student'] },
       { label: 'Dashboard', path: PATHS.DASHBOARD, icon: LayoutDashboard, roles: ['counselor'] },
-      { label: 'Administration', path: PATHS.ADMIN, icon: Shield, roles: ['administrator'] },
     ],
   },
   {
@@ -92,4 +88,4 @@ export const NAV_SECTIONS = [
   },
 ];
 
-export const ACCOUNT_ITEM = { label: 'My Account', path: PATHS.MY_ACCOUNT, icon: User, roles: ['student', 'counselor', 'administrator'] };
+export const ACCOUNT_ITEM = { label: 'My Account', path: PATHS.MY_ACCOUNT, icon: User, roles: ['student', 'counselor'] };

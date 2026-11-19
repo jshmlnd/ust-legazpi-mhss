@@ -72,8 +72,8 @@ const userSchema = new mongoose.Schema(
             messageNotifications: { type: Boolean, default: true },
         },
         // OGT Updates newsletter opt-in. Default ON: students receive
-        // announcement emails unless they opt out in Preferences. Admin-
-        // registered accounts get this automatically.
+        // announcement emails unless they opt out in Preferences. Provisioned
+        // accounts get this automatically.
         receiveOgtUpdates: {
             type: Boolean,
             default: true,
@@ -84,7 +84,7 @@ const userSchema = new mongoose.Schema(
         },
         // Email-unverified accounts stay UNVERIFIED until they click the emailed
         // link (login rejects them until then). Default true so existing and
-        // admin-registered accounts keep working untouched.
+        // provisioned accounts keep working untouched.
         emailVerified: {
             type: Boolean,
             default: true,

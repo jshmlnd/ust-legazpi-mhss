@@ -6,7 +6,6 @@ import { PATHS } from "../lib/routes";
 const ROLE_HOME = {
   student: PATHS.HOME,
   counselor: PATHS.DASHBOARD,
-  administrator: PATHS.ADMIN,
 };
 
 export const RoleRoute = ({ allow, children }) => {

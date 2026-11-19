@@ -52,7 +52,7 @@ const counselorSchema = new mongoose.Schema(
             default: "Counselor",
         },
         // College the counselor is affiliated with (visual grouping on the
-        // student-facing counselor list). Empty until an admin assigns one.
+        // student-facing counselor list). Empty until one is assigned.
         department: {
             type: String,
             enum: ['', 'CEAFA', 'CHS', 'CBMA', 'CASE'],

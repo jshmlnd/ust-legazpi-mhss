@@ -79,8 +79,7 @@ const LoginPage = () => {
 
   const goToApp = (user) => {
     const isCounselor = user?.userType?.toLowerCase() === 'counselor';
-    const isAdministrator = user?.userType?.toLowerCase() === 'administrator';
-    navigate(isCounselor ? PATHS.DASHBOARD : isAdministrator ? PATHS.ADMIN : PATHS.HOME);
+    navigate(isCounselor ? PATHS.DASHBOARD : PATHS.HOME);
   };
 
   const handleSubmit = async (e) => {

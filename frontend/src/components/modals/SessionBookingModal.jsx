@@ -94,7 +94,7 @@ const SessionBookingModal = ({ initialType, onClose }) => {
     let cancelled = false;
     axiosInstance.get('/message/users')
       .then((res) => {
-        if (!cancelled) setCounselors(res.data.filter((user) => user.userType?.toLowerCase() !== 'administrator'));
+        if (!cancelled) setCounselors(res.data);
       })
       .catch(() => {
         if (!cancelled) toast.error('Failed to load counselors.');

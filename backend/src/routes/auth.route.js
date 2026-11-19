@@ -2,7 +2,7 @@ import express from "express";
 import { checkAuth, login, logout, register, registerCounselor, updateProfile, updatePassword, updateProfileDetails, setPin, verifyPin, removePin, verifyTwoFactor, totpSetup, totpVerify, totpDisable } from "../controllers/auth.controller.js";
 import { forgotPassword, resetPassword, verifyResetCode } from "../controllers/passwordReset.controller.js";
 import { verifyEmail, resendVerification } from "../controllers/emailVerification.controller.js";
-import { protectRoute, adminOnly } from "../middleware/auth.middleware.js";
+import { protectRoute, provisionKeyOnly } from "../middleware/auth.middleware.js";
 import { mediaMultipart } from "../middleware/mediaUpload.middleware.js";
 import { MAX_IMAGE_SIZE } from "../lib/mediaModeration.js";
 
@@ -15,8 +15,8 @@ router.post("/verify-reset-code", verifyResetCode);
 router.get("/verify-email", verifyEmail);
 router.post("/resend-verification", resendVerification);
 router.post("/logout", logout);
-router.post("/register", adminOnly, register);
-router.post("/register-counselor", adminOnly, registerCounselor);
+router.post("/register", provisionKeyOnly, register);
+router.post("/register-counselor", provisionKeyOnly, registerCounselor);
 
 router.put("/profile", protectRoute, mediaMultipart({ maxFiles: 1, maxFileSize: MAX_IMAGE_SIZE, maxTotalSize: MAX_IMAGE_SIZE }), updateProfile);
 router.put("/password", protectRoute, updatePassword);

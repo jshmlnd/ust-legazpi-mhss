@@ -23,9 +23,6 @@ import UniversityUpdates from './pages/UniversityUpdates';
 import SuggestionsPage from './pages/SuggestionsPage';
 import YourDiary from './pages/YourDiary';
 import StudentIdentityPage from './pages/StudentIdentityPage';
-import RegisterStudentPage from './pages/RegisterStudentPage';
-import RegisterCounselorPage from './pages/RegisterCounselorPage';
-import Administrator from './pages/Administrator';
 
 import { useAuthStore } from './store/useAuthStore';
 import { useChatStore } from './store/useChatStore';
@@ -107,7 +104,7 @@ const App = () => {
         <Route element={authUser ? <AppLayout /> : <Navigate to={PATHS.LOGIN} replace />}>
           {/* Student */}
           <Route path={PATHS.HOME} element={guard(role && role !== 'student'
-            ? <Navigate to={role === 'counselor' ? PATHS.DASHBOARD : PATHS.ADMIN} replace />
+            ? <Navigate to={PATHS.DASHBOARD} replace />
             : <HomePage />)} />
           <Route path={PATHS.SESSIONS} element={guard(<SessionsPage />)} />
           <Route path={PATHS.COUNSELOR_LIST} element={<RoleRoute allow={['student']}><CounselorListPage /></RoleRoute>} />
@@ -131,15 +128,10 @@ const App = () => {
           <Route path={PATHS.MANAGE_RESOURCES} element={<RoleRoute allow={['counselor']}><ResourcePage /></RoleRoute>} />
           <Route path={PATHS.STUDENT_IDENTITY} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
           <Route path={PATHS.STUDENT_IDENTITY_DETAIL} element={<RoleRoute allow={['counselor']}><StudentIdentityPage /></RoleRoute>} />
-
-          {/* Administrator */}
-          <Route path={PATHS.ADMIN} element={<RoleRoute allow={['administrator']}><Administrator /></RoleRoute>} />
-          <Route path={PATHS.ADMIN_REGISTER_STUDENT} element={<RoleRoute allow={['administrator']}><RegisterStudentPage /></RoleRoute>} />
-          <Route path={PATHS.ADMIN_REGISTER_COUNSELOR} element={<RoleRoute allow={['administrator']}><RegisterCounselorPage /></RoleRoute>} />
         </Route>
 
         {/* Legacy alias */}
-        <Route path={PATHS.PROFILE} element={<RoleRoute allow={['student', 'counselor', 'administrator']}><Navigate to={PATHS.MY_ACCOUNT} /></RoleRoute>} />
+        <Route path={PATHS.PROFILE} element={<RoleRoute allow={['student', 'counselor']}><Navigate to={PATHS.MY_ACCOUNT} /></RoleRoute>} />
       </Routes>
     </div>
   );

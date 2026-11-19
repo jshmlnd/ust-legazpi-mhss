@@ -13,15 +13,18 @@ const MOOD_SCORE = { great: 9, good: 7, okay: 5, low: 3, bad: 1 };
 export const getDashboard = async (req, res) => {
   try {
     const totalStudents = await User.countDocuments();
-    const completedSessions = await Appointment.countDocuments({ status: { $in: ["completed", "ended"] } });
-    const pendingSessions = await Appointment.countDocuments({ status: { $in: ["pending", "active", "on-going", "paused"] } });
+    const completedSessions = await Appointment.countDocuments({ counselorId: req.user._id, status: { $in: ["completed", "ended"] } });
+    // Requests awaiting this counselor's decision; matches the Requests page and sidebar badge.
+    const pendingSessions = await Appointment.countDocuments({ counselorId: req.user._id, status: "pending", counselorArchived: { $ne: true } });
 
-    // Active students — distinct students with at least one appointment.
-    const activeStudentIds = await Appointment.distinct("studentId");
+    // Active students — distinct students with at least one appointment with this counselor.
+    const activeStudentIds = await Appointment.distinct("studentId", { counselorId: req.user._id });
 
     // Avg. active students per month — distinct students seen each month
     // over the last 6 months, averaged over months that had activity.
+    // aggregate() does not cast, but _id is already the stored counselorId type.
     const monthly = await Appointment.aggregate([
+      { $match: { counselorId: req.user._id } },
       { $group: { _id: {
         y: { $year: "$createdAt" },
         m: { $month: "$createdAt" },

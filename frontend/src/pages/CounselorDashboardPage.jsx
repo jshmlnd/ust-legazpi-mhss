@@ -100,14 +100,21 @@ const SessionsTrendChart = ({ data }) => {
 
 /* ───────────────────────────── metric tiles ───────────────────────────── */
 
-const StatCard = ({ icon: Icon, label, value, hint }) => (
+const StatCard = ({ icon: Icon, label, value, hint, link }) => (
   <div className="bg-surface px-6 py-6">
     <div className="flex items-center justify-between gap-2">
       <span className="text-xs font-semibold text-ink-muted">{label}</span>
       <Icon size={15} className="text-ink-muted/70 shrink-0" aria-hidden="true" />
     </div>
     <p className="mt-2 text-[clamp(1.75rem,3vw,2.5rem)] font-light tracking-[-0.02em] text-ink leading-none">{value}</p>
-    <p className="mt-1.5 text-xs text-ink-muted">{hint}</p>
+    <div className="mt-1.5 flex items-center justify-between gap-2">
+      <p className="text-xs text-ink-muted">{hint}</p>
+      {link && (
+        <Link to={link.to} className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-brand-700 hover:text-brand-800">
+          {link.label} <ArrowRight size={12} aria-hidden="true" />
+        </Link>
+      )}
+    </div>
   </div>
 );
 
@@ -189,7 +196,7 @@ const CounselorDashboardPage = () => {
           { icon: UserCheck, label: 'Active Students', value: String(m.activeStudents ?? 0), hint: 'With at least one session' },
           { icon: Activity, label: 'Avg. Active Students (Monthly Average)', value: m.avgActiveStudents > 0 ? String(m.avgActiveStudents) : '—', hint: 'Distinct students per month, last 6 months' },
           { icon: ClipboardCheck, label: 'Completed', value: String(m.completedSessions), hint: 'Sessions completed' },
-          { icon: Clock, label: 'Pending', value: String(m.pendingSessions), hint: 'Awaiting action' },
+          { icon: Clock, label: 'Pending', value: String(m.pendingSessions), hint: 'Awaiting your action', link: { to: PATHS.SESSION_REQUESTS, label: 'View' } },
         ]);
         setWeeklySessions(trendRes.data ?? []);
         setError(null);
@@ -303,7 +310,7 @@ const CounselorDashboardPage = () => {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px bg-line rounded-lg overflow-hidden mb-8">
             {metrics.map((m) => (
-              <StatCard key={m.label} icon={m.icon} label={m.label} value={m.value} hint={m.hint} />
+              <StatCard key={m.label} {...m} />
             ))}
           </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, ArrowRight, Eye, EyeOff, HatGlasses, Heart, KeyRound, Mail, MailCheck, MessageSquare
+  AlertCircle, ArrowLeft, ArrowRight, BookHeart, Eye, EyeOff, KeyRound, Mail, MailCheck, MessagesSquare, VenetianMask
 } from 'lucide-react';
 import { useAuthStore } from '../store/useAuthStore';
 import { PATHS } from '../lib/routes';
@@ -20,9 +20,21 @@ const PIN_LENGTH = 6;
 const OTP_LENGTH = 6;
 
 const BRAND_PANEL_POINTS = [
-  { icon: HatGlasses, label: 'Privacy First' },
-  { icon: MessageSquare, label: 'Online Sessions' },
-  { icon: Heart, label: 'Mental Wellness' },
+  {
+    icon: VenetianMask,
+    label: 'Anonymous by default',
+    detail: 'Counselors see a dynamic ID that changes daily, not your name, unless you choose to share it.',
+  },
+  {
+    icon: MessagesSquare,
+    label: 'Chat or meet in person',
+    detail: 'Request a private chat or book a face-to-face session with a counselor.',
+  },
+  {
+    icon: BookHeart,
+    label: 'Support between sessions',
+    detail: 'A private diary, self-care routines, and a map of mental health services in Albay.',
+  },
 ];
 
 const LogoTile = ({ size = 'size-24' }) => (
@@ -36,6 +48,9 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
+  // Inline sign-in error + a small shake, so feedback lands where the user is looking.
+  const [formError, setFormError] = useState(null);
+  const [shake, setShake] = useState(0);
   const [errors, setErrors] = useState({});
 
   const [step, setStep] = useState('credentials');
@@ -89,7 +104,11 @@ const LoginPage = () => {
     if (!studentId.trim()) nextErrors.id = 'Please enter your Student / Counselor ID';
     if (!password) nextErrors.password = 'Please enter your password';
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    setFormError(null);
+    if (Object.keys(nextErrors).length > 0) {
+      setShake((n) => n + 1);
+      return;
+    }
 
     try {
       const data = await login(studentId.trim(), password);
@@ -111,7 +130,8 @@ const LoginPage = () => {
         setStep('verify-pending');
         return;
       }
-      toast.error(error.message);
+      setFormError(error.message || 'Sign in failed. Please try again.');
+      setShake((n) => n + 1);
     }
   };
 
@@ -308,7 +328,7 @@ const LoginPage = () => {
       {/* ── Brand panel (desktop) ── */}
       <section
         className="relative hidden overflow-hidden bg-side lg:flex lg:w-[44%] lg:min-h-screen
-          flex-col justify-center gap-12 p-10 xl:p-16"
+          flex-col gap-10 p-10 xl:p-14"
       >
         {/* decorative glows + motif */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-0">
@@ -317,7 +337,7 @@ const LoginPage = () => {
            <span className="absolute -bottom-5 -right-8 font-script text-[8rem] leading-none text-side-active/70" aria-hidden="true">SafeSpace</span>
         </div>
 
-        <div className="relative flex items-center gap-3">
+        <div className="login-rise relative flex items-center gap-3">
           <LogoTile />
           <div>
             <p className="text-md font-semibold text-side-ink">UST-Legazpi</p>
@@ -325,27 +345,27 @@ const LoginPage = () => {
           </div>
         </div>
 
-        <div className="relative max-w-md">
-          <h2 className="text-4xl font-medium leading-[1.1] tracking-tight text-side-ink xl:text-6xl">
+        <div className="relative flex flex-1 items-center">
+        <div className="max-w-md">
+          <h2 className="login-rise text-4xl font-medium leading-[1.1] tracking-tight text-side-ink xl:text-6xl" style={{ animationDelay: '60ms' }}>
              Welcome to <span className="text-brand-700 font-script">SafeSpace</span>
           </h2>
-          <p className="mt-5 text-sm leading-[1.7] text-side-ink-soft">
-            A University of Santo Tomas - Legazpi Mental Health Support website, a safe, anonymous
-            space for your mental wellness. Connect with counselors, access mental health resources,
-            and track your emotional and mental health — all while keeping your identity private.
-          </p>
-
-          <ul className="mt-8 flex flex-col gap-3">
-            {BRAND_PANEL_POINTS.map(({ icon: Icon, label }) => (
-              <li key={label} className="flex items-center gap-3">
+          <ul className="mt-10 flex flex-col divide-y divide-side-line/70">
+            {BRAND_PANEL_POINTS.map(({ icon: Icon, label, detail }, i) => (
+              <li key={label} className="login-rise flex items-start gap-3 py-3.5 first:pt-0 last:pb-0" style={{ animationDelay: `${140 + i * 70}ms` }}>
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-side-hover text-side-ink">
                   <Icon size={16} aria-hidden="true" />
                 </span>
-                <span className="text-sm font-medium text-side-ink">{label}</span>
+                <span className="pt-0.5">
+                  <span className="block text-sm font-semibold text-side-ink">{label}</span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-side-ink-soft">{detail}</span>
+                </span>
               </li>
             ))}
           </ul>
         </div>
+        </div>
+
       </section>
 
       {/* ── Mobile brand band ── */}
@@ -359,14 +379,14 @@ const LoginPage = () => {
 
       {/* ── Form panel ── */}
       <section className="relative flex flex-1 items-center justify-center px-4 py-10 sm:px-6 lg:py-16">
-        <div className="w-full max-w-sm animate-fade-in">
-          <div className="rounded-2xl border border-line bg-surface p-6 shadow-e2 sm:p-8">
+        <div className="login-rise w-full max-w-sm" style={{ animationDelay: '120ms' }}>
+          <div className={`rounded-2xl border border-line bg-surface p-6 shadow-e2 sm:p-8 ${shake ? (shake % 2 ? 'login-shake-a' : 'login-shake-b') : ''}`}>
             <div key={step} className="animate-fade-in">
               {step === 'credentials' && (
                 <>
-                  <h1 className="text-xl font-semibold tracking-tight text-ink">Sign in</h1>
+                  <h1 className="text-xl font-semibold tracking-tight text-ink">Welcome back</h1>
                   <p className="mt-1 text-xs text-ink-muted">
-                    Enter your credentials to access your SafeSpace account.
+                    Sign in with your student or counselor ID to continue.
                   </p>
 
                   <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-5">
@@ -383,6 +403,7 @@ const LoginPage = () => {
                         onChange={(e) => {
                           setStudentId(e.target.value);
                           setErrors((prev) => ({ ...prev, id: undefined }));
+                          setFormError(null);
                         }}
                         placeholder="Enter your ID"
                         className={INPUT_CLASS}
@@ -407,6 +428,7 @@ const LoginPage = () => {
                           onChange={(e) => {
                             setPassword(e.target.value);
                             setErrors((prev) => ({ ...prev, password: undefined }));
+                            setFormError(null);
                           }}
                           onKeyUp={(e) => setCapsLockOn(e.getModifierState?.('CapsLock') ?? false)}
                           onBlur={() => setCapsLockOn(false)}
@@ -427,6 +449,13 @@ const LoginPage = () => {
                         </button>
                       </div>
                     </Field>
+
+                    {formError && (
+                      <p role="alert" className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2.5 text-xs leading-relaxed text-danger-ink">
+                        <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        {formError}
+                      </p>
+                    )}
 
                     <Button type="submit" size="lg" loading={isLoggingIn} className="mt-1 w-full">
                       {isLoggingIn ? 'Signing in…' : 'Sign In'}

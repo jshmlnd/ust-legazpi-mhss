@@ -299,10 +299,10 @@ export const register = async (req, res) => {
 };
 
 export const registerCounselor = async (req, res) => {
-    const { counselorId, password, fullName, email } = req.body;
+    const { counselorId, password, fullName, email, department } = req.body;
 
     try {
-        if (password.length < 8) {
+        if (typeof password !== "string" || password.length < 8) {
             return res.status(400).json({ message: "Password must be at least 8 characters long" });
         }
 
@@ -318,6 +318,7 @@ export const registerCounselor = async (req, res) => {
             password: hashedPassword,
             fullName,
             email,
+            department,
         });
 
         if (newUser) {
@@ -330,11 +331,13 @@ export const registerCounselor = async (req, res) => {
                 fullName: newUser.fullName,
                 email: newUser.email,
                 counselorId: newUser.counselorId,
+                department: newUser.department,
             })
         } else {
             return res.status(400).json({ message: "Invalid user data" });
         }
     } catch (error) {
+        if (error.name === "ValidationError") return res.status(400).json({ message: error.message });
         console.log("Error in register controller: ", error.message);
         return res.status(500).json({ message: "Internal server error" });
     }

@@ -84,7 +84,8 @@ export const getUsersForSidebar = async (req, res) => {
             filteredUsers = await User.find({ _id: { $in: studentIds } }).select("dynamicId fullName department program yearLevel showNameToCounselor");
         }
 
-        for (const u of filteredUsers) {
+        // Counselors have no dynamicId; only backfill students.
+        for (const u of isStudent ? [] : filteredUsers) {
             if (!u.dynamicId) {
                 u.dynamicId = await generateUniqueDynamicId(User);
                 await u.save();

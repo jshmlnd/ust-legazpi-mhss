@@ -73,9 +73,11 @@ const CounselorListPage = () => {
         if (cancelled) return;
         setCounselors(res.data ?? []);
         setError(null);
-      } catch {
+      } catch (err) {
         if (cancelled) return;
-        setError('Could not load counselors.');
+        setError(err.response?.status === 503
+          ? 'The server is waking up. Try again in a few seconds.'
+          : `Could not load counselors (${err.response?.status ?? 'network error'}).`);
       } finally {
         if (!cancelled) setLoading(false);
       }

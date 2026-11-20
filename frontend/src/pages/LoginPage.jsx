@@ -47,7 +47,7 @@ const LogoTile = ({ size = 'size-24' }) => (
   </span>
 );
 
-const LoginPage = () => {
+const LoginPage = ({ initialStep = 'credentials' }) => {
   const [studentId, setStudentId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,7 +57,7 @@ const LoginPage = () => {
   const [shake, setShake] = useState(0);
   const [errors, setErrors] = useState({});
 
-  const [step, setStep] = useState('credentials');
+  const [step, setStep] = useState(initialStep);
   const [twoFactorToken, setTwoFactorToken] = useState(null);
   const [twoFactorType, setTwoFactorType] = useState('pin'); // 'pin' | 'totp'
   const [pin, setPin] = useState('');
@@ -358,6 +358,8 @@ const LoginPage = () => {
   };
 
   const backToSignIn = () => {
+    // On /signup, "back to sign in" is a real navigation (the route remounts with fresh state).
+    if (initialStep === 'signup') return navigate(PATHS.LOGIN);
     setStep('credentials');
     setResetId('');
     setResetErrors({});
@@ -525,7 +527,7 @@ const LoginPage = () => {
                     New student?{' '}
                     <button
                       type="button"
-                      onClick={() => { setSignupErrors({}); setStep('signup'); }}
+                      onClick={() => navigate(PATHS.SIGNUP)}
                       className="font-semibold text-brand-700 hover:underline"
                     >
                       Create an account

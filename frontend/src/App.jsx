@@ -98,7 +98,8 @@ const App = () => {
 
       <Routes>
         {/* Public */}
-        <Route path={PATHS.LOGIN} element={!authUser ? <LoginPage /> : <Navigate to={PATHS.HOME} replace />} />
+        <Route path={PATHS.LOGIN} element={!authUser ? <LoginPage key="login" /> : <Navigate to={PATHS.HOME} replace />} />
+        <Route path={PATHS.SIGNUP} element={!authUser ? <LoginPage key="signup" initialStep="signup" /> : <Navigate to={PATHS.HOME} replace />} />
 
         {/* Authenticated — every page renders inside AppLayout (sidebar + topbar) */}
         <Route element={authUser ? <AppLayout /> : <Navigate to={PATHS.LOGIN} replace />}>

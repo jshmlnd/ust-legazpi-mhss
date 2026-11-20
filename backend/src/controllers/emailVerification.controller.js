@@ -1,5 +1,6 @@
 // Email verification for legacy unverified accounts.
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import EmailVerification from "../models/emailVerification.model.js";
 import { sendMail, verificationEmailTemplate } from "../lib/mailer.js";
@@ -150,5 +151,61 @@ export const verifyEmail = async (req, res) => {
     } catch (error) {
         console.log("Error in verifyEmail controller: ", error.message);
         return fail("Something went wrong. Request a new link from the sign-in page.");
+    }
+};
+
+// POST /api/auth/signup  { studentId, fullName, email, password, department, program }
+// Public student self-registration. Only university inboxes may sign up, and the
+// account stays unverified (login refuses it) until the emailed link is clicked.
+const STUDENT_EMAIL_DOMAIN = "@ust-legazpi.edu.ph";
+const str = (v) => (typeof v === "string" ? v.trim() : "");
+
+export const signup = async (req, res) => {
+    try {
+        assertIpBudget(req);
+
+        const studentId = str(req.body.studentId);
+        const fullName = str(req.body.fullName);
+        const email = str(req.body.email).toLowerCase();
+        const department = str(req.body.department);
+        const program = str(req.body.program);
+        const password = typeof req.body.password === "string" ? req.body.password : "";
+
+        if (!/^\d{7}$/.test(studentId)) return res.status(400).json({ message: "Student ID must be 7 digits" });
+        if (!fullName) return res.status(400).json({ message: "Full name is required" });
+        if (!email.endsWith(STUDENT_EMAIL_DOMAIN) || !/^[^\s@]+@[^\s@]+$/.test(email)) {
+            return res.status(400).json({ message: `Use your university email (${STUDENT_EMAIL_DOMAIN})` });
+        }
+        if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters long" });
+
+        if (await User.exists({ $or: [{ studentId }, { email }] })) {
+            return res.status(409).json({ message: "An account with that student ID or email already exists. Try signing in or resetting your password." });
+        }
+
+        const user = new User({
+            studentId,
+            fullName,
+            email,
+            department,
+            program,
+            password: await bcrypt.hash(password, 10),
+            emailVerified: false,
+        });
+        await user.save(); // schema validates department/program
+
+        const delivery = await issueLink(email, user, req);
+        if (!delivery.delivered) {
+            // Don't leave a locked account the student can't activate; let them retry.
+            await User.deleteOne({ _id: user._id });
+            await EmailVerification.deleteOne({ email });
+            return res.status(503).json({ message: "The verification email could not be sent. Please try again later." });
+        }
+
+        return res.status(201).json({ maskedEmail: maskEmail(email) });
+    } catch (error) {
+        if (error.name === "ValidationError") return res.status(400).json({ message: Object.values(error.errors)[0]?.message || error.message });
+        if (error.code === 11000) return res.status(409).json({ message: "An account with that email already exists." });
+        console.log("Error in signup controller: ", error.message);
+        return res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : "Internal server error" });
     }
 };

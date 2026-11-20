@@ -44,6 +44,16 @@ export const useAuthStore = create((set) => ({
         }
     },
 
+    signup: async (fields) => {
+        try {
+            const res = await axiosInstance.post("/auth/signup", fields);
+            return res.data; // { maskedEmail }
+        } catch (error) {
+            const message = error.response?.data?.message || "Sign up failed. Please try again.";
+            throw new Error(message, { cause: error });
+        }
+    },
+
     resendVerification: async (email) => {
         try {
             const res = await axiosInstance.post("/auth/resend-verification", { email });

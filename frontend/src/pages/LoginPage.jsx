@@ -37,6 +37,10 @@ const BRAND_PANEL_POINTS = [
   },
 ];
 
+const DEPARTMENTS = ['CEAFA', 'CHS', 'CASE', 'CBMA'];
+const STUDENT_EMAIL_DOMAIN = '@ust-legazpi.edu.ph';
+const EMPTY_SIGNUP = { studentId: '', fullName: '', email: '', department: '', program: '', password: '', confirm: '' };
+
 const LogoTile = ({ size = 'size-24' }) => (
   <span className={`flex ${size} shrink-0 items-center justify-center`}>
     <img src={LOGO_URL} alt="UST-Legazpi logo" className="size-3/4" />
@@ -74,7 +78,16 @@ const LoginPage = () => {
   const [resendIn, setResendIn] = useState(0); // seconds until resend unlocks
   const [resendLoading, setResendLoading] = useState(false);
 
-  const { login, verifyTwoFactor, isLoggingIn, requestPasswordReset, verifyResetCode, resetPassword, resendVerification } = useAuthStore();
+  const { login, verifyTwoFactor, isLoggingIn, requestPasswordReset, verifyResetCode, resetPassword, resendVerification, signup } = useAuthStore();
+
+  // Student self sign-up
+  const [signupForm, setSignupForm] = useState(EMPTY_SIGNUP);
+  const [signupErrors, setSignupErrors] = useState({});
+  const [signupLoading, setSignupLoading] = useState(false);
+  const setSignupField = (key) => (e) => {
+    setSignupForm((f) => ({ ...f, [key]: e.target.value }));
+    setSignupErrors((prev) => ({ ...prev, [key]: undefined, form: undefined }));
+  };
   const navigate = useNavigate();
 
   // Unverified accounts land here after a 403 login: show the
@@ -158,6 +171,43 @@ const LoginPage = () => {
       setVerifyError(error.message);
     } finally {
       setResendLoading(false);
+    }
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    const f = signupForm;
+    const next = {};
+    if (!/^\d{7}$/.test(f.studentId.trim())) next.studentId = 'Student ID must be 7 digits';
+    if (!f.fullName.trim()) next.fullName = 'Please enter your full name';
+    if (!f.email.trim().toLowerCase().endsWith(STUDENT_EMAIL_DOMAIN)) next.email = `Use your university email (${STUDENT_EMAIL_DOMAIN})`;
+    if (!f.department) next.department = 'Please choose your department';
+    if (!f.program.trim()) next.program = 'Please enter your program';
+    if (f.password.length < 8) next.password = 'Password must be at least 8 characters';
+    if (f.confirm !== f.password) next.confirm = 'Passwords do not match';
+    setSignupErrors(next);
+    if (Object.keys(next).length > 0) {
+      setShake((n) => n + 1);
+      return;
+    }
+    setSignupLoading(true);
+    try {
+      const data = await signup({
+        studentId: f.studentId.trim(), fullName: f.fullName, email: f.email,
+        department: f.department, program: f.program, password: f.password,
+      });
+      setVerifyMasked(data?.maskedEmail || null);
+      setVerifyEmail(f.email.trim());
+      setVerifyError(null);
+      setResendIn(60);
+      setSignupForm(EMPTY_SIGNUP);
+      setStep('verify-pending');
+      toast.success('Account created — check your email to activate it.');
+    } catch (error) {
+      setSignupErrors({ form: error.message });
+      setShake((n) => n + 1);
+    } finally {
+      setSignupLoading(false);
     }
   };
 
@@ -469,6 +519,109 @@ const LoginPage = () => {
                     >
                       <KeyRound className="size-3.5" aria-hidden="true" />
                       Forgot password?
+                    </button>
+                  </form>
+                  <p className="mt-6 border-t border-line pt-5 text-center text-xs text-ink-muted">
+                    New student?{' '}
+                    <button
+                      type="button"
+                      onClick={() => { setSignupErrors({}); setStep('signup'); }}
+                      className="font-semibold text-brand-700 hover:underline"
+                    >
+                      Create an account
+                    </button>
+                  </p>
+                </>
+              )}
+              {step === 'signup' && (
+                <>
+                  <h1 className="text-xl font-semibold tracking-tight text-ink">Create your account</h1>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    For UST-Legazpi students. We&apos;ll email a link to your university inbox to activate it.
+                  </p>
+                  <form onSubmit={handleSignup} className="mt-6 flex flex-col gap-4" noValidate>
+                    {[
+                      { key: 'studentId', label: 'Student ID', placeholder: '7-digit student ID', inputMode: 'numeric', autoComplete: 'username', maxLength: 7 },
+                      { key: 'fullName', label: 'Full name', placeholder: 'Juan Dela Cruz', autoComplete: 'name' },
+                      { key: 'email', label: 'University email', placeholder: `you${STUDENT_EMAIL_DOMAIN}`, type: 'email', autoComplete: 'email' },
+                    ].map(({ key, label, ...props }, i) => (
+                      <Field key={key} label={label} htmlFor={`signup-${key}`} required error={signupErrors[key]}>
+                        <input
+                          id={`signup-${key}`}
+                          type="text"
+                          {...props}
+                          value={signupForm[key]}
+                          onChange={setSignupField(key)}
+                          className={INPUT_CLASS}
+                          autoFocus={i === 0}
+                          aria-invalid={!!signupErrors[key] || undefined}
+                        />
+                      </Field>
+                    ))}
+                    <Field label="Department" htmlFor="signup-department" required error={signupErrors.department}>
+                      <select
+                        id="signup-department"
+                        value={signupForm.department}
+                        onChange={setSignupField('department')}
+                        className={`${INPUT_CLASS} pr-4`}
+                        aria-invalid={!!signupErrors.department || undefined}
+                      >
+                        <option value="" disabled>Select your department</option>
+                        {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Program" htmlFor="signup-program" required error={signupErrors.program}>
+                      <input
+                        id="signup-program"
+                        type="text"
+                        value={signupForm.program}
+                        onChange={setSignupField('program')}
+                        placeholder="e.g. BS Psychology"
+                        className={INPUT_CLASS}
+                        aria-invalid={!!signupErrors.program || undefined}
+                      />
+                    </Field>
+                    {[
+                      { key: 'password', label: 'Password', placeholder: 'At least 8 characters' },
+                      { key: 'confirm', label: 'Confirm password', placeholder: 'Re-enter your password' },
+                    ].map(({ key, label, placeholder }) => (
+                      <Field key={key} label={label} htmlFor={`signup-${key}`} required error={signupErrors[key]}>
+                        <input
+                          id={`signup-${key}`}
+                          type={showPassword ? 'text' : 'password'}
+                          value={signupForm[key]}
+                          onChange={setSignupField(key)}
+                          placeholder={placeholder}
+                          className={INPUT_CLASS}
+                          autoComplete="new-password"
+                          aria-invalid={!!signupErrors[key] || undefined}
+                        />
+                      </Field>
+                    ))}
+                    <label className="flex items-center gap-2 text-xs text-ink-muted">
+                      <input type="checkbox" checked={showPassword} onChange={(e) => setShowPassword(e.target.checked)} />
+                      Show passwords
+                    </label>
+
+                    {signupErrors.form && (
+                      <p role="alert" className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-soft px-3 py-2.5 text-xs leading-relaxed text-danger-ink">
+                        <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                        {signupErrors.form}
+                      </p>
+                    )}
+
+                    <Button type="submit" size="lg" loading={signupLoading} className="mt-1 w-full">
+                      {signupLoading ? 'Creating account…' : 'Create account'}
+                      {!signupLoading && <ArrowRight className="size-4" aria-hidden="true" />}
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={backToSignIn}
+                      className="mx-auto flex items-center gap-1.5 text-xs font-medium text-ink-muted
+                        hover:text-ink transition-colors"
+                    >
+                      <ArrowLeft className="size-3.5" aria-hidden="true" />
+                      Already have an account? Sign in
                     </button>
                   </form>
                 </>
